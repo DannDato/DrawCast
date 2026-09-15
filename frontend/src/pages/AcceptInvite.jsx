@@ -1,0 +1,2 @@
+import { useEffect,useState } from 'react';import { useNavigate,useParams } from 'react-router-dom';import { acceptInvitation } from '../api/channels';
+export default function AcceptInvite(){const {token}=useParams(),nav=useNavigate(),[state,setState]=useState('ACCEPTING INVITATION...');useEffect(()=>{acceptInvitation(token).then(()=>{setState('ACCESS GRANTED');setTimeout(()=>nav('/app'),900)}).catch(e=>setState(e.response?.data?.message||'INVITATION ERROR'))},[token]);return <div className="dc-invite-page"><h1>DrawCast // COLLAB</h1><p>{state}</p></div>}

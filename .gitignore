@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Builds
+frontend/dist/
+dist/
+coverage/
+
+# Runtime
+logs/
+*.log
+backend/uploads/*
+!backend/uploads/.gitkeep
+!backend/uploads/avatars/
+backend/uploads/avatars/*
+!backend/uploads/avatars/.gitkeep
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

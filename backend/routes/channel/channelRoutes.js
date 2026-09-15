@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { ChannelController } from '../../controllers/channel/channelController.js';
+import { verifyToken } from '../../middlewares/auth.js';
+import { requireChannelEditor } from '../../middlewares/channelAccess.js';
+import { asyncHandler } from '../../middlewares/asyncHandler.js';
+const router = Router();
+router.use(verifyToken);
+router.get('/mine', asyncHandler(ChannelController.mine));
+router.post('/', asyncHandler(ChannelController.create));
+router.post('/invitations/accept', asyncHandler(ChannelController.accept));
+router.patch('/:channelId', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.update));
+router.post('/:channelId/invitations', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.invite));
+router.get('/:channelId/collaborators', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.collaborators));
+router.delete('/:channelId/collaborators/:userId', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.removeCollaborator));
+export default router;

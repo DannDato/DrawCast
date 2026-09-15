@@ -1,0 +1,14 @@
+{
+  "name": "drawcast-cloud",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "bootstrap": "npm --prefix backend run bootstrap",
+    "cleanup": "npm --prefix backend run cleanup",
+    "build": "npm --prefix frontend run build",
+    "check": "npm --prefix backend run check && npm --prefix frontend run lint && npm --prefix frontend run build"
+  }
+}

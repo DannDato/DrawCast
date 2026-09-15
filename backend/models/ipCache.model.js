@@ -1,0 +1,2 @@
+import { DataTypes } from 'sequelize';
+export default (db) => db.define('IpCache', { ip: { type: DataTypes.STRING(64), primaryKey: true }, country: DataTypes.STRING(100), countryCode: DataTypes.STRING(8), region: DataTypes.STRING(120), city: DataTypes.STRING(120), organization: DataTypes.STRING(191), asn: DataTypes.STRING(50), timezone: DataTypes.STRING(80), latitude: DataTypes.DECIMAL(10,7), longitude: DataTypes.DECIMAL(10,7), provider: DataTypes.STRING(50) }, { tableName: 'ip_cache' });

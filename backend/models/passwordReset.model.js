@@ -1,0 +1,2 @@
+import { DataTypes } from 'sequelize';
+export default (db) => db.define('PasswordReset', { id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true }, userId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false }, tokenHash: { type: DataTypes.STRING(64), allowNull: false, unique: true }, expiresAt: { type: DataTypes.DATE, allowNull: false }, usedAt: DataTypes.DATE }, { tableName: 'password_resets', updatedAt: false });
