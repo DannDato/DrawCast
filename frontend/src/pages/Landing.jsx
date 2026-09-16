@@ -19,55 +19,48 @@ export default function Landing() {
                         </Link>
 
                         <Link className="border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-4 py-3 font-mono text-[10px] font-bold tracking-wide text-white transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-5 sm:text-xs md:px-6" to="/register">
-                            Registrarse
+                            Crear cuenta
                         </Link>
                     </div>
                 </nav>
 
                 <div className="flex flex-1 flex-col justify-center py-16 lg:justify-start lg:pt-20">
-                    <div className="mb-4 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400 sm:text-xs sm:tracking-[0.22em]">
-                        Gráficos en tiempo real // OBS
-                    </div>
-
+                    
                     <h1 className="max-w-[800px] font-['Bebas_Neue'] text-[clamp(4rem,17vw,9rem)] font-normal uppercase leading-[0.74] tracking-[-0.025em] md:text-[clamp(5rem,10vw,9rem)]">
-                        DRAW.
+                        DIBUJA.
                         <br />
-                        COLLABORATE.
+                        COLABORA.
                         <br />
-                        <span className="text-[var(--dc-accent)]">BROADCAST.</span>
+                        <span className="text-[var(--dc-accent)]">TRANSMITE.</span>
                     </h1>
 
-                    <p className="mt-10 max-w-[680px] text-base leading-7 text-[var(--dc-text)]/60 md:text-lg md:leading-8">
-                        DrawCast es una plataforma web para crear y controlar overlays dinámicos durante transmisiones en vivo.
+                    <p className="mt-10 text-base leading-7 text-[var(--dc-text)]/60 md:text-lg md:leading-8">
+                        DrawCast es la plataforma para crear y controlar overlays dinámicos durante tus transmisiones en vivo.
                         <br />
-                        Construye tu escena, comparte el control con tu equipo y muestra los cambios instantáneamente en OBS.
+                        Tus moderadores ahora pueden diseñar sobre tu escena, compartir el control con tu equipo de producción y mostrar cada cambio al instante en OBS Studio, sin reiniciar tu stream ni tu Browser Source.
                     </p>
 
                     <div className="mt-10 flex flex-wrap items-center gap-3">
                         <Link className="border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-7 py-4 font-mono text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
-                            INITIALIZE CHANNEL
-                        </Link>
-
-                        <Link className="border border-[var(--dc-text)]/40 px-7 py-4 font-mono text-xs font-bold uppercase tracking-[0.08em] transition hover:border-[var(--dc-text)] hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)]" to="/login">
-                            OPEN CONSOLE
+                            CREA TU CUENTA YA!
                         </Link>
                     </div>
                 </div>
 
-                <footer className="grid border-t border-[var(--dc-text)]/15 md:grid-cols-3">
+                <footer className="grid border-t border-[var(--dc-text)]/15 md:grid-cols-3 hidden">
                     <div className="flex items-center gap-3 border-b border-[var(--dc-text)]/15 py-5 font-mono text-[11px] font-bold tracking-[0.12em] text-[var(--dc-text)]/45 md:border-r md:border-b-0">
                         <Radio className="h-4 w-4 text-[var(--dc-accent)]" strokeWidth={1.8} />
-                        LIVE SOCKETS
+                        CONEXIÓN EN VIVO
                     </div>
 
                     <div className="flex items-center gap-3 border-b border-[var(--dc-text)]/15 py-5 font-mono text-[11px] font-bold tracking-[0.12em] text-[var(--dc-text)]/45 md:border-r md:border-b-0 md:px-6">
                         <Users className="h-4 w-4 text-[var(--dc-accent)]" strokeWidth={1.8} />
-                        AUTHORIZED COLLABS
+                        COLABORADORES AUTORIZADOS
                     </div>
 
                     <div className="flex items-center gap-3 py-5 font-mono text-[11px] font-bold tracking-[0.12em] text-[var(--dc-text)]/45 md:pl-6">
                         <PenTool className="h-4 w-4 text-[var(--dc-accent)]" strokeWidth={1.8} />
-                        CANVAS ENGINE
+                        MOTOR DE DIBUJO
                     </div>
                 </footer>
 
@@ -77,18 +70,14 @@ export default function Landing() {
             <section className="border-t border-[var(--dc-text)]/15">
                 <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
-                    <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400 sm:text-xs sm:tracking-[0.22em]">
-                        CONTROL EN TIEMPO REAL // BROWSER SOURCE
-                    </div>
-
                     <h2 className="mt-5 font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
-                        CONTROLAS AQUÍ.
+                        TÚ CONTROLAS AQUÍ.
                         <br />
                         <span className="text-[var(--dc-accent)]">SALE ALLÁ.</span>
                     </h2>
 
                     <p className="mt-8 max-w-[640px] text-base leading-7 text-[var(--dc-text)]/55 md:text-lg md:leading-8">
-                        Opera tu transmisión desde DrawCast. Modifica textos, controla timers y actualiza elementos sin tener que reconstruir tu escena en OBS.
+                        Permite que tus moderadores operen tu transmisión en vivo directamente desde DrawCast. Modifica textos, activa temporizadores y actualiza elementos gráficos sin reconstruir tu escena en OBS ni tocar el software de streaming a mitad de directo.
                     </p>
 
                     <div className="mt-14 grid min-w-0 gap-6 lg:mt-16 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
@@ -97,7 +86,7 @@ export default function Landing() {
                         <div className="min-w-0 border border-[var(--dc-text)]/20 bg-white/[0.02]">
                             <div className="flex items-center justify-between gap-4 border-b border-[var(--dc-text)]/15 px-4 py-4 sm:px-5">
                                 <span className="font-mono text-[10px] font-bold tracking-[0.12em] sm:text-xs sm:tracking-[0.16em]">
-                                    DRAWCAST // CONSOLE
+                                    DRAWCAST // CONSOLA
                                 </span>
 
                                 <span className="h-2 w-2 shrink-0 bg-cyan-400"></span>
@@ -107,18 +96,18 @@ export default function Landing() {
 
                                 <div className="border-b border-[var(--dc-text)]/15 p-3 sm:border-r sm:border-b-0 sm:p-4">
                                     <div className="mb-3 font-mono text-[9px] tracking-[0.15em] text-[var(--dc-text)]/30 sm:text-[10px]">
-                                        ELEMENTS
+                                        ELEMENTOS
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
                                         <div className="flex min-w-0 items-center gap-2 border border-[var(--dc-accent)] bg-[var(--dc-accent)]/10 p-3 font-mono text-[9px] text-[var(--dc-accent)] sm:text-[10px]">
                                             <Type className="h-3 w-3 shrink-0" />
-                                            TEXT
+                                            TEXTO
                                         </div>
 
                                         <div className="flex min-w-0 items-center gap-2 border border-[var(--dc-text)]/15 p-3 font-mono text-[9px] text-[var(--dc-text)]/50 sm:text-[10px]">
                                             <Clock3 className="h-3 w-3 shrink-0" />
-                                            TIMER
+                                            TEMPORIZADOR
                                         </div>
                                     </div>
                                 </div>
@@ -127,7 +116,7 @@ export default function Landing() {
                                     <div className="relative aspect-video w-full min-w-0 overflow-hidden border border-[var(--dc-text)]/15 bg-black">
 
                                         <div className="absolute left-[6%] top-[12%] max-w-[65%] border border-dashed border-cyan-400/70 px-2 py-1 font-['Bebas_Neue'] text-sm tracking-wider sm:left-[8%] sm:top-[15%] sm:px-4 sm:py-2 sm:text-2xl">
-                                            NEXT MATCH
+                                            PRÓXIMO PARTIDO
                                         </div>
 
                                         <div className="absolute bottom-[10%] right-[6%] border border-dashed border-[var(--dc-accent)]/80 px-2 py-1 font-mono text-xs font-bold text-[var(--dc-accent)] sm:bottom-[12%] sm:right-[8%] sm:px-5 sm:py-3 sm:text-xl">
@@ -151,7 +140,7 @@ export default function Landing() {
                             <ArrowRight className="h-7 w-7 rotate-90 text-[var(--dc-accent)] lg:h-8 lg:w-8 lg:rotate-0" />
 
                             <span className="font-mono text-[9px] tracking-[0.16em] text-[var(--dc-text)]/30">
-                                LIVE SYNC
+                                SINCRONÍA EN VIVO
                             </span>
                         </div>
 
@@ -159,18 +148,18 @@ export default function Landing() {
                         <div className="min-w-0 border border-[var(--dc-text)]/20 bg-white/[0.02]">
                             <div className="flex items-center justify-between gap-3 border-b border-[var(--dc-text)]/15 px-4 py-4 sm:px-5">
                                 <span className="font-mono text-[10px] font-bold tracking-[0.12em] sm:text-xs sm:tracking-[0.16em]">
-                                    OBS // PROGRAM
+                                    OBS // TRANSMISIÓN
                                 </span>
 
                                 <span className="font-mono text-[9px] text-red-500 sm:text-[10px]">
-                                    ● LIVE
+                                    ● EN VIVO
                                 </span>
                             </div>
 
                             <div className="p-3 sm:p-6">
                                 <div className="relative aspect-video overflow-hidden border border-[var(--dc-text)]/15 bg-black">
                                     <div className="absolute left-[6%] top-[12%] px-2 py-1 font-['Bebas_Neue'] text-sm tracking-wider sm:left-[8%] sm:top-[15%] sm:px-4 sm:py-2 sm:text-2xl">
-                                        NEXT MATCH
+                                        PRÓXIMO PARTIDO
                                     </div>
 
                                     <div className="absolute bottom-[10%] right-[6%] px-2 py-1 font-mono text-xs font-bold text-[var(--dc-accent)] sm:bottom-[12%] sm:right-[8%] sm:px-5 sm:py-3 sm:text-xl">
@@ -178,19 +167,19 @@ export default function Landing() {
                                     </div>
 
                                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/70 px-2 py-1.5 font-mono text-[7px] text-[var(--dc-text)]/30 sm:px-3 sm:py-2 sm:text-[9px]">
-                                        <span>CAMERA_01</span>
+                                        <span>CÁMARA_01</span>
                                         <span>60 FPS</span>
                                     </div>
                                 </div>
 
                                 <div className="mt-4 border border-[var(--dc-text)]/15">
                                     <div className="border-b border-[var(--dc-text)]/15 px-4 py-3 font-mono text-[10px] tracking-[0.15em] text-[var(--dc-text)]/35">
-                                        SOURCES
+                                        FUENTES
                                     </div>
 
                                     <div className="space-y-1 p-3 font-mono text-[10px]">
                                         <div className="flex justify-between px-2 py-1 text-[var(--dc-text)]/40">
-                                            <span>Camera</span>
+                                            <span>Cámara</span>
                                             <span>●</span>
                                         </div>
 
@@ -200,7 +189,7 @@ export default function Landing() {
                                         </div>
 
                                         <div className="flex justify-between bg-[var(--dc-accent)]/10 px-2 py-1 text-[var(--dc-accent)]">
-                                            <span>DrawCast Overlay</span>
+                                            <span>Overlay DrawCast</span>
                                             <span>●</span>
                                         </div>
                                     </div>
@@ -212,109 +201,35 @@ export default function Landing() {
                 </div>
             </section>
 
-            {/* PIPELINE */}
-            <section className="border-t border-[var(--dc-text)]/15">
-                <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
-
-                    <div className="font-mono text-xs font-bold uppercase tracking-[0.22em] text-cyan-400">
-                        WORKFLOW // 03 STEPS
-                    </div>
-
-                    <div className="mt-10 grid border-t border-l border-[var(--dc-text)]/15 md:grid-cols-3">
-
-                        <article className="min-h-[300px] border-r border-b border-[var(--dc-text)]/15 p-7 md:min-h-[320px] md:p-8">
-                            <div className="font-['Bebas_Neue'] text-7xl text-[var(--dc-text)]/10">
-                                01
-                            </div>
-
-                            <div className="mt-10 font-mono text-xs font-bold tracking-[0.18em] text-cyan-400">
-                                // DRAW
-                            </div>
-
-                            <h3 className="mt-3 font-['Bebas_Neue'] text-4xl uppercase">
-                                Construye tu escena.
-                            </h3>
-
-                            <p className="mt-5 leading-7 text-[var(--dc-text)]/45">
-                                Agrega y posiciona elementos visuales dentro de tu overlay.
-                            </p>
-                        </article>
-
-                        <article className="min-h-[300px] border-r border-b border-[var(--dc-text)]/15 p-7 md:min-h-[320px] md:p-8">
-                            <div className="font-['Bebas_Neue'] text-7xl text-[var(--dc-text)]/10">
-                                02
-                            </div>
-
-                            <div className="mt-10 font-mono text-xs font-bold tracking-[0.18em] text-cyan-400">
-                                // CONTROL
-                            </div>
-
-                            <h3 className="mt-3 font-['Bebas_Neue'] text-4xl uppercase">
-                                Opera el directo.
-                            </h3>
-
-                            <p className="mt-5 leading-7 text-[var(--dc-text)]/45">
-                                Cambia textos, dispara temporizadores y controla la transmisión desde el navegador.
-                            </p>
-                        </article>
-
-                        <article className="min-h-[300px] border-r border-b border-[var(--dc-text)]/15 p-7 md:min-h-[320px] md:p-8">
-                            <div className="font-['Bebas_Neue'] text-7xl text-[var(--dc-text)]/10">
-                                03
-                            </div>
-
-                            <div className="mt-10 font-mono text-xs font-bold tracking-[0.18em] text-cyan-400">
-                                // BROADCAST
-                            </div>
-
-                            <h3 className="mt-3 font-['Bebas_Neue'] text-4xl uppercase">
-                                Sal al aire.
-                            </h3>
-
-                            <p className="mt-5 leading-7 text-[var(--dc-text)]/45">
-                                Conecta tu overlay como Browser Source y transmite los cambios en tiempo real.
-                            </p>
-                        </article>
-
-                    </div>
-
-                    <div className="mt-10 font-['Bebas_Neue'] text-[clamp(2.5rem,7vw,6rem)] uppercase tracking-wide text-[var(--dc-text)]/10">
-                        DRAW → CONTROL → <span className="text-[var(--dc-accent)]">BROADCAST</span>
-                    </div>
-                </div>
-            </section>
-
+     
             {/* COLLABORATION */}
             <section className="border-t border-[var(--dc-text)]/15">
                 <div className="mx-auto grid w-full max-w-[1240px] gap-16 px-6 py-24 md:px-10 md:py-28 lg:grid-cols-2 lg:items-center xl:px-0">
 
                     <div>
-                        <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400 sm:text-xs sm:tracking-[0.22em]">
-                            COLLABORATION // LIVE PRODUCTION
-                        </div>
 
                         <h2 className="mt-5 font-['Bebas_Neue'] text-[clamp(4rem,14vw,6.5rem)] uppercase leading-[0.84] md:text-[clamp(4rem,7vw,6.5rem)]">
                             NO TIENES QUE
                             <br />
                             HACERLO TODO
                             <br />
-                            <span className="text-[var(--dc-accent)]">TÚ.</span>
+                            <span className="text-[var(--dc-accent)]">TÚ SOLO.</span>
                         </h2>
 
                         <p className="mt-8 max-w-[550px] text-base leading-7 text-[var(--dc-text)]/50 md:text-lg md:leading-8">
-                            Comparte el control de una transmisión con tu equipo. Mientras alguien está frente a cámara, otra persona puede operar gráficos desde DrawCast.
+                            Comparte el control de tu transmisión con tu equipo de producción. Mientras alguien está frente a cámara, otra persona puede operar los gráficos en vivo desde DrawCast, en tiempo real y sin fricciones.
                         </p>
                     </div>
 
                     <div className="border border-[var(--dc-text)]/15">
                         <div className="border-b border-[var(--dc-text)]/15 px-5 py-4 font-mono text-xs tracking-[0.15em] text-[var(--dc-text)]/40">
-                            CHANNEL // PRODUCTION TEAM
+                            CANAL // EQUIPO DE PRODUCCIÓN
                         </div>
 
                         <div className="p-5 sm:p-6 md:p-8">
                             <div className="border border-[var(--dc-text)]/15 p-5 sm:p-6">
                                 <div className="font-mono text-[10px] tracking-[0.15em] text-cyan-400">
-                                    BROADCASTER
+                                    STREAMER
                                 </div>
 
                                 <div className="mt-4 flex items-center justify-between gap-5">
@@ -324,7 +239,7 @@ export default function Landing() {
                                         </div>
 
                                         <div className="mt-1 font-mono text-[9px] text-[var(--dc-text)]/30 sm:text-[10px]">
-                                            OBS // LIVE OUTPUT
+                                            OBS // SALIDA EN VIVO
                                         </div>
                                     </div>
 
@@ -338,13 +253,13 @@ export default function Landing() {
 
                             <div className="border border-[var(--dc-accent)] bg-[var(--dc-accent)]/[0.04] p-5 sm:p-6">
                                 <div className="font-mono text-[9px] tracking-[0.15em] text-[var(--dc-accent)] sm:text-[10px]">
-                                    AUTHORIZED COLLABORATOR
+                                    COLABORADOR AUTORIZADO
                                 </div>
 
                                 <div className="mt-4 flex items-center justify-between gap-5">
                                     <div>
                                         <div className="font-['Bebas_Neue'] text-3xl">
-                                            MODERATOR
+                                            MODERADOR
                                         </div>
 
                                         <div className="mt-1 font-mono text-[9px] text-[var(--dc-text)]/30 sm:text-[10px]">
@@ -365,16 +280,12 @@ export default function Landing() {
             <section className="border-t border-[var(--dc-text)]/15">
                 <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
-                    <div className="font-mono text-xs font-bold uppercase tracking-[0.22em] text-cyan-400">
-                        OUTPUT // OBS
-                    </div>
-
                     <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,8rem)]">
-                        ONE URL.
+                        UNA URL.
                         <br />
-                        ONE SOURCE.
+                        UNA FUENTE.
                         <br />
-                        <span className="text-[var(--dc-accent)]">FULL CONTROL.</span>
+                        <span className="text-[var(--dc-accent)]">CONTROL TOTAL.</span>
                     </h2>
 
                     <div className="mt-14 grid gap-10 lg:grid-cols-[1fr_420px] lg:items-center">
@@ -384,35 +295,35 @@ export default function Landing() {
                                 <div className="h-2 w-2 shrink-0 bg-[var(--dc-accent)]"></div>
 
                                 <span className="min-w-0 truncate font-mono text-[9px] text-[var(--dc-text)]/35 sm:text-[10px]">
-                                    https://drawcast.app/overlay/channel_xxxxxxxxx
+                                    https://drawcast.app/overlay/canal_xxxxxxxxx
                                 </span>
                             </div>
                         </div>
 
                         <div>
                             <p className="text-base leading-7 text-[var(--dc-text)]/50 md:text-lg md:leading-8">
-                                Genera la URL de tu overlay, agrégala como Browser Source en OBS y mantén la operación completamente fuera de tu escena.
+                                Genera la URL de tu overlay para OBS, agrégala como Browser Source y mantén toda la operación fuera de tu escena de transmisión. Compatible con OBS Studio, Streamlabs y otros softwares de streaming.
                             </p>
 
                             <div className="mt-8 space-y-3 font-mono text-[11px] tracking-[0.12em]">
                                 <div className="flex items-center gap-3 border-b border-[var(--dc-text)]/10 pb-3">
                                     <span className="text-[var(--dc-accent)]">01</span>
-                                    CREATE CHANNEL
+                                    CREA TU CANAL
                                 </div>
 
                                 <div className="flex items-center gap-3 border-b border-[var(--dc-text)]/10 pb-3">
                                     <span className="text-[var(--dc-accent)]">02</span>
-                                    COPY OVERLAY URL
+                                    COPIA LA URL DEL OVERLAY
                                 </div>
 
                                 <div className="flex items-center gap-3 border-b border-[var(--dc-text)]/10 pb-3">
                                     <span className="text-[var(--dc-accent)]">03</span>
-                                    ADD BROWSER SOURCE
+                                    AGRÉGALA COMO BROWSER SOURCE
                                 </div>
 
                                 <div className="flex items-center gap-3 pb-3">
                                     <span className="text-[var(--dc-accent)]">04</span>
-                                    GO LIVE
+                                    SAL AL AIRE
                                 </div>
                             </div>
                         </div>
@@ -425,19 +336,15 @@ export default function Landing() {
             <section className="border-t border-[var(--dc-text)]/15">
                 <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
-                    <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400 sm:text-xs sm:tracking-[0.22em]">
-                        PLANS // CHOOSE YOUR SETUP
-                    </div>
-
                     <div className="mt-5 flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
                         <h2 className="font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
-                            START FREE.
+                            EMPIEZA GRATIS.
                             <br />
-                            <span className="text-[var(--dc-accent)]">SCALE WHEN READY.</span>
+                            <span className="text-[var(--dc-accent)]">CRECE CUANDO ESTÉS LISTO.</span>
                         </h2>
 
                         <p className="max-w-[430px] pb-2 text-base leading-7 text-[var(--dc-text)]/50 md:text-lg md:leading-8">
-                            Empieza a construir tu transmisión sin costo y aumenta las capacidades de DrawCast conforme crece tu producción.
+                            Empieza a construir tu transmisión sin costo y desbloquea más capacidades de DrawCast conforme crece tu producción y tu comunidad.
                         </p>
                     </div>
 
@@ -463,7 +370,7 @@ export default function Landing() {
                             </div>
 
                             <p className="mt-6 leading-7 text-[var(--dc-text)]/45">
-                                Lo esencial para comenzar a construir y controlar tus overlays desde DrawCast.
+                                Lo esencial para comenzar a construir y controlar tus overlays desde DrawCast, sin pagar nada.
                             </p>
 
                             <div className="my-8 h-px bg-[var(--dc-text)]/10"></div>
@@ -497,12 +404,12 @@ export default function Landing() {
                                     </span>
 
                                     <span className="ml-2 font-mono text-[10px] tracking-[0.15em] text-[var(--dc-text)]/30">
-                                        // FOREVER
+                                        // PARA SIEMPRE
                                     </span>
                                 </div>
 
                                 <Link className="flex w-full items-center justify-between border border-[var(--dc-text)]/30 px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] transition hover:border-[var(--dc-text)] hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)]" to="/register">
-                                    START FREE
+                                    EMPEZAR GRATIS
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </div>
@@ -513,7 +420,7 @@ export default function Landing() {
                         <article className="relative flex min-h-[540px] flex-col overflow-hidden border-r border-b border-[var(--dc-accent)] bg-[var(--dc-accent)]/[0.035] p-7 md:p-8">
 
                             <div className="absolute right-0 top-0 bg-[var(--dc-accent)] px-4 py-2 font-mono text-[9px] font-bold tracking-[0.16em] text-white">
-                                RECOMMENDED
+                                RECOMENDADO
                             </div>
 
                             <div className="flex items-start justify-between gap-4">
@@ -533,7 +440,7 @@ export default function Landing() {
                             </div>
 
                             <p className="mt-6 leading-7 text-[var(--dc-text)]/50">
-                                Para creadores que transmiten con frecuencia y quieren llevar la operación más allá.
+                                Para creadores que transmiten con frecuencia y quieren llevar su producción en vivo más allá de lo básico.
                             </p>
 
                             <div className="my-8 h-px bg-[var(--dc-accent)]/20"></div>
@@ -563,7 +470,7 @@ export default function Landing() {
                             <div className="mt-auto pt-10">
                                 <div className="mb-5">
                                     <span className="font-['Bebas_Neue'] text-4xl">
-                                        FOR CREATORS
+                                        PARA CREADORES
                                     </span>
 
                                     <span className="ml-2 font-mono text-[10px] tracking-[0.15em] text-[var(--dc-text)]/30">
@@ -572,7 +479,7 @@ export default function Landing() {
                                 </div>
 
                                 <Link className="flex w-full items-center justify-between border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] text-white transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
-                                    GO PREMIUM
+                                    PASAR A PREMIUM
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </div>
@@ -599,7 +506,7 @@ export default function Landing() {
                             </div>
 
                             <p className="mt-6 leading-7 text-[var(--dc-text)]/45">
-                                Pensado para equipos, comunidades y producciones donde varias personas forman parte del directo.
+                                Pensado para equipos, comunidades y producciones donde varias personas forman parte del directo, en sinergia total.
                             </p>
 
                             <div className="my-8 h-px bg-[var(--dc-text)]/10"></div>
@@ -629,7 +536,7 @@ export default function Landing() {
                             <div className="mt-auto pt-10">
                                 <div className="mb-5">
                                     <span className="font-['Bebas_Neue'] text-4xl">
-                                        FOR TEAMS
+                                        PARA EQUIPOS
                                     </span>
 
                                     <span className="ml-2 font-mono text-[10px] tracking-[0.15em] text-[var(--dc-text)]/30">
@@ -638,7 +545,7 @@ export default function Landing() {
                                 </div>
 
                                 <Link className="flex w-full items-center justify-between border border-[var(--dc-text)]/30 px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] transition hover:border-[var(--dc-text)] hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)]" to="/register">
-                                    CHOOSE PLUS
+                                    ELEGIR PLUS
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </div>
@@ -658,22 +565,18 @@ export default function Landing() {
             <section className="border-t border-[var(--dc-text)]/15">
                 <div className="mx-auto w-full max-w-[1240px] px-6 py-28 text-center md:px-10 md:py-32 xl:px-0">
 
-                    <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-400 sm:text-xs sm:tracking-[0.22em]">
-                        YOUR STREAM // YOUR CONTROL
-                    </div>
-
                     <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(5rem,18vw,10rem)] uppercase leading-[0.75] md:text-[clamp(5rem,11vw,10rem)]">
-                        READY TO
+                        ¿LISTO PARA
                         <br />
-                        <span className="text-[var(--dc-accent)]">BROADCAST?</span>
+                        <span className="text-[var(--dc-accent)]">TRANSMITIR?</span>
                     </h2>
 
                     <p className="mx-auto mt-10 max-w-[520px] text-base leading-7 text-[var(--dc-text)]/45 md:text-lg md:leading-8">
-                        Construye tu primer overlay, invita a tu equipo y conecta DrawCast a OBS.
+                        Construye tu primer overlay, invita a tu equipo y conecta DrawCast a OBS en minutos. Sin tarjeta de crédito, sin complicaciones.
                     </p>
 
                     <Link className="mt-10 inline-flex items-center gap-3 border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-8 py-5 font-mono text-xs font-bold tracking-[0.1em] text-white transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-10" to="/register">
-                        INITIALIZE CHANNEL
+                        CREAR MI CANAL
                         <ArrowRight className="h-4 w-4" />
                     </Link>
 
@@ -683,8 +586,9 @@ export default function Landing() {
             {/* BOTTOM */}
             <footer className="border-t border-[var(--dc-text)]/15">
                 <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-4 px-6 py-7 font-mono text-[10px] tracking-[0.12em] text-[var(--dc-text)]/25 md:flex-row md:items-center md:justify-between md:px-10 xl:px-0">
-                    <span>DRAWCAST // REAL-TIME BROADCAST GRAPHICS</span>
-                    <span>DRAW. COLLABORATE. BROADCAST.</span>
+                    <span>DRAWCAST // GRÁFICOS PARA TRANSMISIONES EN VIVO</span>
+                    <span>Sitio desarrollado por <a href="https://datech.dannprod.com/" target="_blank" rel="noopener noreferrer">Datech</a>.</span>
+                    <span>DIBUJA. COLABORA. TRANSMITE.</span>
                 </div>
             </footer>
 
