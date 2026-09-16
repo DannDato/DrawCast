@@ -5,6 +5,7 @@ import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, hitRes
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
 import InlineTextEditor from './tools/text/InlineTextEditor';
 import { textConfigFromObject } from './tools/text/textTool';
+import { appendStrokePoint, hitDrawLayer, isDrawLayer, makeStroke } from './tools/drawing/drawingTool';
 
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
@@ -21,7 +22,11 @@ export default function CanvasStage({
   onTransformStart,
   tool,
   drawConfig,
-  onDraw,
+  activeDrawLayer,
+  liveStrokes = {},
+  onDrawStart,
+  onDrawPoint,
+  onDrawCommit,
   shapeConfig,
   onShapeCreate,
   textConfig,
@@ -58,7 +63,7 @@ export default function CanvasStage({
 
     const render = (timestamp = 0) => {
       if (timestamp - lastFrame >= FRAME_MS || timestamp === 0) {
-        renderScene(ctx, objects, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, grid: true, now: Date.now() });
+        renderScene(ctx, objects, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, grid: true, now: Date.now(), liveStrokes });
 
         const activeGuide = guideImage.current;
         if (activeGuide?.complete && activeGuide.naturalWidth) {
@@ -69,7 +74,7 @@ export default function CanvasStage({
         }
 
         if (drawing.current) {
-          drawObject(ctx, { id: 'draw_preview', tipo: 'draw', lineas: [drawing.current], zIndex: Number.MAX_SAFE_INTEGER });
+          drawObject(ctx, { id: 'draw_preview', tipo: 'draw', x: Number(activeDrawLayer?.x) || 0, y: Number(activeDrawLayer?.y) || 0, w: Number(activeDrawLayer?.w) || CANVAS_WIDTH, h: Number(activeDrawLayer?.h) || CANVAS_HEIGHT, sourceWidth: Number(activeDrawLayer?.sourceWidth) || CANVAS_WIDTH, sourceHeight: Number(activeDrawLayer?.sourceHeight) || CANVAS_HEIGHT, lineas: [drawing.current], zIndex: Number.MAX_SAFE_INTEGER });
         }
 
         if (shapePreview.current) {
@@ -96,7 +101,7 @@ export default function CanvasStage({
 
     animationFrame = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationFrame);
-  }, [objects, selectedId, selectedIds]);
+  }, [objects, selectedId, selectedIds, liveStrokes]);
 
   const pointFromEvent = (event) => {
     const bounds = canvasRef.current.getBoundingClientRect();
@@ -106,7 +111,16 @@ export default function CanvasStage({
     };
   };
 
-  const topObjectAt = (point) => orderedObjects(objects).reverse().find((object) => hitObject(object, point.x, point.y));
+  const topObjectAt = (point) => orderedObjects(objects).reverse().find((object) => isDrawLayer(object) ? hitDrawLayer(object, point.x, point.y) : hitObject(object, point.x, point.y));
+
+  const pointForDrawLayer = (point, layer = activeDrawLayer) => {
+    if (!layer) return point;
+    const sourceWidth = Math.max(1, Number(layer.sourceWidth) || CANVAS_WIDTH);
+    const sourceHeight = Math.max(1, Number(layer.sourceHeight) || CANVAS_HEIGHT);
+    const scaleX = Math.max(0.0001, (Number(layer.w) || sourceWidth) / sourceWidth);
+    const scaleY = Math.max(0.0001, (Number(layer.h) || sourceHeight) / sourceHeight);
+    return { x: (point.x - (Number(layer.x) || 0)) / scaleX, y: (point.y - (Number(layer.y) || 0)) / scaleY };
+  };
 
   const openTextEditor = (point, object = null) => {
     const bounds = canvasRef.current.getBoundingClientRect();
@@ -132,8 +146,16 @@ export default function CanvasStage({
     const point = pointFromEvent(event);
     canvas.setPointerCapture?.(event.pointerId);
 
-    if (tool === 'draw') {
-      drawing.current = { color: drawConfig.color, size: drawConfig.size, points: [point] };
+    if (tool === 'draw' || tool === 'eraser') {
+      if (!activeDrawLayer) return;
+      const localPoint = pointForDrawLayer(point);
+      drawing.current = makeStroke({
+        layerId: activeDrawLayer.id,
+        mode: tool === 'eraser' ? 'erase' : 'paint',
+        config: drawConfig,
+        point: localPoint
+      });
+      onDrawStart?.(drawing.current, activeDrawLayer);
       return;
     }
 
@@ -205,7 +227,10 @@ export default function CanvasStage({
     const point = pointFromEvent(event);
 
     if (drawing.current) {
-      drawing.current.points.push(point);
+      const localPoint = pointForDrawLayer(point);
+      const before = drawing.current.points.length;
+      appendStrokePoint(drawing.current, localPoint);
+      if (drawing.current.points.length > before) onDrawPoint?.(drawing.current.id, localPoint);
       return;
     }
 
@@ -236,7 +261,7 @@ export default function CanvasStage({
 
   const finishInteraction = (event) => {
     if (drawing.current) {
-      if (drawing.current.points.length > 1) onDraw([drawing.current]);
+      if (drawing.current.points.length > 1) onDrawCommit?.(drawing.current);
       drawing.current = null;
     }
 

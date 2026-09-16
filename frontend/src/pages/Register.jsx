@@ -33,8 +33,8 @@ export default function Register() {
     };
     return (
         <AuthShell
-            eyebrow="NEW OPERATOR"
-            title="CREATE // ACCOUNT"
+            eyebrow=""
+            title="CREAR // CUENTA"
             description="Crea tu identidad DrawCast. Después podrás inicializar tu canal e invitar colaboradores registrados."
         >
             <Helmet>
@@ -48,7 +48,7 @@ export default function Register() {
             </Helmet>
             <form onSubmit={submit} className="dc-auth-form dc-auth-form-grid">
                 <label>
-                    USERNAME
+                    USUARIO
                     <input
                         placeholder="Usuario"
                         value={form.username}
@@ -57,7 +57,7 @@ export default function Register() {
                     />
                 </label>
                 <label>
-                    DISPLAY NAME
+                    NOMBRE PARA MOSTRAR
                     <input
                         placeholder="Nombre para mostrar"
                         value={form.displayName}
@@ -66,7 +66,7 @@ export default function Register() {
                     />
                 </label>
                 <label className="wide">
-                    EMAIL
+                    CORREO ELECTRÓNICO
                     <input
                         type="email"
                         placeholder="Email"
@@ -76,7 +76,7 @@ export default function Register() {
                     />
                 </label>
                 <label className="wide">
-                    PASSWORD
+                    CONTRASEÑA
                     <input
                         type="password"
                         placeholder="Mín. 6 caracteres, una mayúscula y un número"
@@ -88,16 +88,16 @@ export default function Register() {
                 {error ? <p className="dc-auth-alert error wide">{error}</p> : null}
                 <button className="dc-auth-primary wide" disabled={loading}>
                     <UserPlus size={16} />
-                    {loading ? "CREATING ACCOUNT..." : "CREATE ACCOUNT"}
+                    {loading ? "CREANDO CUENTA..." : "CREAR CUENTA"}
                 </button>
             </form>
             <div className="dc-auth-divider">
-                <span>OR CONTINUE WITH</span>
+                <span>O CONTINUAR CON</span>
             </div>
             <GoogleAuthButton mode="signup" onError={setError} />
             <div className="dc-auth-links">
-                <span>ALREADY REGISTERED?</span>
-                <Link to="/login">LOGIN</Link>
+                <span>¿Ya estás registrado?</span>
+                <Link to="/login">Iniciar sesion</Link>
             </div>
         </AuthShell>
     );

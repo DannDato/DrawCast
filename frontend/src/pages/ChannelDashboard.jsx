@@ -43,10 +43,10 @@ export default function ChannelDashboard() {
     if (!data.owned) {
         return (
             <div className="dc-dashboard">
-                <h1>CREATE YOUR // DRAWCAST CHANNEL</h1>
+                <h1>CREA TU // CANAL DE DRAWCAST</h1>
                 <p>Configura el canal que usarás en stream. Recibirás un link único para OBS y otro para el editor.</p>
-                <input value={name} onChange={event => setName(event.target.value)} placeholder="Nombre del canal" />
-                <button onClick={handleCreateChannel}>INITIALIZE CHANNEL</button>
+                <input value={name} onChange={event => setName(event.target.value)} placeholder="Nombre del canal" className='my-5'/>
+                <button onClick={handleCreateChannel} className='my-5'>INICIALIZAR CANAL</button>
             </div>
         );
     }
@@ -59,28 +59,27 @@ export default function ChannelDashboard() {
     return (
         <div className="dc-dashboard">
             <header>
-                <h1>CHANNEL // {channel.name}</h1>
-                <span>OWNER CONSOLE</span>
+                <h1>CANAL // {channel.name}</h1>
             </header>
 
             <div className="dc-link-card">
-                <label>EDITOR LINK</label>
+                <label>Link del editor</label>
                 <code>{editor}</code>
-                <button onClick={() => navigator.clipboard.writeText(editor)}><Copy /> COPY</button>
-                <Link to={`/editor/${channel.publicKey}`}><ExternalLink /> OPEN</Link>
+                <button onClick={() => navigator.clipboard.writeText(editor)}><Copy /> COPIAR</button>
+                <Link to={`/editor/${channel.publicKey}`}><ExternalLink /> ABRIR</Link>
             </div>
 
             <div className="dc-link-card">
-                <label>OBS BROWSER SOURCE // 1920×1080</label>
+                <label>Fuente para el OBS // 1920×1080</label>
                 <code>{overlay}</code>
-                <button onClick={() => navigator.clipboard.writeText(overlay)}><Copy /> COPY</button>
+                <button onClick={() => navigator.clipboard.writeText(overlay)}><Copy /> COPIAR</button>
             </div>
 
             <section className="dc-panel">
-                <h2>COLLABORATORS</h2>
+                <h2>COLABORADORES</h2>
                 <div className="dc-invite">
                     <input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="correo de un usuario registrado" />
-                    <button onClick={handleInvite}><UserPlus /> INVITE</button>
+                    <button onClick={handleInvite}><UserPlus /> INVITAR</button>
                 </div>
                 <p>{msg}</p>
                 {collabs.map(collaborator => (
@@ -93,8 +92,8 @@ export default function ChannelDashboard() {
 
             {data.collaborations.length > 0 && (
                 <section className="dc-panel">
-                    <h2>CHANNELS SHARED WITH YOU</h2>
-                    {data.collaborations.map(collaboration => <Link key={collaboration.id} to={`/editor/${collaboration.publicKey}`}>{collaboration.name} // OPEN EDITOR</Link>)}
+                    <h2>CANALES COMPARTIDOS CONTIGO</h2>
+                    {data.collaborations.map(collaboration => <Link key={collaboration.id} to={`/editor/${collaboration.publicKey}`}>{collaboration.name} // ABRIR EDITOR</Link>)}
                 </section>
             )}
         </div>

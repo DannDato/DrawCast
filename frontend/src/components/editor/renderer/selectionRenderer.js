@@ -1,8 +1,10 @@
+import { getDrawLayerBounds, isDrawLayer } from '../tools/drawing/drawingTool';
 export const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const HANDLE_SIZE = 16;
 
 export function getObjectBounds(object) {
   if (!object || object.hidden) return null;
+  if (isDrawLayer(object)) return getDrawLayerBounds(object);
   const x = Number(object.x);
   const y = Number(object.y);
   const w = Number(object.w);
@@ -74,8 +76,9 @@ function strokeBounds(ctx, bounds, accent, options = {}) {
 
 export function drawSelection(ctx, object, accent = '#ff315c', options = {}) {
   const bounds = getObjectBounds(object);
-  if (!bounds || object.tipo === 'draw' || object.tipo === 'trazo') return;
-  strokeBounds(ctx, bounds, accent, { handles: options.handles !== false });
+  if (!bounds) return;
+  const drawLayer = isDrawLayer(object);
+  strokeBounds(ctx, bounds, accent, { handles: drawLayer ? false : options.handles !== false });
 }
 
 export function drawMultiSelection(ctx, objects, accent = '#ff315c') {

@@ -764,3 +764,71 @@
 @media (max-width: 1100px) {
   .dc-layers { width: 280px; }
 }
+
+/* Patch 05 // Drawing + Brushes */
+.dc-brush-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 7px 0 10px;
+}
+
+.dc-brush-mode-grid button {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--dc-line);
+  background: #08090b;
+  color: var(--dc-muted);
+  font: 800 9px monospace;
+  cursor: pointer;
+}
+
+.dc-brush-mode-grid button:hover,
+.dc-brush-mode-grid button.active {
+  border-color: var(--dc-accent);
+  color: var(--dc-accent);
+  background: var(--dc-accent-soft);
+}
+
+.dc-brush-mode-grid button.danger {
+  color: var(--dc-accent);
+}
+
+.dc-brush-mode-grid button:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.dc-draw-layer-card {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0 6px;
+  padding: 9px 10px;
+  border: 1px solid var(--dc-line);
+  background: #08090b;
+}
+
+.dc-draw-layer-card span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dc-muted);
+  font: 700 8px monospace;
+  letter-spacing: .7px;
+}
+
+.dc-draw-layer-card b {
+  overflow: hidden;
+  color: var(--dc-text);
+  font: 800 10px monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-canvas.tool-draw,
+.dc-canvas.tool-eraser {
+  cursor: crosshair;
+}

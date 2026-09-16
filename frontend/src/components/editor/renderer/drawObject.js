@@ -16,28 +16,24 @@ function getObjectType(object) {
 function getImage(url) {
   if (!url) return null;
   let image = images.get(url);
-
   if (!image) {
     image = new Image();
     image.crossOrigin = 'anonymous';
     image.src = url;
     images.set(url, image);
   }
-
   return image;
 }
 
 function drawImage(ctx, object) {
   const image = getImage(object.url);
   if (!image?.complete || !image.naturalWidth) return;
-
   const opacity = Math.max(0, Math.min(1, Number.isFinite(object.opacity) ? object.opacity : 1));
   const radius = Math.max(0, Number(object.borderRadius ?? object.radius) || 0);
   const x = Number(object.x) || 0;
   const y = Number(object.y) || 0;
   const w = Math.max(1, Number(object.w) || 1);
   const h = Math.max(1, Number(object.h) || 1);
-
   ctx.save();
   ctx.globalAlpha = opacity;
   if (radius > 0) {
@@ -48,33 +44,47 @@ function drawImage(ctx, object) {
   ctx.restore();
 }
 
-function drawStrokeLayer(ctx, object) {
-  const lines = object.lineas || [];
-  for (const line of lines) {
-    if (Array.isArray(line.points)) {
-      if (line.points.length < 2) continue;
-      ctx.save();
-      ctx.globalCompositeOperation = line.mode === 'erase' || line.modo === 'borrar' ? 'destination-out' : 'source-over';
-      ctx.strokeStyle = line.color || '#ffffff';
-      ctx.lineWidth = Number(line.size ?? line.grosor) || 8;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      line.points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
-      ctx.stroke();
-      ctx.restore();
-      continue;
-    }
+function strokePoints(line) {
+  if (Array.isArray(line?.points)) return line.points;
+  if ([line?.x1, line?.y1, line?.x2, line?.y2].every((value) => Number.isFinite(Number(value)))) {
+    return [{ x: Number(line.x1), y: Number(line.y1) }, { x: Number(line.x2), y: Number(line.y2) }];
+  }
+  return [];
+}
 
+export function drawStrokeLayer(ctx, object) {
+  const lines = object.lineas || [];
+  const sourceWidth = Math.max(1, Number(object.sourceWidth) || 1920);
+  const sourceHeight = Math.max(1, Number(object.sourceHeight) || 1080);
+  const scaleX = Math.max(0.0001, (Number(object.w) || sourceWidth) / sourceWidth);
+  const scaleY = Math.max(0.0001, (Number(object.h) || sourceHeight) / sourceHeight);
+  const offsetX = Number(object.x) || 0;
+  const offsetY = Number(object.y) || 0;
+
+  for (const line of lines) {
+    const points = strokePoints(line);
+    if (points.length < 2) continue;
+    const erase = line.mode === 'erase' || line.modo === 'borrar';
     ctx.save();
-    ctx.globalCompositeOperation = line.modo === 'borrar' ? 'destination-out' : 'source-over';
+    ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
+    ctx.globalAlpha = erase ? 1 : Math.max(0.05, Math.min(1, Number(line.opacity) || 1));
     ctx.strokeStyle = line.color || '#ffffff';
-    ctx.lineWidth = Number(line.grosor) || 8;
+    ctx.lineWidth = (Number(line.size ?? line.grosor) || 8) * ((scaleX + scaleY) / 2);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo((object.x || 0) + (line.x1 || 0), (object.y || 0) + (line.y1 || 0));
-    ctx.lineTo((object.x || 0) + (line.x2 || 0), (object.y || 0) + (line.y2 || 0));
+    points.forEach((point, index) => {
+      const x = offsetX + Number(point.x) * scaleX;
+      const y = offsetY + Number(point.y) * scaleY;
+      if (index === 0) ctx.moveTo(x, y);
+      else if (index === points.length - 1 || points.length < 3) ctx.lineTo(x, y);
+      else {
+        const next = points[index + 1] || point;
+        const midX = offsetX + ((Number(point.x) + Number(next.x)) / 2) * scaleX;
+        const midY = offsetY + ((Number(point.y) + Number(next.y)) / 2) * scaleY;
+        ctx.quadraticCurveTo(x, y, midX, midY);
+      }
+    });
     ctx.stroke();
     ctx.restore();
   }
@@ -83,15 +93,12 @@ function drawStrokeLayer(ctx, object) {
 export function drawObject(ctx, object, options = {}) {
   if (!object || object.hidden) return;
   const type = getObjectType(object);
-
   ctx.save();
-
   if (type === 'shape') drawShape(ctx, object);
   else if (type === 'image') drawImage(ctx, object);
   else if (type === 'text') drawTextLayer(ctx, object, object.text ?? object.texto ?? '');
   else if (type === 'timer') drawTextLayer(ctx, object, getTimerText(object, options.now));
   else if (type === 'draw') drawStrokeLayer(ctx, object);
-
   ctx.restore();
 }
 

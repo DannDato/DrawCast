@@ -10,7 +10,7 @@ import logger from '../helpers/winston.js';
 async function socketUser(socket) {
   try { const cookies=parseCookie(socket.handshake.headers.cookie||''); const token=cookies[env.cookieName]; if(!token)return null; const decoded=jwt.verify(token,env.jwtSecret,{issuer:'fullstack-base'}); const session=await models.Session.findOne({where:{id:decoded.sid,userId:decoded.sub,tokenHash:sha256(token),revokedAt:null}}); if(!session||session.expiresAt<=new Date())return null; return models.User.findByPk(decoded.sub); } catch { return null; }
 }
-function validObject(o){ return o && typeof o==='object' && typeof o.id==='string' && o.id.length<=120 && JSON.stringify(o).length<=300000; }
+function validObject(o){ if(!o||typeof o!=='object'||typeof o.id!=='string'||o.id.length>120)return false; const size=JSON.stringify(o).length; const isDraw=o.tipo==='draw'||o.tipo==='trazo'; return size<=(isDraw?1800000:300000); }
 
 export function configureSockets(io) {
   io.on('connection', (socket) => {

@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, Copy, Group, Ungroup } from 'lucide-react';
 import ImagePanel from './ImagePanel';
 import TextControls from './tools/text/TextControls';
 import TimerControls from './tools/timer/TimerControls';
+import DrawingControls from './tools/drawing/DrawingControls';
 import { DEFAULT_SHAPE_CONFIG, SHAPE_TYPES } from './tools/shapes/shapeTool';
 
 function NumberField({ value, onChange, min }) {
@@ -36,7 +37,12 @@ export default function Inspector({
   onGroup,
   onUngroup,
   onDuplicate,
-  onMoveLayer
+  onMoveLayer,
+  activeDrawLayer,
+  onNewDrawLayer,
+  onClearDrawLayer,
+  onSelectDraw,
+  onSelectEraser
 }) {
   const isShape = selected?.tipo === 'shape' || selected?.tipo === 'forma';
   const isImage = selected?.tipo === 'image' || selected?.tipo === 'imagen';
@@ -48,6 +54,7 @@ export default function Inspector({
   const showImagePanel = tool === 'image' || isImage;
   const showTextPanel = tool === 'text' || isText;
   const showTimerPanel = tool === 'timer' || isTimer;
+  const showDrawingPanel = tool === 'draw' || tool === 'eraser';
 
   const shapeValue = (canonical, legacy) => {
     if (isShape) return selected[canonical] ?? selected[legacy] ?? DEFAULT_SHAPE_CONFIG[canonical];
@@ -63,14 +70,17 @@ export default function Inspector({
     <aside className="dc-inspector">
       <h2>[ SYS // PROPERTIES ]</h2>
 
-      {tool === 'draw' && (
-        <section>
-          <h3>[01] PINCEL</h3>
-          <label>COLOR</label>
-          <input type="color" value={drawConfig.color} onChange={(event) => setDrawConfig({ ...drawConfig, color: event.target.value })} />
-          <label>GROSOR <b>{drawConfig.size}</b></label>
-          <input type="range" min="2" max="100" value={drawConfig.size} onChange={(event) => setDrawConfig({ ...drawConfig, size: Number(event.target.value) })} />
-        </section>
+      {showDrawingPanel && (
+        <DrawingControls
+          tool={tool}
+          config={drawConfig}
+          setConfig={setDrawConfig}
+          activeLayer={activeDrawLayer}
+          onNewLayer={onNewDrawLayer}
+          onClearLayer={onClearDrawLayer}
+          onSelectDraw={onSelectDraw}
+          onSelectEraser={onSelectEraser}
+        />
       )}
 
       {showImagePanel && (
@@ -143,7 +153,7 @@ export default function Inspector({
         </section>
       )}
 
-      {!selected && !isMulti && !showShapePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && <p className="muted">SELECT A LAYER</p>}
+      {!selected && !isMulti && !showShapePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && tool !== 'eraser' && <p className="muted">SELECT A LAYER</p>}
 
       {selected && (
         <section>

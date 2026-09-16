@@ -19,7 +19,7 @@ import { configureSockets } from './sockets/index.js';
 validateEnv();
 const __dirname=path.dirname(fileURLToPath(import.meta.url)); const app=express(); const httpServer=createServer(app);
 const origins=String(process.env.CORS_ORIGINS||env.frontendUrl).split(',').map(v=>v.trim()).filter(Boolean);
-const io=new Server(httpServer,{cors:{origin:origins,credentials:true,methods:['GET','POST']},maxHttpBufferSize:400000});
+const io=new Server(httpServer,{cors:{origin:origins,credentials:true,methods:['GET','POST']},maxHttpBufferSize:2000000});
 app.disable('x-powered-by'); app.set('trust proxy',env.trustProxy); app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));
 app.use(cors({origin(origin,cb){if(!origin||origins.includes(origin))return cb(null,true);cb(new Error('Origen no permitido por CORS'));},credentials:true,methods:['GET','POST','PUT','PATCH','DELETE']}));
 app.use(cookieParser()); app.use(verifyBrowserOrigin); app.use(express.json({limit:'1mb'})); app.use(express.urlencoded({extended:true,limit:'1mb'})); app.use(apiLimiter);

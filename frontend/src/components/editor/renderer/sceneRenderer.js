@@ -8,21 +8,12 @@ export function drawGrid(ctx, width = 1920, height = 1080, step = 96) {
   ctx.save();
   ctx.strokeStyle = 'rgba(255,255,255,0.03)';
   ctx.lineWidth = 1;
-
   for (let x = 0; x < width; x += step) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
   }
-
   for (let y = 0; y < height; y += step) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
   }
-
   ctx.restore();
 }
 
@@ -31,6 +22,20 @@ export function renderScene(ctx, objects, options = {}) {
   const height = options.height || 1080;
   ctx.clearRect(0, 0, width, height);
   if (options.grid) drawGrid(ctx, width, height, options.gridStep || 96);
-
   for (const object of orderedObjects(objects)) drawObject(ctx, object, options);
+
+  for (const stroke of Object.values(options.liveStrokes || {})) {
+    drawObject(ctx, {
+      id: `live_${stroke.id}`,
+      tipo: 'draw',
+      x: Number(stroke.layerX) || 0,
+      y: Number(stroke.layerY) || 0,
+      w: Number(stroke.layerW) || 1920,
+      h: Number(stroke.layerH) || 1080,
+      sourceWidth: 1920,
+      sourceHeight: 1080,
+      lineas: [stroke],
+      zIndex: Number.MAX_SAFE_INTEGER
+    }, options);
+  }
 }

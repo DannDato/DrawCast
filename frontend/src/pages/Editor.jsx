@@ -7,13 +7,14 @@ import CanvasStage from '../components/editor/CanvasStage';
 import Inspector from '../components/editor/Inspector';
 import LayersPanel from '../components/editor/LayersPanel';
 import Toolbar from '../components/editor/Toolbar';
-import { makeDraw, makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
+import { makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
 import { moveSelectionOneLevel, reorderLayerUnits } from '../components/editor/layers/layerUtils';
 import { DEFAULT_SHAPE_CONFIG } from '../components/editor/tools/shapes/shapeTool';
 import { DEFAULT_IMAGE_CONFIG, fitImageSize, getImageKind, loadImageMetadata, validateImageFile } from '../components/editor/tools/images/imageTool';
 import { DEFAULT_TEXT_CONFIG, applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
 import { DEFAULT_TIMER_CONFIG, adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
+import { DEFAULT_DRAW_CONFIG, appendStrokeToLayer, clearDrawLayer, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 
 export default function Editor() {
   const { publicKey } = useParams();
@@ -23,7 +24,9 @@ export default function Editor() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [tool, setTool] = useState('select');
   const [guide, setGuide] = useState('none');
-  const [drawConfig, setDrawConfig] = useState({ color: '#ebebeb', size: 10 });
+  const [drawConfig, setDrawConfig] = useState(DEFAULT_DRAW_CONFIG);
+  const [activeDrawLayerId, setActiveDrawLayerId] = useState(null);
+  const [liveStrokes, setLiveStrokes] = useState({});
   const [shapeConfig, setShapeConfig] = useState(DEFAULT_SHAPE_CONFIG);
   const [imageConfig, setImageConfig] = useState(DEFAULT_IMAGE_CONFIG);
   const [textConfig, setTextConfig] = useState(DEFAULT_TEXT_CONFIG);
@@ -46,10 +49,12 @@ export default function Editor() {
         return next;
       });
     },
+    'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
     'clear-all': () => {
       setObjects({});
       setSelectedIds([]);
       setSelectedId(null);
+      setLiveStrokes({});
     }
   }), []);
 
@@ -66,6 +71,7 @@ export default function Editor() {
 
   const select = (id, options = {}) => {
     const { append = false } = options;
+    if (id && isDrawLayer(objects[id])) setActiveDrawLayerId(id);
     if (!id) {
       if (!append) setSelection([]);
       return;
@@ -126,6 +132,8 @@ export default function Editor() {
     setObjects({});
     setSelectedIds([]);
     setSelectedId(null);
+    setActiveDrawLayerId(null);
+    setLiveStrokes({});
     socket.emit('clear-all');
   };
 
@@ -136,6 +144,8 @@ export default function Editor() {
     setObjects(previous);
     setSelectedIds([]);
     setSelectedId(null);
+    setActiveDrawLayerId(null);
+    setLiveStrokes({});
     socket.emit('clear-all');
     Object.values(previous).forEach((object) => socket.emit('obj-upsert', object));
   };
@@ -151,6 +161,7 @@ export default function Editor() {
       return next;
     });
     const remainingSelection = selectedIds.filter((id) => !targets.includes(id));
+    if (activeDrawLayerId && targets.includes(activeDrawLayerId)) setActiveDrawLayerId(null);
     setSelectedIds(remainingSelection);
     setSelectedId(remainingSelection.at(-1) || null);
   };
@@ -196,6 +207,80 @@ export default function Editor() {
   };
 
 
+  const activeDrawLayer = activeDrawLayerId && isDrawLayer(objects[activeDrawLayerId]) ? objects[activeDrawLayerId] : null;
+
+  const createDrawLayer = () => {
+    const layer = makeDrawLayer(objects);
+    snapshot();
+    upsert(layer);
+    setActiveDrawLayerId(layer.id);
+    setSelection([layer.id], layer.id);
+    return layer;
+  };
+
+  const ensureDrawLayer = () => {
+    if (activeDrawLayer) return activeDrawLayer;
+    const existing = Object.values(objects).filter(isDrawLayer).sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0];
+    if (existing) {
+      setActiveDrawLayerId(existing.id);
+      return existing;
+    }
+    return createDrawLayer();
+  };
+
+  const clearActiveDrawLayer = () => {
+    const layer = ensureDrawLayer();
+    if (!layer || !(layer.lineas || []).length) return;
+    snapshot();
+    upsert(clearDrawLayer(layer));
+  };
+
+  const emitLiveStroke = (phase, stroke, layer, point = null) => {
+    if (!stroke || !layer) return;
+    socket.emit('draw-live', {
+      phase,
+      strokeId: stroke.id,
+      layerId: layer.id,
+      mode: stroke.mode,
+      color: stroke.color,
+      size: stroke.size,
+      brush: stroke.brush,
+      opacity: stroke.opacity,
+      layerX: Number(layer.x) || 0,
+      layerY: Number(layer.y) || 0,
+      layerW: Number(layer.w) || 1920,
+      layerH: Number(layer.h) || 1080,
+      point
+    });
+  };
+
+  const startDrawStroke = (stroke, layer) => emitLiveStroke('start', stroke, layer, stroke.points?.[0]);
+  const continueDrawStroke = (strokeId, point) => {
+    const layer = activeDrawLayerId ? objects[activeDrawLayerId] : null;
+    if (!layer) return;
+    socket.emit('draw-live', { phase: 'point', strokeId, point });
+  };
+  const commitDrawStroke = (stroke) => {
+    const layer = objects[stroke.layerId];
+    if (!layer || !isDrawLayer(layer)) return;
+    snapshot();
+    upsert(appendStrokeToLayer(layer, stroke));
+    emitLiveStroke('end', stroke, layer);
+    setActiveDrawLayerId(layer.id);
+    setSelection([layer.id], layer.id);
+  };
+
+  useEffect(() => {
+    if (tool !== 'draw' && tool !== 'eraser') return;
+    ensureDrawLayer();
+  }, [tool]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setLiveStrokes((current) => pruneLiveStrokes(current)), 2000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+
   useEffect(() => {
     api.get('/channels/mine').then(({ data }) => {
       const allChannels = [data.owned, ...(data.collaborations || [])].filter(Boolean);
@@ -209,6 +294,8 @@ export default function Editor() {
       if (target instanceof HTMLElement && (target.matches('input, textarea, select') || target.isContentEditable)) return;
 
       const modifier = event.ctrlKey || event.metaKey;
+      if (!modifier && event.key.toLowerCase() === 'p') { setTool('draw'); return; }
+      if (!modifier && event.key.toLowerCase() === 'e') { setTool('eraser'); return; }
       if (modifier && event.key.toLowerCase() === 'g') {
         event.preventDefault();
         if (event.shiftKey) ungroupSelection();
@@ -351,7 +438,11 @@ export default function Editor() {
           onTransformStart={snapshot}
           tool={tool}
           drawConfig={drawConfig}
-          onDraw={(lines) => add(makeDraw(lines))}
+          activeDrawLayer={activeDrawLayer}
+          liveStrokes={liveStrokes}
+          onDrawStart={startDrawStroke}
+          onDrawPoint={continueDrawStroke}
+          onDrawCommit={commitDrawStroke}
           shapeConfig={shapeConfig}
           onShapeCreate={(draft) => {
             add(makeShape(draft));
@@ -414,6 +505,11 @@ export default function Editor() {
         onUngroup={ungroupSelection}
         onDuplicate={duplicateSelected}
         onMoveLayer={moveSelectedLayer}
+        activeDrawLayer={activeDrawLayer}
+        onNewDrawLayer={createDrawLayer}
+        onClearDrawLayer={clearActiveDrawLayer}
+        onSelectDraw={() => setTool('draw')}
+        onSelectEraser={() => setTool('eraser')}
       />
     </div>
   );

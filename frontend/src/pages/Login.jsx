@@ -35,8 +35,8 @@ export default function Login() {
     };
     return (
         <AuthShell
-            eyebrow="USER AUTHENTICATION"
-            title="WELCOME // BACK"
+            eyebrow=""
+            title="INICIAR // SESIÓN"
             description="Accede a tu consola DrawCast para administrar tu canal, colaboradores y editor."
         >
             <Helmet>
@@ -50,7 +50,7 @@ export default function Login() {
             </Helmet>
             <form onSubmit={submit} className="dc-auth-form">
                 <label>
-                    USER / EMAIL
+                    USUARIO / EMAIL
                     <input
                         placeholder="Usuario o email"
                         value={login}
@@ -59,7 +59,7 @@ export default function Login() {
                     />
                 </label>
                 <label>
-                    PASSWORD
+                    CONTRASEÑA
                     <input
                         type="password"
                         placeholder="Contraseña"
@@ -71,16 +71,16 @@ export default function Login() {
                 {error ? <p className="dc-auth-alert error">{error}</p> : null}
                 <button className="dc-auth-primary" disabled={loading}>
                     <LogIn size={16} />
-                    {loading ? "AUTHENTICATING..." : "LOGIN"}
+                    {loading ? "AUTENTICANDO..." : "INICIAR SESIÓN"}
                 </button>
             </form>
             <div className="dc-auth-divider">
-                <span>OR CONTINUE WITH</span>
+                <span>O CONTINUAR CON</span>
             </div>
             <GoogleAuthButton mode="signin" onError={setError} />
             <div className="dc-auth-links">
-                <Link to="/register">CREATE ACCOUNT</Link>
-                <Link to="/forgot-password">FORGOT PASSWORD?</Link>
+                <Link to="/register">Crear cuenta</Link>
+                <Link to="/forgot-password">Olvidaste tu contraseña?</Link>
             </div>
         </AuthShell>
     );

@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import {
   EyeOff,
+  Eraser,
   Image,
   MousePointer2,
   Pencil,
@@ -13,7 +14,8 @@ import {
 
 const tools = [
   { id: 'select', label: 'SELECT // MOVE', icon: MousePointer2 },
-  { id: 'draw', label: 'DRAW // PENCIL', icon: Pencil },
+  { id: 'draw', label: 'DRAW // BRUSH', icon: Pencil },
+  { id: 'eraser', label: 'DRAW // ERASER', icon: Eraser },
   { id: 'image', label: 'IMPORT IMAGE / GIF', icon: Image },
   { id: 'shape', label: 'SHAPES', icon: Shapes },
   { id: 'text', label: 'TEXT GENERATOR', icon: Type },

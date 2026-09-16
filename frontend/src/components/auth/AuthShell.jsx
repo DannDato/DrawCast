@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 export default function AuthShell({ eyebrow = 'SECURE ACCESS', title, description, children, footer }) {
   return <main className="dc-auth-page">
     <div className="dc-auth-grid" aria-hidden="true" />
-    <Link className="dc-auth-brand" to="/"><strong>DrawCast</strong><span>// DannDato</span></Link>
+    <Link className="dc-auth-brand" to="/"><strong>DrawCast</strong><span>//</span></Link>
     <section className="dc-auth-card">
       <div className="dc-auth-card-line" />
       <div className="dc-auth-eyebrow">{eyebrow}</div>
