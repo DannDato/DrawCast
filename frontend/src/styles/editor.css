@@ -439,3 +439,328 @@
   color: var(--dc-muted);
   font: 700 9px monospace;
 }
+
+/* DrawCast editor // Patch 04
+   Text + Timer */
+
+.dc-inline-text-editor {
+  position: fixed;
+  z-index: 90;
+  width: min(620px, 48vw);
+  min-width: 180px;
+  min-height: 44px;
+  margin: 0;
+  padding: 5px 7px;
+  overflow: hidden;
+  resize: none;
+  border: 1px solid var(--dc-accent);
+  outline: none;
+  background: #08090bf2;
+  box-shadow: 0 0 0 2px var(--dc-accent-soft), 0 12px 30px #000b;
+  font-weight: 900;
+  line-height: 1.18;
+}
+
+.dc-inline-text-editor::selection {
+  background: var(--dc-accent);
+  color: #fff;
+}
+
+.dc-timer-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin: 3px 0 5px;
+}
+
+.dc-timer-actions button {
+  min-width: 0;
+  min-height: 33px;
+  padding: 6px 3px;
+  border: 1px solid var(--dc-line);
+  background: #08090b;
+  color: var(--dc-text);
+  font: 800 9px monospace;
+  cursor: pointer;
+}
+
+.dc-timer-actions button:hover:not(:disabled),
+.dc-timer-actions button.primary {
+  border-color: var(--dc-accent);
+  color: var(--dc-accent);
+}
+
+.dc-timer-actions button.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: var(--dc-accent-soft);
+}
+
+.dc-timer-actions button:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* DrawCast editor // Patch 06
+   Groups + Layers */
+
+.dc-layers {
+  width: 330px;
+  max-height: 430px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #0c0e11f2;
+  border: 1px solid var(--dc-line);
+  box-shadow: 0 16px 42px #000a;
+}
+
+.dc-layers .dc-layers-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 9px 8px 11px;
+  border-bottom: 1px solid var(--dc-line);
+  color: var(--dc-accent);
+}
+
+.dc-layers .dc-layers-head > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font: 900 13px 'Bebas Neue', sans-serif;
+  letter-spacing: 1.2px;
+}
+
+.dc-layers .dc-layers-head > button,
+.dc-layers .dc-layer-selection-actions button,
+.dc-layers .dc-layer-icon-btn {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--dc-line);
+  background: #08090b;
+  color: var(--dc-muted);
+  font: 800 8px monospace;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dc-layers .dc-layers-head > button:hover,
+.dc-layers .dc-layer-selection-actions button:hover,
+.dc-layers .dc-layer-icon-btn:hover {
+  border-color: var(--dc-accent);
+  color: var(--dc-accent);
+}
+
+.dc-layer-selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--dc-line);
+  background: var(--dc-accent-soft);
+}
+
+.dc-layer-selection-actions > span {
+  margin-right: auto;
+  color: var(--dc-text);
+  font: 800 8px monospace;
+  letter-spacing: .7px;
+}
+
+.dc-layers .dc-layer-selection-actions button {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+}
+
+.dc-layers .dc-layer-selection-actions button.danger,
+.dc-layers .dc-layer-icon-btn.danger {
+  color: var(--dc-accent);
+}
+
+.dc-layer-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dc-layers-empty {
+  padding: 24px 12px;
+  color: var(--dc-muted);
+  font: 700 9px monospace;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.dc-layer-row,
+.dc-layer-group-head {
+  display: grid;
+  grid-template-columns: 18px 24px minmax(0, 1fr) 28px 28px;
+  align-items: center;
+  gap: 5px;
+  min-height: 46px;
+  padding: 5px 7px;
+  border-bottom: 1px solid #202329;
+  color: var(--dc-muted);
+  background: transparent;
+  cursor: default;
+  transition: background .12s ease, border-color .12s ease, opacity .12s ease;
+}
+
+.dc-layer-row:hover,
+.dc-layer-group-head:hover {
+  background: #14171c;
+}
+
+.dc-layer-row.selected,
+.dc-layer-group.selected > .dc-layer-group-head {
+  color: var(--dc-text);
+  background: var(--dc-accent-soft);
+  box-shadow: inset 2px 0 0 var(--dc-accent);
+}
+
+.dc-layer-row.is-hidden {
+  opacity: .5;
+}
+
+.dc-layer-row[draggable='true'],
+.dc-layer-group[draggable='true'] > .dc-layer-group-head {
+  cursor: pointer;
+}
+
+.dc-layer-grip {
+  display: grid;
+  place-items: center;
+  color: #565c67;
+  cursor: grab;
+}
+
+.dc-layer-grip:active {
+  cursor: grabbing;
+}
+
+.dc-layer-index {
+  color: #555b66;
+  font: 700 8px monospace;
+}
+
+.dc-layer-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.dc-layer-copy b {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font: 800 9px monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-layer-copy small {
+  min-width: 0;
+  overflow: hidden;
+  color: #626873;
+  font: 700 7px monospace;
+  letter-spacing: .5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-layers .dc-layer-icon-btn {
+  display: grid;
+  place-items: center;
+  padding: 5px;
+}
+
+.dc-layer-group {
+  border-bottom: 1px solid var(--dc-line);
+  background: #0a0c0f;
+}
+
+.dc-layer-group-head {
+  grid-template-columns: 28px 18px 18px minmax(0, 1fr) 28px;
+  min-height: 44px;
+  border-bottom: 0;
+  color: var(--dc-text);
+}
+
+.dc-layer-group-head > svg {
+  color: var(--dc-accent);
+}
+
+.dc-layer-group-members {
+  border-top: 1px solid #1c1f25;
+  box-shadow: inset 20px 0 0 #090a0c;
+}
+
+.dc-layer-group-members .dc-layer-row {
+  padding-left: 18px;
+  background: #0b0d10;
+}
+
+.dc-layers.is-compact {
+  width: 292px;
+}
+
+.dc-layers.is-compact .dc-layer-row,
+.dc-layers.is-compact .dc-layer-group-head {
+  min-height: 34px;
+}
+
+.dc-layers.is-compact .dc-layer-row {
+  grid-template-columns: 16px 20px minmax(0, 1fr) 25px 25px;
+}
+
+.dc-layers.is-compact .dc-layer-group-head {
+  grid-template-columns: 25px 16px 16px minmax(0, 1fr) 25px;
+}
+
+.dc-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dc-selection-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dc-selection-grid button,
+.dc-secondary-wide {
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--dc-line);
+  background: #08090b;
+  color: var(--dc-text);
+  font: 800 9px monospace;
+  cursor: pointer;
+}
+
+.dc-selection-grid button:hover,
+.dc-secondary-wide:hover {
+  border-color: var(--dc-accent);
+  color: var(--dc-accent);
+}
+
+.dc-secondary-wide {
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .dc-layers { width: 280px; }
+}

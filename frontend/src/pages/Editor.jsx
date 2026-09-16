@@ -8,57 +8,123 @@ import Inspector from '../components/editor/Inspector';
 import LayersPanel from '../components/editor/LayersPanel';
 import Toolbar from '../components/editor/Toolbar';
 import { makeDraw, makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
+import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
+import { moveSelectionOneLevel, reorderLayerUnits } from '../components/editor/layers/layerUtils';
 import { DEFAULT_SHAPE_CONFIG } from '../components/editor/tools/shapes/shapeTool';
 import { DEFAULT_IMAGE_CONFIG, fitImageSize, getImageKind, loadImageMetadata, validateImageFile } from '../components/editor/tools/images/imageTool';
+import { DEFAULT_TEXT_CONFIG, applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
+import { DEFAULT_TIMER_CONFIG, adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
 
 export default function Editor() {
   const { publicKey } = useParams();
   const [channelId, setChannelId] = useState(null);
   const [objects, setObjects] = useState({});
   const [selectedId, setSelectedId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [tool, setTool] = useState('select');
   const [guide, setGuide] = useState('none');
   const [drawConfig, setDrawConfig] = useState({ color: '#ebebeb', size: 10 });
   const [shapeConfig, setShapeConfig] = useState(DEFAULT_SHAPE_CONFIG);
   const [imageConfig, setImageConfig] = useState(DEFAULT_IMAGE_CONFIG);
+  const [textConfig, setTextConfig] = useState(DEFAULT_TEXT_CONFIG);
+  const [timerConfig, setTimerConfig] = useState(DEFAULT_TIMER_CONFIG);
   const [history, setHistory] = useState([]);
   const [mediaStatus, setMediaStatus] = useState('');
 
   const handlers = useMemo(() => ({
     'sync-state': ({ objects: list }) => setObjects(Object.fromEntries(list.map((object) => [object.id, object]))),
     'obj-upsert': (object) => setObjects((current) => ({ ...current, [object.id]: object })),
-    'obj-remove': ({ id }) => setObjects((current) => {
-      const next = { ...current };
-      delete next[id];
-      return next;
-    }),
-    'clear-all': () => setObjects({})
+    'obj-remove': ({ id }) => {
+      setObjects((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      setSelectedIds((current) => {
+        const next = current.filter((item) => item !== id);
+        setSelectedId((primary) => primary === id ? next.at(-1) || null : primary);
+        return next;
+      });
+    },
+    'clear-all': () => {
+      setObjects({});
+      setSelectedIds([]);
+      setSelectedId(null);
+    }
   }), []);
 
   const { socket, presence, connected, denied } = useChannelSocket(publicKey, 'editor', handlers);
 
   const snapshot = () => setHistory((current) => [...current.slice(-29), objects]);
 
+  const setSelection = (ids = [], primaryId = null) => {
+    const unique = [...new Set(ids)].filter((id) => objects[id]);
+    const primary = primaryId && unique.includes(primaryId) ? primaryId : unique.at(-1) || null;
+    setSelectedIds(unique);
+    setSelectedId(primary);
+  };
+
+  const select = (id, options = {}) => {
+    const { append = false } = options;
+    if (!id) {
+      if (!append) setSelection([]);
+      return;
+    }
+
+    if (!append) {
+      setSelection([id], id);
+      return;
+    }
+
+    const next = selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id];
+    setSelection(next, next.includes(id) ? id : next.at(-1) || null);
+  };
+
   const upsert = (object) => {
+    if (!object?.id) return;
     setObjects((current) => ({ ...current, [object.id]: object }));
     socket.emit('obj-upsert', object);
   };
 
-  const patch = (id, patchData) => {
-    const current = objects[id];
-    if (!current) return;
-    upsert({ ...current, ...patchData });
+  const applyUpdates = (updates = []) => {
+    const valid = updates.filter(({ id }) => objects[id]);
+    if (!valid.length) return;
+
+    const nextObjects = valid.map(({ id, patch }) => ({ ...objects[id], ...patch }));
+    setObjects((current) => {
+      const next = { ...current };
+      nextObjects.forEach((object) => { next[object.id] = { ...next[object.id], ...object }; });
+      return next;
+    });
+    nextObjects.forEach((object) => socket.emit('obj-upsert', object));
   };
+
+  const patch = (id, patchData) => applyUpdates([{ id, patch: patchData }]);
 
   const add = (object) => {
     snapshot();
     upsert(object);
+    setSelectedIds([object.id]);
     setSelectedId(object.id);
+  };
+
+  const addMany = (list, options = {}) => {
+    if (!list.length) return;
+    if (options.snapshot !== false) snapshot();
+    setObjects((current) => {
+      const next = { ...current };
+      list.forEach((object) => { next[object.id] = object; });
+      return next;
+    });
+    list.forEach((object) => socket.emit('obj-upsert', object));
+    setSelectedIds(list.map((object) => object.id));
+    setSelectedId(list.at(-1)?.id || null);
   };
 
   const clear = () => {
     snapshot();
     setObjects({});
+    setSelectedIds([]);
     setSelectedId(null);
     socket.emit('clear-all');
   };
@@ -68,21 +134,67 @@ export default function Editor() {
     if (!previous) return;
     setHistory((current) => current.slice(0, -1));
     setObjects(previous);
+    setSelectedIds([]);
+    setSelectedId(null);
     socket.emit('clear-all');
     Object.values(previous).forEach((object) => socket.emit('obj-upsert', object));
   };
 
-  const removeSelected = () => {
-    if (!selectedId) return;
+  const removeLayers = (ids = selectedIds) => {
+    const targets = [...new Set(ids)].filter((id) => objects[id]);
+    if (!targets.length) return;
     snapshot();
-    socket.emit('obj-remove', { id: selectedId });
+    targets.forEach((id) => socket.emit('obj-remove', { id }));
     setObjects((current) => {
       const next = { ...current };
-      delete next[selectedId];
+      targets.forEach((id) => delete next[id]);
       return next;
     });
-    setSelectedId(null);
+    const remainingSelection = selectedIds.filter((id) => !targets.includes(id));
+    setSelectedIds(remainingSelection);
+    setSelectedId(remainingSelection.at(-1) || null);
   };
+
+  const groupSelection = () => {
+    const transformable = selectedIds.filter((id) => {
+      const object = objects[id];
+      return object && [object.x, object.y, object.w, object.h].every((value) => Number.isFinite(Number(value)));
+    });
+    if (transformable.length < 2) return;
+
+    const result = createGroupPatches(objects, transformable);
+    if (!result.updates.length) return;
+    snapshot();
+    applyUpdates(result.updates);
+    setSelection(transformable, transformable.at(-1));
+  };
+
+  const ungroupSelection = () => {
+    const updates = ungroupPatches(objects, selectedIds);
+    if (!updates.length) return;
+    snapshot();
+    applyUpdates(updates);
+  };
+
+  const duplicateSelected = () => {
+    const result = duplicateSelection(objects, selectedIds.length ? selectedIds : selectedId ? [selectedId] : []);
+    addMany(result.objects);
+  };
+
+  const reorderLayers = (draggedId, targetId) => {
+    const updates = reorderLayerUnits(objects, draggedId, targetId);
+    if (!updates.length) return;
+    snapshot();
+    applyUpdates(updates);
+  };
+
+  const moveSelectedLayer = (direction) => {
+    const updates = moveSelectionOneLevel(objects, selectedIds, direction);
+    if (!updates.length) return;
+    snapshot();
+    applyUpdates(updates);
+  };
+
 
   useEffect(() => {
     api.get('/channels/mine').then(({ data }) => {
@@ -90,6 +202,35 @@ export default function Editor() {
       setChannelId(allChannels.find((channel) => channel.publicKey === publicKey)?.id || null);
     });
   }, [publicKey]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.matches('input, textarea, select') || target.isContentEditable)) return;
+
+      const modifier = event.ctrlKey || event.metaKey;
+      if (modifier && event.key.toLowerCase() === 'g') {
+        event.preventDefault();
+        if (event.shiftKey) ungroupSelection();
+        else groupSelection();
+        return;
+      }
+      if (modifier && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        duplicateSelected();
+        return;
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        removeLayers();
+        return;
+      }
+      if (event.key === 'Escape') setSelection([]);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
 
   const addMediaObject = async ({ url, name, mimeType, point }) => {
     const metadata = await loadImageMetadata(url);
@@ -148,27 +289,53 @@ export default function Editor() {
     }
   };
 
-  const chooseTool = (nextTool) => {
-    if (nextTool === 'text') {
-      add(makeText(700, 450));
-      setTool('select');
-      return;
+  const commitText = ({ id, x, y, text, config }) => {
+    if (id && objects[id]) {
+      snapshot();
+      upsert(updateTextContent({ ...objects[id], x, y }, text, config));
+      setSelection([id], id);
+    } else {
+      add(makeText(x, y, text, config));
     }
+    setTool('select');
+  };
 
-    if (nextTool === 'timer') {
-      add(makeTimer(700, 450));
-      setTool('select');
-      return;
-    }
+  const singleSelected = selectedIds.length === 1 ? objects[selectedId] : null;
 
-    setTool(nextTool);
+  const patchSelectedText = (patchData) => {
+    const current = singleSelected;
+    if (!current || (current.tipo !== 'text' && current.tipo !== 'texto')) return;
+    upsert(applyTextStyle(current, patchData));
+  };
+
+  const createTimer = (point) => {
+    add(makeTimer(point.x, point.y, timerConfig));
+    setTool('select');
+  };
+
+  const patchSelectedTimer = (patchData) => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'timer') return;
+    upsert(applyTimerConfig(current, patchData));
+  };
+
+  const toggleSelectedTimer = () => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'timer') return;
+    upsert(toggleTimer(current));
+  };
+
+  const adjustSelectedTimer = (deltaSeconds) => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'timer') return;
+    upsert(adjustTimerSeconds(current, deltaSeconds));
   };
 
   if (denied) return <div className="dc-denied">ACCESS DENIED // <Link to="/app">RETURN</Link></div>;
 
   return (
     <div className="dc-editor">
-      <Toolbar tool={tool} setTool={chooseTool} guide={guide} setGuide={setGuide} onClear={clear} onUndo={undo} connected={connected} />
+      <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={clear} onUndo={undo} connected={connected} />
 
       <main className="dc-workspace">
         <div className="dc-watermark">DrawCast <span>// DannDato</span></div>
@@ -176,8 +343,11 @@ export default function Editor() {
         <CanvasStage
           objects={objects}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          selectedIds={selectedIds}
+          onSelect={select}
+          onSelectMany={setSelection}
           onPatchObject={patch}
+          onPatchObjects={applyUpdates}
           onTransformStart={snapshot}
           tool={tool}
           drawConfig={drawConfig}
@@ -187,6 +357,9 @@ export default function Editor() {
             add(makeShape(draft));
             setTool('select');
           }}
+          textConfig={textConfig}
+          onTextCommit={commitText}
+          onTimerCreate={createTimer}
           onMediaDrop={({ file, url, point }) => file ? uploadFile(file, point) : importRemote(url, point)}
           guide={guide}
         />
@@ -197,23 +370,50 @@ export default function Editor() {
           {mediaStatus && <span className="dc-media-status"> // {mediaStatus}</span>}
         </div>
 
-        <LayersPanel objects={objects} selectedId={selectedId} onSelect={setSelectedId} onPatch={patch} />
+        <LayersPanel
+          objects={objects}
+          selectedIds={selectedIds}
+          onSelect={select}
+          onSelectMany={setSelection}
+          onPatch={patch}
+          onPatchMany={applyUpdates}
+          onRemove={removeLayers}
+          onReorder={reorderLayers}
+          onGroup={groupSelection}
+          onUngroup={ungroupSelection}
+          onDuplicate={duplicateSelected}
+        />
       </main>
 
       <Inspector
         tool={tool}
-        selected={objects[selectedId]}
+        selected={singleSelected}
+        selectedObjects={selectedIds.map((id) => objects[id]).filter(Boolean)}
+        selectionCount={selectedIds.length}
+        selectedGroupCount={selectedGroupIds(objects, selectedIds).length}
         drawConfig={drawConfig}
         setDrawConfig={setDrawConfig}
         shapeConfig={shapeConfig}
         setShapeConfig={setShapeConfig}
         imageConfig={imageConfig}
         setImageConfig={setImageConfig}
+        textConfig={textConfig}
+        setTextConfig={setTextConfig}
+        timerConfig={timerConfig}
+        setTimerConfig={setTimerConfig}
         channelId={channelId}
         onUploadFile={uploadFile}
         onImportUrl={importRemote}
-        onPatch={(patchData) => patch(selectedId, patchData)}
-        onDelete={removeSelected}
+        onPatch={(patchData) => selectedId && patch(selectedId, patchData)}
+        onPatchText={patchSelectedText}
+        onPatchTimer={patchSelectedTimer}
+        onToggleTimer={toggleSelectedTimer}
+        onAdjustTimer={adjustSelectedTimer}
+        onDelete={() => removeLayers()}
+        onGroup={groupSelection}
+        onUngroup={ungroupSelection}
+        onDuplicate={duplicateSelected}
+        onMoveLayer={moveSelectedLayer}
       />
     </div>
   );

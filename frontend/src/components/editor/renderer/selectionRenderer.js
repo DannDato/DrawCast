@@ -1,12 +1,37 @@
 export const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const HANDLE_SIZE = 16;
 
+export function getObjectBounds(object) {
+  if (!object || object.hidden) return null;
+  const x = Number(object.x);
+  const y = Number(object.y);
+  const w = Number(object.w);
+  const h = Number(object.h);
+  if (![x, y, w, h].every(Number.isFinite)) return null;
+  return { x, y, w: Math.max(0, w), h: Math.max(0, h) };
+}
+
+export function getSelectionBounds(objects) {
+  const bounds = (objects || []).map(getObjectBounds).filter(Boolean);
+  if (!bounds.length) return null;
+
+  const minX = Math.min(...bounds.map((item) => item.x));
+  const minY = Math.min(...bounds.map((item) => item.y));
+  const maxX = Math.max(...bounds.map((item) => item.x + item.w));
+  const maxY = Math.max(...bounds.map((item) => item.y + item.h));
+
+  return { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
+}
+
+export function boundsOverlap(a, b) {
+  if (!a || !b) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
 export function getResizeHandles(object) {
-  if (!object || object.hidden || object.tipo === 'draw' || object.tipo === 'trazo') return [];
-  const x = Number(object.x) || 0;
-  const y = Number(object.y) || 0;
-  const w = Number(object.w) || 0;
-  const h = Number(object.h) || 0;
+  const bounds = getObjectBounds(object);
+  if (!bounds || object.tipo === 'draw' || object.tipo === 'trazo') return [];
+  const { x, y, w, h } = bounds;
   const cx = x + w / 2;
   const cy = y + h / 2;
 
@@ -23,29 +48,65 @@ export function hitResizeHandle(object, x, y) {
   return getResizeHandles(object).find((handle) => Math.abs(handle.x - x) <= tolerance && Math.abs(handle.y - y) <= tolerance)?.id || null;
 }
 
-export function drawSelection(ctx, object, accent = '#ff315c') {
-  if (!object || object.hidden || object.tipo === 'draw' || object.tipo === 'trazo') return;
-
-  const x = Number(object.x) || 0;
-  const y = Number(object.y) || 0;
-  const w = Number(object.w) || 0;
-  const h = Number(object.h) || 0;
-
+function strokeBounds(ctx, bounds, accent, options = {}) {
+  const { handles = false, outer = false } = options;
   ctx.save();
   ctx.strokeStyle = accent;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10, 7]);
-  ctx.strokeRect(x - 4, y - 4, w + 8, h + 8);
+  ctx.lineWidth = outer ? 3 : 2;
+  ctx.globalAlpha = outer ? 0.95 : 0.72;
+  ctx.setLineDash(outer ? [14, 8] : [10, 7]);
+  ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.w + 8, bounds.h + 8);
   ctx.setLineDash([]);
 
-  for (const handle of getResizeHandles(object)) {
-    ctx.fillStyle = '#090a0c';
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 3;
-    ctx.fillRect(handle.x - 7, handle.y - 7, 14, 14);
-    ctx.strokeRect(handle.x - 7, handle.y - 7, 14, 14);
+  if (handles) {
+    for (const handle of getResizeHandles(bounds)) {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#090a0c';
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 3;
+      ctx.fillRect(handle.x - 7, handle.y - 7, 14, 14);
+      ctx.strokeRect(handle.x - 7, handle.y - 7, 14, 14);
+    }
   }
 
+  ctx.restore();
+}
+
+export function drawSelection(ctx, object, accent = '#ff315c', options = {}) {
+  const bounds = getObjectBounds(object);
+  if (!bounds || object.tipo === 'draw' || object.tipo === 'trazo') return;
+  strokeBounds(ctx, bounds, accent, { handles: options.handles !== false });
+}
+
+export function drawMultiSelection(ctx, objects, accent = '#ff315c') {
+  const visible = (objects || []).filter((object) => getObjectBounds(object));
+  if (!visible.length) return;
+
+  visible.forEach((object) => drawSelection(ctx, object, accent, { handles: false }));
+  if (visible.length > 1) {
+    const bounds = getSelectionBounds(visible);
+    if (bounds) strokeBounds(ctx, bounds, accent, { outer: true });
+  }
+}
+
+export function drawMarquee(ctx, start, end, accent = '#ff315c') {
+  if (!start || !end) return;
+  const bounds = {
+    x: Math.min(start.x, end.x),
+    y: Math.min(start.y, end.y),
+    w: Math.abs(end.x - start.x),
+    h: Math.abs(end.y - start.y)
+  };
+
+  ctx.save();
+  ctx.fillStyle = accent;
+  ctx.globalAlpha = 0.12;
+  ctx.fillRect(bounds.x, bounds.y, bounds.w, bounds.h);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([12, 8]);
+  ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
   ctx.restore();
 }
 
@@ -80,8 +141,7 @@ export function resizeFromHandle(object, handle, pointer, startPointer, keepAspe
       h = Math.max(8, w / aspect);
       y = original.y + (original.h - h) / 2;
     } else {
-      const targetH = Math.max(8, w / aspect);
-      h = targetH;
+      h = Math.max(8, w / aspect);
       if (handle.includes('n')) y = original.y + original.h - h;
       if (handle.includes('w')) x = original.x + original.w - w;
     }

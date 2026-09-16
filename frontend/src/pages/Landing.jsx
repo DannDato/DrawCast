@@ -1,9 +1,25 @@
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { ArrowRight, Check, Clock3, MonitorUp, PenTool, Radio, Type, Users } from "lucide-react";
 
 export default function Landing() {
     return (
         <main className="min-h-screen overflow-hidden bg-[var(--dc-bg)] text-[var(--dc-text)]">
+
+            <Helmet>
+                <title>DrawCast — Overlays para OBS en Tiempo Real</title>
+                <meta
+                    name="description"
+                    content="Crea y controla overlays dinámicos para tu transmisión en vivo. Conecta DrawCast a OBS Studio como Browser Source y opera tu stream en tiempo real, en equipo."
+                />
+                <link rel="canonical" href="https://drawcast.app/" />
+                <meta property="og:title" content="DrawCast — Overlays para OBS en Tiempo Real" />
+                <meta
+                    property="og:description"
+                    content="Dibuja tu escena, comparte el control con tu equipo y transmite cada cambio al instante en OBS."
+                />
+                <meta property="og:url" content="https://drawcast.app/" />
+            </Helmet>
 
             {/* HERO */}
             <section className="mx-auto flex min-h-screen w-full max-w-[1240px] flex-col px-6 md:px-10 xl:px-0">

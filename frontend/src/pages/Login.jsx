@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { LogIn } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
@@ -38,6 +39,15 @@ export default function Login() {
             title="WELCOME // BACK"
             description="Accede a tu consola DrawCast para administrar tu canal, colaboradores y editor."
         >
+            <Helmet>
+                <title>Iniciar Sesión — DrawCast</title>
+                <meta
+                    name="description"
+                    content="Inicia sesión en tu consola de DrawCast para administrar tu canal, tus overlays y colaboradores en tiempo real."
+                />
+                <link rel="canonical" href="https://drawcast.app/login" />
+                <meta name="robots" content="noindex, follow" />
+            </Helmet>
             <form onSubmit={submit} className="dc-auth-form">
                 <label>
                     USER / EMAIL

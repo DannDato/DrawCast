@@ -1,4 +1,6 @@
 import { drawShape, traceRoundedRect } from './shapeRenderer';
+import { drawTextLayer } from './textRenderer';
+import { getTimerText } from '../tools/timer/timerTool';
 
 const images = new Map();
 
@@ -23,43 +25,6 @@ function getImage(url) {
   }
 
   return image;
-}
-
-export function timerText(object, now = Date.now()) {
-  const mode = object.timerMode || object.mode || 'up';
-  const startSeconds = Math.max(0, Number(object.startSeconds ?? object.baseSeconds) || 0);
-  const limitSeconds = Math.max(0, Number(object.limitSeconds ?? 359999) || 0);
-  const running = Boolean(object.timerRunning ?? object.running);
-  const fallbackCurrent = Number.isFinite(object.timerCurrentSeconds) ? object.timerCurrentSeconds : startSeconds;
-  let current = fallbackCurrent;
-
-  if (running) {
-    const resumeSeconds = Number.isFinite(object.timerResumeSeconds) ? object.timerResumeSeconds : fallbackCurrent;
-    const startedAt = Number.isFinite(object.startedAtMs) ? object.startedAtMs : Number(object.startedAt) || now;
-    const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
-    current = mode === 'down' ? Math.max(limitSeconds, resumeSeconds - elapsed) : Math.min(limitSeconds, resumeSeconds + elapsed);
-  }
-
-  const safe = Math.max(0, Math.floor(current));
-  const hours = Math.floor(safe / 3600);
-  const minutes = Math.floor((safe % 3600) / 60);
-  const seconds = safe % 60;
-  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
-}
-
-function drawText(ctx, object, value) {
-  const fontSize = Number(object.fontSize) || 64;
-  const fontFamily = object.fontFamily || object.font || 'Outfit';
-  const strokeWidth = Math.max(0, Number(object.strokeWidth ?? object.strokeSize) || 0);
-
-  ctx.font = `900 ${fontSize}px ${fontFamily}`;
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = object.color || '#ffffff';
-  ctx.lineWidth = strokeWidth;
-  ctx.strokeStyle = object.strokeColor || object.stroke || '#000000';
-
-  if (strokeWidth > 0) ctx.strokeText(value || '', object.x || 0, object.y || 0);
-  ctx.fillText(value || '', object.x || 0, object.y || 0);
 }
 
 function drawImage(ctx, object) {
@@ -123,8 +88,8 @@ export function drawObject(ctx, object, options = {}) {
 
   if (type === 'shape') drawShape(ctx, object);
   else if (type === 'image') drawImage(ctx, object);
-  else if (type === 'text') drawText(ctx, object, object.text ?? object.texto ?? '');
-  else if (type === 'timer') drawText(ctx, object, timerText(object, options.now));
+  else if (type === 'text') drawTextLayer(ctx, object, object.text ?? object.texto ?? '');
+  else if (type === 'timer') drawTextLayer(ctx, object, getTimerText(object, options.now));
   else if (type === 'draw') drawStrokeLayer(ctx, object);
 
   ctx.restore();

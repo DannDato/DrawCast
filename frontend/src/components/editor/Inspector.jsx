@@ -1,15 +1,53 @@
+import { ArrowDown, ArrowUp, Copy, Group, Ungroup } from 'lucide-react';
 import ImagePanel from './ImagePanel';
+import TextControls from './tools/text/TextControls';
+import TimerControls from './tools/timer/TimerControls';
 import { DEFAULT_SHAPE_CONFIG, SHAPE_TYPES } from './tools/shapes/shapeTool';
 
 function NumberField({ value, onChange, min }) {
   return <input type="number" min={min} value={Math.round(Number(value) || 0)} onChange={(event) => onChange(Number(event.target.value))} />;
 }
 
-export default function Inspector({ tool, selected, drawConfig, setDrawConfig, shapeConfig, setShapeConfig, imageConfig, setImageConfig, channelId, onUploadFile, onImportUrl, onPatch, onDelete }) {
+export default function Inspector({
+  tool,
+  selected,
+  selectedObjects = [],
+  selectionCount = 0,
+  selectedGroupCount = 0,
+  drawConfig,
+  setDrawConfig,
+  shapeConfig,
+  setShapeConfig,
+  imageConfig,
+  setImageConfig,
+  textConfig,
+  setTextConfig,
+  timerConfig,
+  setTimerConfig,
+  channelId,
+  onUploadFile,
+  onImportUrl,
+  onPatch,
+  onPatchText,
+  onPatchTimer,
+  onToggleTimer,
+  onAdjustTimer,
+  onDelete,
+  onGroup,
+  onUngroup,
+  onDuplicate,
+  onMoveLayer
+}) {
   const isShape = selected?.tipo === 'shape' || selected?.tipo === 'forma';
   const isImage = selected?.tipo === 'image' || selected?.tipo === 'imagen';
+  const isText = selected?.tipo === 'text' || selected?.tipo === 'texto';
+  const isTimer = selected?.tipo === 'timer';
+  const isMulti = selectionCount > 1;
+  const canGroup = selectedObjects.filter((object) => [object?.x, object?.y, object?.w, object?.h].every((value) => Number.isFinite(Number(value)))).length >= 2;
   const showShapePanel = tool === 'shape' || isShape;
   const showImagePanel = tool === 'image' || isImage;
+  const showTextPanel = tool === 'text' || isText;
+  const showTimerPanel = tool === 'timer' || isTimer;
 
   const shapeValue = (canonical, legacy) => {
     if (isShape) return selected[canonical] ?? selected[legacy] ?? DEFAULT_SHAPE_CONFIG[canonical];
@@ -48,6 +86,15 @@ export default function Inspector({ tool, selected, drawConfig, setDrawConfig, s
         />
       )}
 
+      {showTextPanel && (
+        <TextControls
+          selected={isText ? selected : null}
+          config={textConfig}
+          setConfig={setTextConfig}
+          onPatchSelected={onPatchText}
+        />
+      )}
+
       {showShapePanel && (
         <section>
           <h3>[02B] FORMAS</h3>
@@ -71,25 +118,41 @@ export default function Inspector({ tool, selected, drawConfig, setDrawConfig, s
         </section>
       )}
 
-      {!selected && !showShapePanel && !showImagePanel && tool !== 'draw' && <p className="muted">SELECT A LAYER</p>}
+      {showTimerPanel && (
+        <TimerControls
+          selected={isTimer ? selected : null}
+          config={timerConfig}
+          setConfig={setTimerConfig}
+          onPatchSelected={onPatchTimer}
+          onToggle={onToggleTimer}
+          onAdjust={onAdjustTimer}
+        />
+      )}
+
+      {isMulti && tool === 'select' && (
+        <section className="dc-multi-selection-panel">
+          <h3>[ MULTI // {selectionCount} LAYERS ]</h3>
+          <p className="dc-help">ARRASTRA CUALQUIER CAPA SELECCIONADA PARA MOVER TODO EL CONJUNTO.</p>
+          <div className="dc-selection-grid">
+            {canGroup && <button type="button" onClick={onGroup}><Group size={14} /> GROUP</button>}
+            {selectedGroupCount > 0 && <button type="button" onClick={onUngroup}><Ungroup size={14} /> UNGROUP</button>}
+            <button type="button" onClick={onDuplicate}><Copy size={14} /> DUPLICATE</button>
+          </div>
+          <button className="dc-danger-wide" onClick={onDelete}>DELETE {selectionCount} LAYERS</button>
+          <p className="dc-help">CTRL/CMD + CLICK = MULTI SELECT // CTRL/CMD + G = GROUP // SHIFT + CTRL/CMD + G = UNGROUP</p>
+        </section>
+      )}
+
+      {!selected && !isMulti && !showShapePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && <p className="muted">SELECT A LAYER</p>}
 
       {selected && (
         <section>
           <h3>[ LAYER // TRANSFORM ]</h3>
-          {selected.tipo === 'text' && (
-            <>
-              <label>LAYER NAME / TEXT</label>
-              <input value={selected.text || ''} onChange={(event) => onPatch({ text: event.target.value })} />
-            </>
-          )}
 
-          {(selected.tipo === 'image' || selected.tipo === 'imagen') && (
-            <>
-              <label>MEDIA</label>
-              <input value={selected.layerName || selected.fileName || selected.name || 'IMAGE'} onChange={(event) => onPatch({ layerName: event.target.value })} />
-              <p className="dc-help">{selected.mediaKind === 'gif' ? 'ANIMATED GIF // LIVE IN OBS' : 'IMAGE LAYER'}{selected.naturalWidth && selected.naturalHeight ? ` // ${selected.naturalWidth}×${selected.naturalHeight}` : ''}</p>
-            </>
-          )}
+          <label>LAYER NAME</label>
+          <input value={selected.layerName || selected.fileName || selected.name || selected.tipo || 'LAYER'} onChange={(event) => onPatch({ layerName: event.target.value })} />
+
+          {isImage && <p className="dc-help">{selected.mediaKind === 'gif' ? 'ANIMATED GIF // LIVE IN OBS' : 'IMAGE LAYER'}{selected.naturalWidth && selected.naturalHeight ? ` // ${selected.naturalWidth}×${selected.naturalHeight}` : ''}</p>}
 
           <label>X / Y</label>
           <div className="dc-grid">
@@ -111,6 +174,16 @@ export default function Inspector({ tool, selected, drawConfig, setDrawConfig, s
             <span>VISIBLE</span>
             <input type="checkbox" checked={!selected.hidden} onChange={(event) => onPatch({ hidden: !event.target.checked })} />
           </label>
+
+          <div className="dc-selection-grid three">
+            <button type="button" onClick={() => onMoveLayer('up')}><ArrowUp size={14} /> UP</button>
+            <button type="button" onClick={() => onMoveLayer('down')}><ArrowDown size={14} /> DOWN</button>
+            <button type="button" onClick={onDuplicate}><Copy size={14} /> COPY</button>
+          </div>
+
+          {selected.groupId && (
+            <button type="button" className="dc-secondary-wide" onClick={onUngroup}><Ungroup size={14} /> UNGROUP // {selected.groupName || 'GROUP'}</button>
+          )}
 
           <button className="dc-danger-wide" onClick={onDelete}>DELETE LAYER</button>
         </section>

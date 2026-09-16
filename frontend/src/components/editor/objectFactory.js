@@ -1,23 +1,27 @@
 import { DEFAULT_SHAPE_CONFIG, getShapeLabel } from './tools/shapes/shapeTool';
 import { DEFAULT_IMAGE_CONFIG, clampImageConfig, getImageKind, imageLayerName } from './tools/images/imageTool';
+import { DEFAULT_TEXT_CONFIG, measureTextBounds, normalizeTextConfig, textLayerName } from './tools/text/textTool';
+import { DEFAULT_TIMER_CONFIG, normalizeTimerConfig, timerBounds } from './tools/timer/timerTool';
 
 const id = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-export const makeText = (x, y, text = 'TEXT') => ({
-  id: id('text'),
-  tipo: 'text',
-  x,
-  y,
-  w: 420,
-  h: 100,
-  text,
-  color: '#ffffff',
-  stroke: '#000000',
-  strokeSize: 6,
-  fontSize: 64,
-  font: 'Outfit',
-  zIndex: Date.now()
-});
+export const makeText = (x, y, text = 'TEXT', options = {}) => {
+  const config = normalizeTextConfig({ ...DEFAULT_TEXT_CONFIG, ...options });
+  const bounds = measureTextBounds(text, config);
+
+  return {
+    id: id('text'),
+    tipo: 'text',
+    x,
+    y,
+    ...bounds,
+    text,
+    ...config,
+    hidden: false,
+    layerName: textLayerName(text, 'TEXTO'),
+    zIndex: Date.now()
+  };
+};
 
 export const makeShape = (draft = {}) => {
   const shape = { ...DEFAULT_SHAPE_CONFIG, ...draft };
@@ -41,24 +45,26 @@ export const makeShape = (draft = {}) => {
   };
 };
 
-export const makeTimer = (x, y) => ({
-  id: id('timer'),
-  tipo: 'timer',
-  x,
-  y,
-  w: 500,
-  h: 110,
-  mode: 'up',
-  startSeconds: 0,
-  limitSeconds: 359999,
-  running: false,
-  baseSeconds: 0,
-  startedAt: null,
-  color: '#ffffff',
-  fontSize: 72,
-  font: 'Outfit',
-  zIndex: Date.now()
-});
+export const makeTimer = (x, y, options = {}) => {
+  const config = normalizeTimerConfig({ ...DEFAULT_TIMER_CONFIG, ...options });
+  const bounds = timerBounds(config);
+
+  return {
+    id: id('timer'),
+    tipo: 'timer',
+    x,
+    y,
+    ...bounds,
+    ...config,
+    timerCurrentSeconds: config.startSeconds,
+    timerResumeSeconds: config.startSeconds,
+    startedAtMs: null,
+    timerRunning: false,
+    hidden: false,
+    layerName: `TIMER ${Date.now().toString().slice(-4)}`,
+    zIndex: Date.now()
+  };
+};
 
 export const makeImage = (x, y, url, name = 'IMAGE', options = {}) => {
   const config = clampImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...options });

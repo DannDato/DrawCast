@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { drawObject, hitObject } from './renderer/drawObject';
 import { orderedObjects, renderScene } from './renderer/sceneRenderer';
-import { drawSelection, hitResizeHandle, resizeFromHandle } from './renderer/selectionRenderer';
+import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, hitResizeHandle, resizeFromHandle } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
+import InlineTextEditor from './tools/text/InlineTextEditor';
+import { textConfigFromObject } from './tools/text/textTool';
 
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
@@ -11,14 +13,20 @@ const FRAME_MS = 1000 / 30;
 export default function CanvasStage({
   objects,
   selectedId,
+  selectedIds = [],
   onSelect,
+  onSelectMany,
   onPatchObject,
+  onPatchObjects,
   onTransformStart,
   tool,
   drawConfig,
   onDraw,
   shapeConfig,
   onShapeCreate,
+  textConfig,
+  onTextCommit,
+  onTimerCreate,
   onMediaDrop,
   guide
 }) {
@@ -26,8 +34,10 @@ export default function CanvasStage({
   const interaction = useRef(null);
   const drawing = useRef(null);
   const shapePreview = useRef(null);
+  const marquee = useRef(null);
   const guideImage = useRef(null);
   const [mediaDragging, setMediaDragging] = useState(false);
+  const [textEditor, setTextEditor] = useState(null);
 
   useEffect(() => {
     if (!guide || guide === 'none') {
@@ -73,12 +83,11 @@ export default function CanvasStage({
           ctx.restore();
         }
 
-        const selected = objects[selectedId];
-        if (selected) {
-          const accent = getComputedStyle(document.documentElement).getPropertyValue('--dc-accent').trim() || '#ff315c';
-          drawSelection(ctx, selected, accent);
-        }
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--dc-accent').trim() || '#ff315c';
+        const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
+        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter(Boolean), accent);
 
+        if (marquee.current) drawMarquee(ctx, marquee.current.start, marquee.current.end, accent);
         lastFrame = timestamp;
       }
 
@@ -87,7 +96,7 @@ export default function CanvasStage({
 
     animationFrame = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationFrame);
-  }, [objects, selectedId]);
+  }, [objects, selectedId, selectedIds]);
 
   const pointFromEvent = (event) => {
     const bounds = canvasRef.current.getBoundingClientRect();
@@ -98,6 +107,25 @@ export default function CanvasStage({
   };
 
   const topObjectAt = (point) => orderedObjects(objects).reverse().find((object) => hitObject(object, point.x, point.y));
+
+  const openTextEditor = (point, object = null) => {
+    const bounds = canvasRef.current.getBoundingClientRect();
+    const scale = bounds.width / CANVAS_WIDTH;
+    const x = object ? Number(object.x) || point.x : point.x;
+    const y = object ? Number(object.y) || point.y : point.y;
+
+    setTextEditor({
+      id: object?.id || `new_${Date.now()}`,
+      objectId: object?.id || null,
+      x,
+      y,
+      screenX: bounds.left + (x * scale),
+      screenY: bounds.top + (y * scale),
+      scale,
+      initialText: object?.text ?? object?.texto ?? '',
+      config: object ? textConfigFromObject(object) : textConfig
+    });
+  };
 
   const onPointerDown = (event) => {
     const canvas = canvasRef.current;
@@ -115,9 +143,21 @@ export default function CanvasStage({
       return;
     }
 
+    if (tool === 'text') {
+      setTextEditor(null);
+      openTextEditor(point);
+      return;
+    }
+
+    if (tool === 'timer') {
+      onTimerCreate?.(point);
+      return;
+    }
+
     if (tool !== 'select') return;
 
-    const selected = objects[selectedId];
+    const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
+    const selected = selection.length === 1 ? objects[selection[0]] : null;
     const resizeHandle = selected ? hitResizeHandle(selected, point.x, point.y) : null;
 
     if (selected && resizeHandle) {
@@ -133,17 +173,32 @@ export default function CanvasStage({
     }
 
     const hit = topObjectAt(point);
-    onSelect(hit?.id || null);
+    const append = event.ctrlKey || event.metaKey || event.shiftKey;
 
     if (hit) {
+      if (append) {
+        onSelect?.(hit.id, { append: true });
+        interaction.current = null;
+        return;
+      }
+
+      const movingIds = selection.includes(hit.id) ? selection : [hit.id];
+      if (!selection.includes(hit.id)) onSelect?.(hit.id);
       onTransformStart?.();
       interaction.current = {
         type: 'move',
-        id: hit.id,
         start: point,
-        original: { ...hit }
+        items: movingIds
+          .map((id) => objects[id])
+          .filter((object) => object && Number.isFinite(Number(object.x)) && Number.isFinite(Number(object.y)))
+          .map((object) => ({ id: object.id, x: Number(object.x) || 0, y: Number(object.y) || 0 }))
       };
+      return;
     }
+
+    if (!append) onSelect?.(null);
+    marquee.current = { start: point, end: point };
+    interaction.current = { type: 'marquee', append, initialIds: append ? selection : [] };
   };
 
   const onPointerMove = (event) => {
@@ -163,15 +218,19 @@ export default function CanvasStage({
     }
 
     if (active.type === 'move') {
-      onPatchObject(active.id, {
-        x: (Number(active.original.x) || 0) + point.x - active.start.x,
-        y: (Number(active.original.y) || 0) + point.y - active.start.y
-      });
+      const dx = point.x - active.start.x;
+      const dy = point.y - active.start.y;
+      onPatchObjects?.(active.items.map((item) => ({ id: item.id, patch: { x: item.x + dx, y: item.y + dy } })));
       return;
     }
 
     if (active.type === 'resize') {
       onPatchObject(active.id, resizeFromHandle(active.original, active.handle, point, active.start, event.shiftKey));
+      return;
+    }
+
+    if (active.type === 'marquee') {
+      marquee.current = { ...marquee.current, end: point };
     }
   };
 
@@ -186,8 +245,35 @@ export default function CanvasStage({
       shapePreview.current = null;
     }
 
+    if (interaction.current?.type === 'marquee' && marquee.current) {
+      const active = interaction.current;
+      const box = {
+        x: Math.min(marquee.current.start.x, marquee.current.end.x),
+        y: Math.min(marquee.current.start.y, marquee.current.end.y),
+        w: Math.abs(marquee.current.end.x - marquee.current.start.x),
+        h: Math.abs(marquee.current.end.y - marquee.current.start.y)
+      };
+      const captured = orderedObjects(objects)
+        .filter((object) => boundsOverlap(box, getObjectBounds(object)))
+        .map((object) => object.id);
+      const next = active.append ? [...new Set([...active.initialIds, ...captured])] : captured;
+      onSelectMany?.(next, next.at(-1) || null);
+      marquee.current = null;
+    }
+
     interaction.current = null;
     if (event?.pointerId != null) canvasRef.current.releasePointerCapture?.(event.pointerId);
+  };
+
+  const onDoubleClick = (event) => {
+    if (tool !== 'select') return;
+    const point = pointFromEvent(event);
+    const hit = topObjectAt(point);
+    if (!hit || (hit.tipo !== 'text' && hit.tipo !== 'texto')) return;
+
+    event.preventDefault();
+    onSelect?.(hit.id);
+    openTextEditor(point, hit);
   };
 
   const onDragOver = (event) => {
@@ -224,11 +310,28 @@ export default function CanvasStage({
         onPointerMove={onPointerMove}
         onPointerUp={finishInteraction}
         onPointerCancel={finishInteraction}
+        onDoubleClick={onDoubleClick}
         onDragEnter={(event) => { event.preventDefault(); setMediaDragging(true); }}
         onDragOver={onDragOver}
         onDragLeave={() => setMediaDragging(false)}
         onDrop={onDrop}
       />
+
+      <InlineTextEditor
+        editor={textEditor}
+        onCancel={() => setTextEditor(null)}
+        onCommit={(value) => {
+          onTextCommit?.({
+            id: textEditor.objectId,
+            x: textEditor.x,
+            y: textEditor.y,
+            text: value,
+            config: textEditor.config
+          });
+          setTextEditor(null);
+        }}
+      />
+
       <div className={`dc-drop-overlay ${mediaDragging ? 'show' : ''}`}>READY TO DECODE IMAGE 🖼️</div>
     </>
   );
