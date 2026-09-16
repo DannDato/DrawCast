@@ -40,3 +40,10 @@
     color: #fff;
   }
 }
+
+html.dc-overlay-page,
+html.dc-overlay-page body,
+body.dc-overlay-page,
+body.dc-overlay-page #root {
+  background: transparent !important;
+}

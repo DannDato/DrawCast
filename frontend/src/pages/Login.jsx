@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { LogIn } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
+import TwitchAuthButton from "../components/auth/TwitchAuthButton";
 import AuthShell from "../components/auth/AuthShell";
 import { clearPendingVerifyAccess, setPendingVerifyAccess } from "../utils/verifyAccessStorage";
 
@@ -14,6 +15,12 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const { login: doLogin } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        const oauthError = searchParams.get("oauthError");
+        if (oauthError) setError(oauthError);
+    }, [searchParams]);
     const submit = async (event) => {
         event.preventDefault();
         setError("");
@@ -77,7 +84,10 @@ export default function Login() {
             <div className="dc-auth-divider">
                 <span>O CONTINUAR CON</span>
             </div>
-            <GoogleAuthButton mode="signin" onError={setError} />
+            <div className="dc-oauth-stack">
+                <GoogleAuthButton mode="signin" onError={setError} />
+                <TwitchAuthButton onError={setError} />
+            </div>
             <div className="dc-auth-links">
                 <Link to="/register">Crear cuenta</Link>
                 <Link to="/forgot-password">Olvidaste tu contraseña?</Link>

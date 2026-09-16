@@ -12,6 +12,15 @@ export default function Overlay() {
   const [liveStrokes, setLiveStrokes] = useState({});
   const canvasRef = useRef(null);
 
+  useEffect(() => {
+    document.documentElement.classList.add('dc-overlay-page');
+    document.body.classList.add('dc-overlay-page');
+    return () => {
+      document.documentElement.classList.remove('dc-overlay-page');
+      document.body.classList.remove('dc-overlay-page');
+    };
+  }, []);
+
   const handlers = useMemo(() => ({
     'sync-state': ({ objects: list }) => setObjects(Object.fromEntries(list.map((object) => [object.id, object]))),
     'obj-upsert': (object) => setObjects((current) => ({ ...current, [object.id]: object })),

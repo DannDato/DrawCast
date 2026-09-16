@@ -19,6 +19,6 @@ export default function EditorHub() {
     <p className="muted">Abre el editor de tu canal o cualquiera donde tengas acceso como colaborador.</p>
     {loading ? <section className="dc-panel"><p>LOADING CHANNEL ACCESS...</p></section> : null}
     {!loading && channels.length === 0 ? <section className="dc-panel dc-empty"><PenTool size={28} /><h2>NO CHANNELS AVAILABLE</h2><p className="muted">Crea tu canal desde Inicio o acepta una invitación para comenzar.</p><Link className="dc-action" to="/app">GO TO CHANNEL SETUP</Link></section> : null}
-    <div className="dc-editor-list">{channels.map((channel) => <section className="dc-panel dc-editor-card" key={channel.id}><div><span className="dc-kicker">{channel.relation}</span><h2>{channel.name}</h2><p className="muted">CANVAS 1920×1080 // REALTIME SOCKET</p></div><Link className="dc-action" to={`/editor/${channel.publicKey}`}><ExternalLink size={16} /> OPEN EDITOR</Link></section>)}</div>
+    <div className="dc-editor-list">{channels.map((channel) => <section className="dc-panel dc-editor-card" key={channel.id}><div><span className="dc-kicker">{channel.relation}</span><h2>{channel.name}</h2><p className="muted">CANVAS 1920×1080 // REALTIME SOCKET</p></div><Link className="dc-action" to={`/app/editor/${channel.publicKey}`}><ExternalLink size={16} /> OPEN EDITOR</Link></section>)}</div>
   </div>;
 }

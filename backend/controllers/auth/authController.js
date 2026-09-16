@@ -1,4 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
+import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { models } from '../../models/index.js';
 import { audit } from '../../helpers/audit.js';
@@ -51,6 +52,38 @@ async function requireOtp(req, res, user, event) {
   const challenge = await issueOtpChallenge(req, user);
   await audit(req, { event: `${event}.otp_required`, category: 'auth', userId: user.id });
   return res.status(202).json(challenge);
+}
+
+
+function frontendRedirect(pathname, params = {}) {
+  const url = new URL(pathname, process.env.FRONTEND_URL || 'http://localhost:5173');
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+  }
+  return url.toString();
+}
+
+function oauthErrorRedirect(message) {
+  return frontendRedirect('/login', { oauthError: message });
+}
+
+async function finishOAuthRedirect(req, res, user, event) {
+  const trustedDevice = await getTrustedDevice(req, user.id);
+  if (trustedDevice) {
+    await rotateTrustedDevice(req, res, user, trustedDevice);
+    const token = await createSession(req, user);
+    setSessionCookie(res, token);
+    await audit(req, { event, category: 'auth', userId: user.id });
+    return res.redirect(frontendRedirect('/app'));
+  }
+
+  const challenge = await issueOtpChallenge(req, user);
+  await audit(req, { event: `${event}.otp_required`, category: 'auth', userId: user.id });
+  return res.redirect(frontendRedirect('/verify-access', {
+    challengeId: challenge.challengeId,
+    emailHint: challenge.emailHint,
+    resendAvailableInSeconds: challenge.resendAvailableInSeconds
+  }));
 }
 
 class AuthController {
@@ -207,6 +240,122 @@ class AuthController {
     }
 
     return requireOtp(req, res, user, 'auth.google');
+  };
+
+
+  twitchConfig = async (req, res) => res.json({
+    enabled: Boolean(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET && process.env.TWITCH_REDIRECT_URI)
+  });
+
+  twitchStart = async (req, res) => {
+    if (!process.env.TWITCH_CLIENT_ID || !process.env.TWITCH_CLIENT_SECRET || !process.env.TWITCH_REDIRECT_URI) {
+      return res.redirect(oauthErrorRedirect('Twitch OAuth no está configurado en el servidor.'));
+    }
+
+    const nonce = randomToken();
+    const state = jwt.sign({ provider: 'twitch', nonce }, process.env.JWT_SECRET, { expiresIn: '10m' });
+    res.cookie('twitch_oauth_state', nonce, {
+      httpOnly: true,
+      secure: process.env.COOKIE_SECURE === 'true',
+      sameSite: process.env.COOKIE_SAME_SITE || 'lax',
+      maxAge: 10 * 60 * 1000,
+      path: '/api/auth/twitch/callback'
+    });
+    const params = new URLSearchParams({
+      client_id: process.env.TWITCH_CLIENT_ID,
+      redirect_uri: process.env.TWITCH_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'user:read:email',
+      state
+    });
+    return res.redirect(`https://id.twitch.tv/oauth2/authorize?${params.toString()}`);
+  };
+
+  twitchCallback = async (req, res) => {
+    if (!process.env.TWITCH_CLIENT_ID || !process.env.TWITCH_CLIENT_SECRET || !process.env.TWITCH_REDIRECT_URI) {
+      return res.redirect(oauthErrorRedirect('Twitch OAuth no está configurado en el servidor.'));
+    }
+
+    const code = String(req.query.code || '');
+    const state = String(req.query.state || '');
+    const providerError = String(req.query.error_description || req.query.error || '');
+    if (providerError) return res.redirect(oauthErrorRedirect(providerError));
+    if (!code || !state) return res.redirect(oauthErrorRedirect('Respuesta OAuth de Twitch incompleta.'));
+
+    try {
+      const payload = jwt.verify(state, process.env.JWT_SECRET);
+      const cookieNonce = String(req.cookies?.twitch_oauth_state || '');
+      if (payload?.provider !== 'twitch' || !cookieNonce || payload.nonce !== cookieNonce) throw new Error('OAuth state mismatch');
+      res.clearCookie('twitch_oauth_state', { path: '/api/auth/twitch/callback' });
+    } catch {
+      res.clearCookie('twitch_oauth_state', { path: '/api/auth/twitch/callback' });
+      return res.redirect(oauthErrorRedirect('La sesión OAuth de Twitch expiró o no es válida.'));
+    }
+
+    try {
+      const tokenParams = new URLSearchParams({
+        client_id: process.env.TWITCH_CLIENT_ID,
+        client_secret: process.env.TWITCH_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: process.env.TWITCH_REDIRECT_URI
+      });
+      const tokenResponse = await fetch(`https://id.twitch.tv/oauth2/token?${tokenParams.toString()}`, { method: 'POST' });
+      if (!tokenResponse.ok) throw new Error(`Twitch token exchange failed (${tokenResponse.status})`);
+      const tokenData = await tokenResponse.json();
+      if (!tokenData.access_token) throw new Error('Twitch access token missing');
+
+      const userResponse = await fetch('https://api.twitch.tv/helix/users', {
+        headers: {
+          'Client-Id': process.env.TWITCH_CLIENT_ID,
+          Authorization: `Bearer ${tokenData.access_token}`
+        }
+      });
+      if (!userResponse.ok) throw new Error(`Twitch user lookup failed (${userResponse.status})`);
+      const userData = await userResponse.json();
+      const twitchUser = userData?.data?.[0];
+      if (!twitchUser?.id) throw new Error('Twitch identity missing');
+
+      const email = normalizeEmail(twitchUser.email);
+      if (!validEmail(email)) return res.redirect(oauthErrorRedirect('Twitch no devolvió un correo válido. Revisa que tu cuenta tenga email disponible.'));
+
+      let account = await models.OAuthAccount.findOne({ where: { provider: 'twitch', providerUserId: twitchUser.id } });
+      if (account && !account.active) return res.redirect(oauthErrorRedirect('Esta cuenta de Twitch fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
+      let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
+
+      if (!user) {
+        const rawBase = twitchUser.login || email.split('@')[0] || 'user';
+        const base = rawBase.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 60) || `user${Date.now()}`;
+        let username = base;
+        let suffix = 1;
+        while (await models.User.findOne({ where: { username } })) username = `${base}${suffix++}`;
+
+        user = await models.User.create({
+          username,
+          email,
+          displayName: twitchUser.display_name || username,
+          roleKey: 'USER'
+        });
+        await applyRolePreset(user.id, 'USER');
+      }
+
+      if (user.statusKey !== 'ACTIVE') return res.redirect(oauthErrorRedirect('Cuenta no disponible.'));
+
+      if (!account) {
+        account = await models.OAuthAccount.create({
+          userId: user.id,
+          provider: 'twitch',
+          providerUserId: twitchUser.id,
+          email,
+          avatarUrl: twitchUser.profile_image_url || null
+        });
+      }
+
+      return finishOAuthRedirect(req, res, user, 'auth.twitch');
+    } catch (error) {
+      logger.error('Twitch OAuth failed', { error: error.message });
+      return res.redirect(oauthErrorRedirect('No se pudo continuar con Twitch.'));
+    }
   };
 
   forgotPassword = async (req, res) => {

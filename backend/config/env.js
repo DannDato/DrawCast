@@ -39,6 +39,9 @@ export const env = {
   trustedDeviceDays: Number(process.env.TRUSTED_DEVICE_DAYS || 30),
   trustedDeviceCookieName: process.env.TRUSTED_DEVICE_COOKIE_NAME || 'trusted_device',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  twitchClientId: process.env.TWITCH_CLIENT_ID || '',
+  twitchClientSecret: process.env.TWITCH_CLIENT_SECRET || '',
+  twitchRedirectUri: process.env.TWITCH_REDIRECT_URI || '',
   ipTimeout: Number(process.env.IP_API_TIMEOUT_MS || 1500),
   ipCacheHours: Number(process.env.IP_CACHE_TTL_HOURS || 168)
 };

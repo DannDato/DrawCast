@@ -89,7 +89,7 @@ export default function LayersPanel({
   onDuplicate
 }) {
   const [compact, setCompact] = useState(() => {
-    try { return localStorage.getItem(VIEW_MODE_KEY) === 'compact'; } catch { return false; }
+    try { return localStorage.getItem(VIEW_MODE_KEY) !== 'expanded'; } catch { return true; }
   });
   const [collapsedGroups, setCollapsedGroups] = useState(readCollapsedGroups);
   const ordered = useMemo(() => orderedLayerObjects(objects), [objects]);

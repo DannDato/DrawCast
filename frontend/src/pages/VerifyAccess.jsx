@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import AuthShell from '../components/auth/AuthShell';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { clearPendingVerifyAccess, getPendingVerifyAccess, updatePendingVerifyAccess } from '../utils/verifyAccessStorage';
+import { clearPendingVerifyAccess, getPendingVerifyAccess, setPendingVerifyAccess, updatePendingVerifyAccess } from '../utils/verifyAccessStorage';
 
 export default function VerifyAccess() {
-  const pending = useMemo(() => getPendingVerifyAccess(), []);
+  const [searchParams] = useSearchParams();
+  const pending = useMemo(() => {
+    const challengeId = searchParams.get('challengeId');
+    if (challengeId) {
+      setPendingVerifyAccess({
+        challengeId,
+        emailHint: searchParams.get('emailHint') || 'tu correo',
+        resendAvailableInSeconds: Number(searchParams.get('resendAvailableInSeconds') || 60)
+      });
+    }
+    return getPendingVerifyAccess();
+  }, [searchParams]);
   const [digits, setDigits] = useState(Array(6).fill(''));
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');

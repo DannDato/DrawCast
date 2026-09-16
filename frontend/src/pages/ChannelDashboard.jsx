@@ -53,7 +53,7 @@ export default function ChannelDashboard() {
 
     const channel = data.owned;
     const origin = window.location.origin;
-    const editor = `${origin}/editor/${channel.publicKey}`;
+    const editor = `${origin}/app/editor/${channel.publicKey}`;
     const overlay = `${origin}/overlay/${channel.publicKey}`;
 
     return (
@@ -66,7 +66,7 @@ export default function ChannelDashboard() {
                 <label>Link del editor</label>
                 <code>{editor}</code>
                 <button onClick={() => navigator.clipboard.writeText(editor)}><Copy /> COPIAR</button>
-                <Link to={`/editor/${channel.publicKey}`}><ExternalLink /> ABRIR</Link>
+                <Link to={`/app/editor/${channel.publicKey}`}><ExternalLink /> ABRIR</Link>
             </div>
 
             <div className="dc-link-card">
@@ -93,7 +93,7 @@ export default function ChannelDashboard() {
             {data.collaborations.length > 0 && (
                 <section className="dc-panel">
                     <h2>CANALES COMPARTIDOS CONTIGO</h2>
-                    {data.collaborations.map(collaboration => <Link key={collaboration.id} to={`/editor/${collaboration.publicKey}`}>{collaboration.name} // ABRIR EDITOR</Link>)}
+                    {data.collaborations.map(collaboration => <Link key={collaboration.id} to={`/app/editor/${collaboration.publicKey}`}>{collaboration.name} // ABRIR EDITOR</Link>)}
                 </section>
             )}
         </div>

@@ -1116,3 +1116,12 @@
   .dc-toolbar .dc-sep { margin: 2px 0 4px; }
   .dc-logo { width: 34px; height: 24px; margin-bottom: 2px; font-size: 19px; }
 }
+
+
+/* DrawCast editor // Dashboard integration + compact left rail */
+.dc-editor{position:relative;inset:auto;width:100%;height:calc(100vh - 64px);min-height:560px;grid-template-columns:292px minmax(0,1fr) 310px;overflow:hidden;background:var(--dc-bg)}
+.dc-editor-sidebar{min-width:0;min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--dc-line);background:#0d0f12;overflow:hidden}
+.dc-editor-sidebar .dc-toolbar{position:relative;flex:0 0 auto;width:100%;display:block;padding:10px;border-right:0;border-bottom:1px solid var(--dc-line);overflow:visible}
+.dc-toolbar-head{display:flex;align-items:center;justify-content:space-between;height:30px;margin-bottom:8px}.dc-editor-sidebar .dc-logo{width:auto;height:auto;margin:0;font-size:22px}.dc-editor-sidebar .dc-connection-dot{margin:0 5px 0 0}.dc-toolbar-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.dc-editor-sidebar .dc-toolbar button{width:100%;height:34px;margin:0}.dc-editor-sidebar .dc-toolbar button svg{width:16px;height:16px}.dc-editor-sidebar .dc-toolbar .dc-sep{width:100%;margin:8px 0}.dc-toolbar-more{display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;margin-top:7px!important;height:30px!important;color:var(--dc-text)!important;font:800 9px monospace!important;letter-spacing:.7px}.dc-toolbar-expanded{padding-top:7px}.dc-editor-sidebar .dc-tool-tip{left:calc(100% + 8px);top:50%}.dc-editor-sidebar .dc-layers{position:relative;right:auto;bottom:auto;flex:1 1 auto;width:100%;max-height:none;min-height:0;border:0;box-shadow:none;background:#0a0c0f}.dc-editor-sidebar .dc-layers.is-compact{width:100%}.dc-editor-sidebar .dc-layer-list{flex:1;min-height:0;overflow-y:auto}.dc-editor-sidebar .dc-layers-head{flex:0 0 auto}.dc-workspace{min-width:0;min-height:0}.dc-canvas{max-width:calc(100% - 36px);max-height:calc(100% - 96px)}
+@media(max-width:1100px){.dc-editor{grid-template-columns:250px minmax(0,1fr)}.dc-inspector{display:none}.dc-editor-sidebar{width:250px}.dc-toolbar-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){.dc-editor{grid-template-columns:210px minmax(0,1fr)}.dc-editor-sidebar{width:210px}.dc-toolbar-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.dc-editor-sidebar .dc-toolbar{padding:7px}.dc-editor-sidebar .dc-toolbar button{height:31px}}

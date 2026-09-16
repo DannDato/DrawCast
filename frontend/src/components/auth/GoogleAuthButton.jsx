@@ -47,10 +47,12 @@ export default function GoogleAuthButton({ mode = 'signin', onError }) {
       });
 
       window.google.accounts.id.renderButton(ref.current, {
-        theme: 'outline',
+        theme: 'filled_black',
         size: 'large',
-        width: 320,
-        text: mode === 'signup' ? 'signup_with' : 'signin_with'
+        shape: 'rectangular',
+        width: 400,
+        text: mode === 'signup' ? 'signup_with' : 'signin_with',
+        logo_alignment: 'left'
       });
     };
 
@@ -59,5 +61,5 @@ export default function GoogleAuthButton({ mode = 'signin', onError }) {
   }, [clientId, mode, navigate, onError, refresh]);
 
   if (!clientId) return null;
-  return <div className="flex min-h-10 justify-center"><div ref={ref} /></div>;
+  return <div className="dc-google-auth"><div ref={ref} /></div>;
 }

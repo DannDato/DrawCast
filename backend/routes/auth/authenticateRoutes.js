@@ -13,6 +13,9 @@ router.get('/me', verifyToken, asyncHandler(ctrlAuth.me));
 router.post('/logout', verifyToken, asyncHandler(ctrlAuth.logout));
 router.get('/google/config', asyncHandler(ctrlAuth.googleConfig));
 router.post('/google', authLimiter, asyncHandler(ctrlAuth.googleAuth));
+router.get('/twitch/config', asyncHandler(ctrlAuth.twitchConfig));
+router.get('/twitch', authLimiter, asyncHandler(ctrlAuth.twitchStart));
+router.get('/twitch/callback', authLimiter, asyncHandler(ctrlAuth.twitchCallback));
 router.post('/forgot-password', authLimiter, asyncHandler(ctrlAuth.forgotPassword));
 router.post('/reset-password', authLimiter, asyncHandler(ctrlAuth.resetPassword));
 

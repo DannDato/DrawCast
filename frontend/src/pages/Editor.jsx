@@ -757,7 +757,23 @@ export default function Editor() {
 
   return (
     <div className="dc-editor">
-      <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
+      <aside className="dc-editor-sidebar">
+        <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
+
+        <LayersPanel
+          objects={objects}
+          selectedIds={selectedIds}
+          onSelect={select}
+          onSelectMany={setSelection}
+          onPatch={(id, patchData) => patchWithHistory(id, patchData, 'LAYER EDIT')}
+          onPatchMany={(updates) => applyUpdatesWithHistory(updates, 'LAYERS EDIT')}
+          onRemove={removeLayers}
+          onReorder={reorderLayers}
+          onGroup={groupSelection}
+          onUngroup={ungroupSelection}
+          onDuplicate={duplicateSelected}
+        />
+      </aside>
 
       <main className="dc-workspace">
         <div className="dc-watermark">DrawCast <span>// DannDato</span></div>
@@ -800,19 +816,6 @@ export default function Editor() {
           <button type="button" className="dc-status-hotkeys" onClick={() => setHotkeysOpen(true)}>HOTKEYS [?]</button>
         </div>
 
-        <LayersPanel
-          objects={objects}
-          selectedIds={selectedIds}
-          onSelect={select}
-          onSelectMany={setSelection}
-          onPatch={(id, patchData) => patchWithHistory(id, patchData, 'LAYER EDIT')}
-          onPatchMany={(updates) => applyUpdatesWithHistory(updates, 'LAYERS EDIT')}
-          onRemove={removeLayers}
-          onReorder={reorderLayers}
-          onGroup={groupSelection}
-          onUngroup={ungroupSelection}
-          onDuplicate={duplicateSelected}
-        />
       </main>
 
       <Inspector
