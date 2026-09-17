@@ -6,6 +6,7 @@ import {
   ClipboardPaste,
   EyeOff,
   Eraser,
+  FolderOpen,
   Image,
   Keyboard,
   MousePointer2,
@@ -69,6 +70,7 @@ export default function Toolbar({
   onCut,
   onPaste,
   onHotkeys,
+  onDesigns,
   canUndo,
   canRedo,
   canCopy,
@@ -89,6 +91,12 @@ export default function Toolbar({
         <div className="dc-logo" aria-label="DrawCast">▦</div>
         <span className={`dc-connection-dot ${connected ? 'online' : ''}`} title={connected ? 'Conectado' : 'Sin conexión'} />
       </div>
+
+      <button type="button" className="dc-toolbar-designs" onClick={onDesigns}>
+        <FolderOpen size={14} />
+        <span>Diseños guardados</span>
+        <Tip>Guardar, cargar o borrar diseños</Tip>
+      </button>
 
       <SectionDivider>Herramientas</SectionDivider>
       <div className="dc-toolbar-grid">{primaryTools.map(toolButton)}</div>

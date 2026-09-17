@@ -18,6 +18,7 @@ import AuthThrottleFactory from './authThrottle.model.js';
 import ChannelFactory from './channel.model.js';
 import ChannelCollaboratorFactory from './channelCollaborator.model.js';
 import ChannelInvitationFactory from './channelInvitation.model.js';
+import SavedDesignFactory from './savedDesign.model.js';
 
 const models = {
   User: UserFactory(db),
@@ -37,6 +38,7 @@ const models = {
   Channel: ChannelFactory(db),
   ChannelCollaborator: ChannelCollaboratorFactory(db),
   ChannelInvitation: ChannelInvitationFactory(db),
+  SavedDesign: SavedDesignFactory(db),
   AuditLog: AuditFactory(auditDb),
   IpCache: IpFactory(auditDb)
 };
@@ -72,5 +74,9 @@ models.ChannelCollaborator.belongsTo(models.Channel, { foreignKey: 'channelId', 
 models.ChannelCollaborator.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
 models.Channel.hasMany(models.ChannelInvitation, { foreignKey: 'channelId', as: 'invitations', onDelete: 'CASCADE' });
 models.ChannelInvitation.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
+models.Channel.hasMany(models.SavedDesign, { foreignKey: 'channelId', as: 'savedDesigns', onDelete: 'CASCADE' });
+models.SavedDesign.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
+models.User.hasMany(models.SavedDesign, { foreignKey: 'createdBy', as: 'savedDesigns', onDelete: 'CASCADE' });
+models.SavedDesign.belongsTo(models.User, { foreignKey: 'createdBy', as: 'creator' });
 
 export { db, auditDb, models };

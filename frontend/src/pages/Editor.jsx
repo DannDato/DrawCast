@@ -8,6 +8,7 @@ import Inspector from '../components/editor/Inspector';
 import LayersPanel from '../components/editor/LayersPanel';
 import Toolbar from '../components/editor/Toolbar';
 import HotkeysModal from '../components/editor/hotkeys/HotkeysModal';
+import SavedDesignsModal from '../components/editor/SavedDesignsModal';
 import { makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
 import { moveSelectionOneLevel, reorderLayerUnits } from '../components/editor/layers/layerUtils';
@@ -20,6 +21,19 @@ import { applyHistoryEntry, cloneValue, makeHistoryEntry, pushHistoryEntry } fro
 import { createClipboardPayload, materializeClipboardPayload, parseClipboardText, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
 
 const TOOL_LABELS = { select: 'Selección', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', text: 'Texto', timer: 'Temporizador' };
+
+function decodeDesignSnapshot(value) {
+  let current = value;
+  for (let i = 0; i < 3 && typeof current === 'string'; i += 1) {
+    try { current = JSON.parse(current); } catch { throw new Error('La copia guardada no contiene un estado válido.'); }
+  }
+
+  if (Array.isArray(current)) return { version: 1, scene: { objects: current }, editor: {} };
+  if (!current || typeof current !== 'object' || Array.isArray(current)) throw new Error('La copia guardada no contiene un estado válido.');
+  if (Array.isArray(current.scene?.objects)) return current;
+  if (Array.isArray(current.objects)) return { version: Number(current.version || 1), scene: { objects: current.objects }, editor: current.editor || {} };
+  throw new Error('La copia guardada no contiene una escena válida.');
+}
 
 export default function Editor() {
   const { publicKey } = useParams();
@@ -43,6 +57,7 @@ export default function Editor() {
   const [pasteSerial, setPasteSerial] = useState(1);
   const [mediaStatus, setMediaStatus] = useState('');
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [designsOpen, setDesignsOpen] = useState(false);
   const objectsRef = useRef({});
   const historyStartRef = useRef(null);
   const nudgeActiveRef = useRef(false);
@@ -59,8 +74,9 @@ export default function Editor() {
   };
 
   const handlers = useMemo(() => ({
-    'sync-state': ({ objects: list }) => {
-      const next = Object.fromEntries(list.map((object) => [object.id, object]));
+    'sync-state': ({ objects: list } = {}) => {
+      if (!Array.isArray(list)) return;
+      const next = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
       objectsRef.current = next;
       setObjects(next);
       setHistory({ past: [], future: [] });
@@ -716,6 +732,57 @@ export default function Editor() {
     setTool('select');
   };
 
+
+  const buildDesignSnapshot = () => ({
+    version: 1,
+    scene: { objects: cloneValue(Object.values(objectsRef.current)) },
+    editor: {
+      tool,
+      guide,
+      drawConfig: cloneValue(drawConfig),
+      shapeConfig: cloneValue(shapeConfig),
+      imageConfig: cloneValue(imageConfig),
+      textConfig: cloneValue(textConfig),
+      timerConfig: cloneValue(timerConfig),
+      activeDrawLayerId
+    }
+  });
+
+  const loadDesignSnapshot = async (rawState, design) => {
+    const state = decodeDesignSnapshot(rawState);
+    const list = state.scene.objects;
+    const next = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
+    if (Object.keys(next).length !== list.length) throw new Error('La copia guardada contiene una capa inválida y no se cargó.');
+    if (!socket.connected) throw new Error('DrawCast perdió conexión con el canal. Vuelve a intentarlo en un momento.');
+
+    await new Promise((resolve, reject) => {
+      socket.timeout(6000).emit('scene-replace', { objects: Object.values(next) }, (error, response) => {
+        if (error) { reject(new Error('El canal no confirmó la carga del diseño. Vuelve a intentarlo.')); return; }
+        if (!response?.ok) { reject(new Error(response?.message || 'El canal rechazó la escena guardada.')); return; }
+        resolve(response);
+      });
+    });
+
+    cancelHistory();
+    setScene(next);
+    setSelection([]);
+    setLiveStrokes({});
+    setHistory({ past: [], future: [] });
+    setClipboardPayload(null);
+    setPasteSerial(1);
+
+    const editor = state.editor || {};
+    setGuide(editor.guide || 'none');
+    setDrawConfig({ ...DEFAULT_DRAW_CONFIG, ...(editor.drawConfig || {}) });
+    setShapeConfig({ ...DEFAULT_SHAPE_CONFIG, ...(editor.shapeConfig || {}) });
+    setImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...(editor.imageConfig || {}) });
+    setTextConfig({ ...DEFAULT_TEXT_CONFIG, ...(editor.textConfig || {}) });
+    setTimerConfig({ ...DEFAULT_TIMER_CONFIG, ...(editor.timerConfig || {}) });
+    setActiveDrawLayerId(editor.activeDrawLayerId && next[editor.activeDrawLayerId] ? editor.activeDrawLayerId : null);
+    setTool(TOOL_LABELS[editor.tool] ? editor.tool : 'select');
+    setMediaStatus(`Diseño cargado: ${design?.name || 'sin nombre'}.`);
+  };
+
   const singleSelected = selectedIds.length === 1 ? objects[selectedId] : null;
 
   const patchSelectedText = (patchData) => {
@@ -760,7 +827,7 @@ export default function Editor() {
   return (
     <div className="dc-editor">
       <aside className="dc-editor-sidebar">
-        <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
+        <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} onDesigns={() => setDesignsOpen(true)} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
 
         <Inspector
           tool={tool}
@@ -858,6 +925,7 @@ export default function Editor() {
       </div>
 
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
+      {designsOpen && <SavedDesignsModal onClose={() => setDesignsOpen(false)} channelId={channelId} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} />}
     </div>
   );
 }

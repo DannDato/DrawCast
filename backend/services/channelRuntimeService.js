@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import logger from '../helpers/winston.js';
+import { models } from '../models/index.js';
 
 const runtimes = new Map();
 const sleepMs = Math.max(60_000, Number(process.env.CHANNEL_SLEEP_MINUTES || 10) * 60_000);
@@ -15,6 +16,7 @@ export function getChannelState(channelId) { return Array.from(runtime(channelId
 export function setObject(channelId, object) { runtime(channelId).objects.set(object.id, object); }
 export function removeObject(channelId, id) { runtime(channelId).objects.delete(id); }
 export function clearObjects(channelId) { runtime(channelId).objects.clear(); }
+export function replaceObjects(channelId, objects = []) { const r = runtime(channelId); r.objects.clear(); objects.forEach((object) => r.objects.set(object.id, object)); return getChannelState(channelId); }
 export function presence(channelId) { const r = runtime(channelId); return { editors: r.editors.size, overlays: r.overlays.size, clients: r.editors.size + r.overlays.size }; }
 
 export function connectRole(channelId, socketId, role, io) {
@@ -30,9 +32,12 @@ export function disconnectRole(channelId, socketId, io) {
   if (!r.editors.size && !r.sleepTimer) r.sleepTimer = setTimeout(async () => {
     if (r.editors.size) return;
     r.objects.clear();
-    try { await fs.rm(path.join(uploadRoot, String(channelId)), { recursive: true, force: true }); } catch (error) { logger.warn('No fue posible limpiar uploads del canal', { channelId, error: error.message }); }
+    const savedDesigns = await models.SavedDesign.count({ where: { channelId } });
+    if (!savedDesigns) {
+      try { await fs.rm(path.join(uploadRoot, String(channelId)), { recursive: true, force: true }); } catch (error) { logger.warn('No fue posible limpiar uploads del canal', { channelId, error: error.message }); }
+    }
     io.to(`channel:${channelId}`).emit('clear-all');
-    logger.info('Canal dormido y datos temporales eliminados', { channelId });
+    logger.info(savedDesigns ? 'Canal dormido; medios conservados por diseños guardados' : 'Canal dormido y datos temporales eliminados', { channelId, savedDesigns });
     r.sleepTimer = null;
   }, sleepMs);
 }
