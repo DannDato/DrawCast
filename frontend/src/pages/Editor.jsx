@@ -189,7 +189,7 @@ export default function Editor() {
     setControlBusy('publish');
     try {
       await emitChannelAction('publish-scene');
-      setMediaStatus(overlayHidden ? 'Cambios publicados. El overlay sigue oculto por el botón de pánico.' : 'Cambios publicados en el overlay.');
+      setMediaStatus(overlayHidden ? 'Cambios publicados. El overlay sigue apagado hasta que el propietario lo encienda.' : 'Cambios publicados en el overlay.');
     } catch (error) {
       setMediaStatus(error.message || 'No se pudieron publicar los cambios.');
     } finally {
@@ -203,7 +203,7 @@ export default function Editor() {
     setControlBusy('panic');
     try {
       await emitChannelAction('panic-set', { hidden: nextHidden });
-      setMediaStatus(nextHidden ? 'PÁNICO activado: el overlay está oculto. El workspace sigue intacto.' : 'Overlay restaurado.');
+      setMediaStatus(nextHidden ? 'Overlay apagado. El workspace sigue intacto.' : 'Overlay encendido.');
     } catch (error) {
       setMediaStatus(error.message || 'No se pudo cambiar la visibilidad del overlay.');
     } finally {
@@ -360,14 +360,18 @@ export default function Editor() {
   };
 
   const clear = () => {
-    if (!Object.keys(objectsRef.current).length) return;
+    const currentObjects = Object.keys(objectsRef.current);
+    if (!currentObjects.length) return;
+
     beginHistory('Vaciar lienzo');
-    setScene({});
-    setSelectedIds([]);
-    setSelectedId(null);
-    setActiveDrawLayerId(null);
+    const fallbackLayer = makeDrawLayer({});
+    setScene({ [fallbackLayer.id]: fallbackLayer });
+    setSelectedIds([fallbackLayer.id]);
+    setSelectedId(fallbackLayer.id);
+    setActiveDrawLayerId(fallbackLayer.id);
     setLiveStrokes({});
     socket.emit('clear-all');
+    socket.emit('obj-upsert', fallbackLayer);
     commitHistory('Vaciar lienzo');
   };
 
@@ -409,17 +413,30 @@ export default function Editor() {
   const removeLayers = (ids = selectedIds, options = {}) => {
     const targets = [...new Set(ids)].filter((id) => objectsRef.current[id]);
     if (!targets.length) return;
+
+    const survivors = Object.values(objectsRef.current).filter((object) => !targets.includes(object.id));
+    const fallbackLayer = survivors.length === 0 ? makeDrawLayer({}) : null;
+
     if (options.history !== false) beginHistory(options.label || 'Eliminar capas');
     targets.forEach((id) => socket.emit('obj-remove', { id }));
     updateScene((current) => {
       const next = { ...current };
       targets.forEach((id) => delete next[id]);
+      if (fallbackLayer) next[fallbackLayer.id] = fallbackLayer;
       return next;
     });
+    if (fallbackLayer) socket.emit('obj-upsert', fallbackLayer);
+
     const remainingSelection = selectedIds.filter((id) => !targets.includes(id));
-    if (activeDrawLayerId && targets.includes(activeDrawLayerId)) setActiveDrawLayerId(null);
-    setSelectedIds(remainingSelection);
-    setSelectedId(remainingSelection.at(-1) || null);
+    if (fallbackLayer) {
+      setActiveDrawLayerId(fallbackLayer.id);
+      setSelectedIds([fallbackLayer.id]);
+      setSelectedId(fallbackLayer.id);
+    } else {
+      if (activeDrawLayerId && targets.includes(activeDrawLayerId)) setActiveDrawLayerId(null);
+      setSelectedIds(remainingSelection);
+      setSelectedId(remainingSelection.at(-1) || null);
+    }
     if (options.history !== false) commitHistory(options.label || 'Eliminar capas');
   };
 
@@ -1042,10 +1059,6 @@ export default function Editor() {
           onClear={requestClear}
           onUndo={undo}
           onRedo={redo}
-          onCopy={() => copySelection()}
-          onCut={() => cutSelection()}
-          onPaste={() => pasteClipboard()}
-          onHotkeys={() => setHotkeysOpen(true)}
           onSaveDesign={() => openDesigns('save')}
           onLoadDesigns={() => openDesigns('load')}
           onLoadRecent={loadRecentDesign}
@@ -1057,6 +1070,7 @@ export default function Editor() {
           propertiesOpen={propertiesOpen}
           snapEnabled={snapEnabled}
           onToggleSnap={() => setSnapEnabled((value) => !value)}
+          onMoveLayer={moveSelectedLayer}
           liveEnabled={liveEnabled}
           hasDraftChanges={hasDraftChanges}
           onToggleLive={toggleLiveMode}
@@ -1067,8 +1081,7 @@ export default function Editor() {
           controlBusy={controlBusy}
           canUndo={history.past.length > 0}
           canRedo={history.future.length > 0}
-          canCopy={selectedIds.length > 0}
-          canPaste={Boolean(clipboardPayload?.objects?.length)}
+          canMoveLayer={selectedIds.length > 0}
           connected={connected}
         />
       </div>

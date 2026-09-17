@@ -1310,7 +1310,7 @@
    Toolbar horizontal + inspector flotante. El canvas vuelve a ser el protagonista. */
 .dc-editor{
   grid-template-columns:minmax(0,1fr) 276px;
-  grid-template-rows:48px minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr);
 }
 
 .dc-editor-toolbar{
@@ -1326,11 +1326,14 @@
 .dc-toolbar-horizontal{
   position:relative;
   display:flex;
+  flex-wrap:wrap;
   align-items:center;
+  align-content:center;
   gap:6px;
+  row-gap:5px;
   width:100%;
-  height:100%;
   min-width:0;
+  min-height:48px;
   padding:6px 8px;
   color:var(--dc-text);
 }
@@ -1338,9 +1341,11 @@
 .dc-toolbar-group{
   position:relative;
   display:flex;
+  flex:0 0 auto;
+  flex-wrap:nowrap;
   align-items:center;
   gap:4px;
-  flex:0 0 auto;
+  min-width:max-content;
 }
 
 .dc-toolbar-icon,
@@ -1408,8 +1413,8 @@
 }
 
 .dc-toolbar-spacer{
-  flex:1 1 auto;
-  min-width:6px;
+  flex:1 1 24px;
+  min-width:0;
 }
 
 .dc-toolbar-menu-wrap{
@@ -1798,8 +1803,10 @@
 .dc-toolbar-broadcast-group{
   display:flex;
   flex:0 0 auto;
+  flex-wrap:nowrap;
   align-items:center;
   gap:5px;
+  min-width:max-content;
   margin-left:2px;
 }
 
@@ -1943,11 +1950,17 @@
 @media(max-width:1280px){
   .dc-live-switch-label{display:none;}
   .dc-live-switch{padding:0 6px;}
-  .dc-publish-button span,.dc-panic-button span{display:none;}
-  .dc-publish-button,.dc-panic-button{width:34px;padding:0;}
+  .dc-publish-button span{display:none;}
+  .dc-publish-button{width:34px;padding:0;}
 }
 
 @media(max-width:1000px){
   .dc-overlay-hidden-badge{font-size:0;width:30px;justify-content:center;padding:0;}
   .dc-overlay-hidden-badge svg{width:14px;height:14px;}
+}
+
+@media(max-width:760px){
+  .dc-panic-button span{display:none;}
+  .dc-panic-button{width:34px;padding:0;}
+  .dc-toolbar-separator{height:22px;}
 }

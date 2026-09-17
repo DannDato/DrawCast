@@ -36,7 +36,7 @@ export default function DashboardLayout() {
                 aria-busy={navigationPending ? "true" : undefined}
                 className={({ isActive }) => `flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent)] bg-[var(--dc-accent-soft)] text-white" : "border-transparent text-[#9ba1ac] hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white"}`}
             >
-                <Icon size={15} />
+                <Icon size={20} />
                 <span className="text-[11px] font-bold">{item.name}</span>
             </NavLink>
         );
@@ -58,13 +58,15 @@ export default function DashboardLayout() {
                         <span className="max-w-[130px] truncate text-[11px] font-semibold text-[#7e8592] sm:max-w-[180px]">{user?.username}</span>
                     </NavLink>
 
-                    <nav className="hidden items-center gap-1 md:flex w-full justify-center">
+                    <nav className="hidden items-center gap-1 md:flex w-full justify-center px-10">
                         {items.map((item) => navItem(item))}
                     </nav>
 
                     <div className="ml-auto hidden items-center gap-2 md:flex">
                         {user?.avatarUrl ? (
-                            <img className="h-8 w-8 border border-[#2a2e37] bg-[#101216] object-cover rounded-full" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
+                            <Link to="/app/profile" aria-label="Abrir perfil">
+                                <img className="h-8 w-8 border border-[#2a2e37] bg-[#101216] object-cover rounded-full" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
+                            </Link>
                         ) : (
                             <Link to="/app/profile" aria-label="Abrir perfil">
                                 <div className="grid h-8 w-8 place-items-center border border-[#2a2e37] bg-[#101216] text-[11px] font-black rounded-full" title={user?.displayName || user?.username || "Tu cuenta"}>

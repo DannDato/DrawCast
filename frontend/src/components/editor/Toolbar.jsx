@@ -1,26 +1,21 @@
 import { createElement, useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
-  ClipboardCopy,
-  ClipboardPaste,
   Clock3,
   Eraser,
   EyeOff,
   File,
   FolderOpen,
   Image,
-  Keyboard,
   Magnet,
-  MoreHorizontal,
   MousePointer2,
   Pencil,
   Plus,
   Radio,
   Redo2,
   Save,
-  Scissors,
   Play,
-  Siren,
+  Power,
   SlidersHorizontal,
   Shapes,
   Timer,
@@ -69,10 +64,6 @@ export default function Toolbar({
   onClear,
   onUndo,
   onRedo,
-  onCopy,
-  onCut,
-  onPaste,
-  onHotkeys,
   onSaveDesign,
   onLoadDesigns,
   onLoadRecent,
@@ -84,6 +75,7 @@ export default function Toolbar({
   propertiesOpen = false,
   snapEnabled = true,
   onToggleSnap,
+  onMoveLayer,
   liveEnabled = true,
   hasDraftChanges = false,
   onToggleLive,
@@ -94,8 +86,7 @@ export default function Toolbar({
   controlBusy = '',
   canUndo,
   canRedo,
-  canCopy,
-  canPaste,
+  canMoveLayer,
   connected
 }) {
   const [openMenu, setOpenMenu] = useState(null);
@@ -234,8 +225,8 @@ export default function Toolbar({
         <IconButton label="Deshacer // Ctrl+Z" icon={Undo2} onClick={onUndo} disabled={!canUndo} />
         <IconButton label="Borrar // Supr" icon={X} onClick={onClear}  />
         <IconButton label="Rehacer // Ctrl+Shift+Z / Ctrl+Y" icon={Redo2} onClick={onRedo} disabled={!canRedo} />
-        <IconButton label="Subir capa // " icon={LayerArrowUp}  />
-        <IconButton label="Bajar capa // " icon={LayerArrowDown}  />
+        <IconButton label="Subir capa" icon={LayerArrowUp} onClick={() => onMoveLayer?.('up')} disabled={!canMoveLayer} />
+        <IconButton label="Bajar capa" icon={LayerArrowDown} onClick={() => onMoveLayer?.('down')} disabled={!canMoveLayer} />
       </div>
       <IconButton label={snapEnabled ? 'Imán activado // Alt para ignorarlo mientras arrastras' : 'Imán desactivado'} icon={Magnet} active={snapEnabled} onClick={onToggleSnap} />
 
@@ -274,14 +265,14 @@ export default function Toolbar({
         className={`dc-panic-button ${overlayHidden ? 'active' : ''}`}
         onClick={onTogglePanic}
         disabled={controlDisabled}
-        title={overlayHidden ? 'Restaurar lo que se ve en el overlay' : 'PÁNICO: ocultar inmediatamente todo el overlay'}
+        title={overlayHidden ? 'Encender overlay y volver a mostrar la salida publicada' : 'Apagar overlay inmediatamente sin borrar el workspace'}
         aria-pressed={overlayHidden}
         >
-          <Siren size={15} />
-          <span>{overlayHidden ? 'Encender' : 'Apagar'}</span>
+          <Power size={15} />
+          <span>{overlayHidden ? 'Encender overlay' : 'Apagar overlay'}</span>
         </button>
       ) : overlayHidden ? (
-        <span className="dc-overlay-hidden-badge" title="El propietario ocultó temporalmente la salida del overlay"><Siren size={13} /> OVERLAY OCULTO</span>
+        <span className="dc-overlay-hidden-badge" title="El propietario apagó temporalmente la salida del overlay"><Power size={13} /> OVERLAY APAGADO</span>
       ) : null}
 
       <div className="dc-toolbar-spacer" />
