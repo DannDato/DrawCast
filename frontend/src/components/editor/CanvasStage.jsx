@@ -17,6 +17,7 @@ export default function CanvasStage({
   selectedIds = [],
   onSelect,
   onSelectMany,
+  onOpenProperties,
   onPatchObject,
   onPatchObjects,
   onTransformStart,
@@ -142,6 +143,8 @@ export default function CanvasStage({
   };
 
   const onPointerDown = (event) => {
+    if (event.button !== 0) return;
+
     const canvas = canvasRef.current;
     const point = pointFromEvent(event);
     canvas.setPointerCapture?.(event.pointerId);
@@ -306,7 +309,7 @@ export default function CanvasStage({
     }
 
     interaction.current = null;
-    if (event?.pointerId != null) canvasRef.current.releasePointerCapture?.(event.pointerId);
+    if (event?.pointerId != null && canvasRef.current.hasPointerCapture?.(event.pointerId)) canvasRef.current.releasePointerCapture?.(event.pointerId);
   };
 
   const onDoubleClick = (event) => {
@@ -318,6 +321,40 @@ export default function CanvasStage({
     event.preventDefault();
     onSelect?.(hit.id);
     openTextEditor(point, hit);
+  };
+
+  const onContextMenu = (event) => {
+    event.preventDefault();
+
+    const point = pointFromEvent(event);
+    const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
+    const selectedObjects = selection.map((id) => objects[id]).filter(Boolean);
+    const selectionBounds = getSelectionBounds(selectedObjects);
+    const padding = 4;
+    const insideSelection = selectionBounds
+      && point.x >= selectionBounds.x - padding
+      && point.x <= selectionBounds.x + selectionBounds.w + padding
+      && point.y >= selectionBounds.y - padding
+      && point.y <= selectionBounds.y + selectionBounds.h + padding;
+
+    let hasSelectionTarget = Boolean(insideSelection && selection.length);
+
+    if (!hasSelectionTarget) {
+      const hit = topObjectAt(point);
+      if (hit) {
+        if (!selection.includes(hit.id)) onSelect?.(hit.id);
+        hasSelectionTarget = true;
+      } else {
+        onSelect?.(null);
+      }
+    }
+
+    onOpenProperties?.({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      canvasPoint: point,
+      hasSelectionTarget
+    });
   };
 
   const onDragOver = (event) => {
@@ -355,6 +392,7 @@ export default function CanvasStage({
         onPointerUp={finishInteraction}
         onPointerCancel={finishInteraction}
         onDoubleClick={onDoubleClick}
+        onContextMenu={onContextMenu}
         onDragEnter={(event) => { event.preventDefault(); setMediaDragging(true); }}
         onDragOver={onDragOver}
         onDragLeave={() => setMediaDragging(false)}

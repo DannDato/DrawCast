@@ -60,9 +60,12 @@ export default function Editor() {
   const [mediaStatus, setMediaStatus] = useState('');
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [designsOpen, setDesignsOpen] = useState(false);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const [propertiesAnchor, setPropertiesAnchor] = useState(null);
   const objectsRef = useRef({});
   const historyStartRef = useRef(null);
   const nudgeActiveRef = useRef(false);
+  const propertiesRequestRef = useRef(0);
 
   const setScene = (next) => {
     objectsRef.current = next;
@@ -138,6 +141,22 @@ export default function Editor() {
     const primary = primaryId && unique.includes(primaryId) ? primaryId : unique.at(-1) || null;
     setSelectedIds(unique);
     setSelectedId(primary);
+  };
+
+  const openPropertiesAt = ({ clientX, clientY, hasSelectionTarget = false } = {}) => {
+    if (hasSelectionTarget) setTool('select');
+    propertiesRequestRef.current += 1;
+    setPropertiesAnchor({ clientX, clientY, requestId: propertiesRequestRef.current });
+    setPropertiesOpen(true);
+  };
+
+  const toggleProperties = () => {
+    if (propertiesOpen) {
+      setPropertiesOpen(false);
+      return;
+    }
+    setPropertiesAnchor(null);
+    setPropertiesOpen(true);
   };
 
   const select = (id, options = {}) => {
@@ -835,10 +854,47 @@ export default function Editor() {
 
   return (
     <div className="dc-editor">
-      <aside className="dc-editor-sidebar">
-        <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} onDesigns={() => setDesignsOpen(true)} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
+      <div className="dc-editor-toolbar">
+        <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} onDesigns={() => setDesignsOpen(true)} onProperties={toggleProperties} propertiesOpen={propertiesOpen} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
+      </div>
+
+      <main className="dc-workspace">
+        {/* <div className="dc-watermark">DrawCast <span>// DannDato</span></div> */}
+
+        <CanvasStage
+          objects={objects}
+          selectedId={selectedId}
+          selectedIds={selectedIds}
+          onSelect={select}
+          onSelectMany={setSelection}
+          onOpenProperties={openPropertiesAt}
+          onPatchObject={patch}
+          onPatchObjects={applyUpdates}
+          onTransformStart={() => beginHistory('Transformar capa')}
+          onTransformEnd={() => commitHistory('Transformar capa')}
+          tool={tool}
+          drawConfig={drawConfig}
+          activeDrawLayer={activeDrawLayer}
+          liveStrokes={liveStrokes}
+          onDrawStart={startDrawStroke}
+          onDrawPoint={continueDrawStroke}
+          onDrawCommit={commitDrawStroke}
+          shapeConfig={shapeConfig}
+          onShapeCreate={(draft) => {
+            add(makeShape(draft));
+            setTool('select');
+          }}
+          textConfig={textConfig}
+          onTextCommit={commitText}
+          onTimerCreate={createTimer}
+          onMediaDrop={({ file, url, point }) => file ? uploadFile(file, point) : importRemote(url, point)}
+          guide={guide}
+        />
 
         <Inspector
+          open={propertiesOpen}
+          anchor={propertiesAnchor}
+          onClose={() => setPropertiesOpen(false)}
           tool={tool}
           selected={singleSelected}
           selectedObjects={selectedIds.map((id) => objects[id]).filter(Boolean)}
@@ -872,39 +928,6 @@ export default function Editor() {
           onClearDrawLayer={clearActiveDrawLayer}
           onSelectDraw={() => setTool('draw')}
           onSelectEraser={() => setTool('eraser')}
-        />
-      </aside>
-
-      <main className="dc-workspace">
-        {/* <div className="dc-watermark">DrawCast <span>// DannDato</span></div> */}
-
-        <CanvasStage
-          objects={objects}
-          selectedId={selectedId}
-          selectedIds={selectedIds}
-          onSelect={select}
-          onSelectMany={setSelection}
-          onPatchObject={patch}
-          onPatchObjects={applyUpdates}
-          onTransformStart={() => beginHistory('Transformar capa')}
-          onTransformEnd={() => commitHistory('Transformar capa')}
-          tool={tool}
-          drawConfig={drawConfig}
-          activeDrawLayer={activeDrawLayer}
-          liveStrokes={liveStrokes}
-          onDrawStart={startDrawStroke}
-          onDrawPoint={continueDrawStroke}
-          onDrawCommit={commitDrawStroke}
-          shapeConfig={shapeConfig}
-          onShapeCreate={(draft) => {
-            add(makeShape(draft));
-            setTool('select');
-          }}
-          textConfig={textConfig}
-          onTextCommit={commitText}
-          onTimerCreate={createTimer}
-          onMediaDrop={({ file, url, point }) => file ? uploadFile(file, point) : importRemote(url, point)}
-          guide={guide}
         />
 
         <div className="dc-status">

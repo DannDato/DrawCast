@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Copy, Group, Maximize2, Minimize2, Ungroup } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, Copy, Group, Maximize2, Minimize2, Move, RotateCcw, Ungroup, X } from 'lucide-react';
 import ImagePanel from './ImagePanel';
 import TextControls from './tools/text/TextControls';
 import TimerControls from './tools/timer/TimerControls';
@@ -7,6 +7,16 @@ import DrawingControls from './tools/drawing/DrawingControls';
 import { DEFAULT_SHAPE_CONFIG, SHAPE_TYPES } from './tools/shapes/shapeTool';
 
 const PROPERTY_MODE_KEY = 'drawcast.editor.properties.mode';
+const PROPERTY_POSITION_KEY = 'drawcast.editor.properties.position';
+const DEFAULT_PROPERTY_POSITION = { x: 18, y: 18 };
+
+function readPropertyPosition() {
+  try {
+    const value = JSON.parse(localStorage.getItem(PROPERTY_POSITION_KEY) || 'null');
+    if (Number.isFinite(value?.x) && Number.isFinite(value?.y)) return value;
+  } catch { /* noop */ }
+  return DEFAULT_PROPERTY_POSITION;
+}
 const TOOL_NAMES = {
   select: 'Selección',
   draw: 'Lápiz / pincel',
@@ -22,6 +32,9 @@ function NumberField({ value, onChange, min }) {
 }
 
 export default function Inspector({
+  open = false,
+  anchor = null,
+  onClose,
   tool,
   selected,
   selectedObjects = [],
@@ -59,7 +72,23 @@ export default function Inspector({
   const [compact, setCompact] = useState(() => {
     try { return localStorage.getItem(PROPERTY_MODE_KEY) === 'compact'; } catch { return false; }
   });
+  const [position, setPosition] = useState(readPropertyPosition);
   const previousToolRef = useRef(tool);
+  const panelRef = useRef(null);
+  const dragRef = useRef(null);
+
+  const clampPosition = useCallback((x, y) => {
+    const panel = panelRef.current;
+    const parent = panel?.parentElement;
+    if (!panel || !parent) return { x: Math.max(8, x), y: Math.max(8, y) };
+
+    const maxX = Math.max(8, parent.clientWidth - panel.offsetWidth - 8);
+    const maxY = Math.max(8, parent.clientHeight - panel.offsetHeight - 52);
+    return {
+      x: Math.min(Math.max(8, x), maxX),
+      y: Math.min(Math.max(8, y), maxY)
+    };
+  }, []);
   const isShape = selected?.tipo === 'shape' || selected?.tipo === 'forma';
   const isImage = selected?.tipo === 'image' || selected?.tipo === 'imagen';
   const isText = selected?.tipo === 'text' || selected?.tipo === 'texto';
@@ -83,6 +112,82 @@ export default function Inspector({
     try { localStorage.setItem(PROPERTY_MODE_KEY, compact ? 'compact' : 'expanded'); } catch { /* noop */ }
   }, [compact]);
 
+  useEffect(() => {
+    try { localStorage.setItem(PROPERTY_POSITION_KEY, JSON.stringify(position)); } catch { /* noop */ }
+  }, [position]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const keepInsideWorkspace = () => setPosition((current) => clampPosition(current.x, current.y));
+    const frame = window.requestAnimationFrame(keepInsideWorkspace);
+    window.addEventListener('resize', keepInsideWorkspace);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', keepInsideWorkspace);
+    };
+  }, [open, compact, clampPosition]);
+
+  useEffect(() => {
+    if (!open || !anchor?.requestId) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      setCompact(false);
+      const panel = panelRef.current;
+      const parent = panel?.parentElement;
+      if (!panel || !parent) return;
+
+      const parentBounds = parent.getBoundingClientRect();
+      const cursorX = anchor.clientX - parentBounds.left;
+      const cursorY = anchor.clientY - parentBounds.top;
+      const gap = 14;
+      const bottomReserve = 52;
+      const panelWidth = panel.offsetWidth || 310;
+      const panelHeight = panel.offsetHeight || 260;
+
+      let x = cursorX + gap;
+      let y = cursorY + gap;
+
+      if (x + panelWidth > parent.clientWidth - 8) x = cursorX - panelWidth - gap;
+      if (y + panelHeight > parent.clientHeight - bottomReserve) y = cursorY - panelHeight - gap;
+
+      setPosition(clampPosition(x, y));
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, anchor?.requestId, anchor?.clientX, anchor?.clientY, clampPosition]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape' || document.querySelector('.dc-system-alert-backdrop')) return;
+      onClose?.();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [open, onClose]);
+
+  const startDrag = (event) => {
+    if (event.button !== 0 || event.target.closest('button')) return;
+    dragRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, x: position.x, y: position.y };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  };
+
+  const moveDrag = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setPosition(clampPosition(drag.x + event.clientX - drag.clientX, drag.y + event.clientY - drag.clientY));
+  };
+
+  const endDrag = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const resetPosition = () => setPosition(clampPosition(DEFAULT_PROPERTY_POSITION.x, DEFAULT_PROPERTY_POSITION.y));
+
   const shapeValue = (canonical, legacy) => {
     if (isShape) return selected[canonical] ?? selected[legacy] ?? DEFAULT_SHAPE_CONFIG[canonical];
     return shapeConfig[canonical];
@@ -93,16 +198,27 @@ export default function Inspector({
     if (isShape) onPatch(patch);
   };
 
+  if (!open) return null;
+
   return (
-    <aside className={`dc-inspector ${compact ? 'is-compact' : ''}`}>
-      <header className="dc-inspector-head">
+    <aside ref={panelRef} className={`dc-inspector dc-inspector-floating ${compact ? 'is-compact' : ''}`} style={{ left: position.x, top: position.y }}>
+      <header className="dc-inspector-head" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} title="Arrastra para mover las propiedades">
         <div className="dc-inspector-title">
+          <Move size={13} className="dc-inspector-drag-icon" aria-hidden="true" />
           <span>Propiedades</span>
           <small>· {TOOL_NAMES[tool] || 'Herramienta'}{selected ? ` · ${selected.layerName || selected.name || selected.tipo || 'capa'}` : ''}</small>
         </div>
-        <button type="button" className="dc-inspector-toggle" onClick={() => setCompact((value) => !value)} title={compact ? 'Mostrar propiedades' : 'Compactar propiedades'} aria-label={compact ? 'Mostrar propiedades' : 'Compactar propiedades'}>
-          {compact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
-        </button>
+        <div className="dc-inspector-actions">
+          <button type="button" className="dc-inspector-toggle" onClick={resetPosition} title="Restablecer posición" aria-label="Restablecer posición">
+            <RotateCcw size={13} />
+          </button>
+          <button type="button" className="dc-inspector-toggle" onClick={() => setCompact((value) => !value)} title={compact ? 'Mostrar propiedades' : 'Compactar propiedades'} aria-label={compact ? 'Mostrar propiedades' : 'Compactar propiedades'}>
+            {compact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+          </button>
+          <button type="button" className="dc-inspector-toggle" onClick={onClose} title="Cerrar propiedades" aria-label="Cerrar propiedades">
+            <X size={14} />
+          </button>
+        </div>
       </header>
 
       {!compact && <div className="dc-inspector-body">
