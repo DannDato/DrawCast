@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { drawObject, hitObject } from './renderer/drawObject';
 import { orderedObjects, renderScene } from './renderer/sceneRenderer';
-import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getSelectionBounds, hitResizeHandle, resizeFromHandle } from './renderer/selectionRenderer';
+import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getObjectFrame, getSelectionBounds, hitResizeHandle, hitRotateHandle, resizeCursorForHandle, resizeSelectionFromHandle, rotateSelection } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
 import InlineTextEditor from './tools/text/InlineTextEditor';
 import { textConfigFromObject } from './tools/text/textTool';
 import { appendStrokePoint, hitDrawLayer, isDrawLayer, makeStroke } from './tools/drawing/drawingTool';
+import { boundsCenter, unrotatePointAround } from './renderer/transformUtils';
+import { buildSnapTargets, drawSnapGuides, SNAP_THRESHOLD_PX, snapMove, snapResizePointer } from './renderer/snapUtils';
 
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
@@ -18,9 +20,10 @@ export default function CanvasStage({
   onSelect,
   onSelectMany,
   onOpenProperties,
-  onPatchObject,
   onPatchObjects,
   onTransformStart,
+  onTransformEnd,
+  snapEnabled = true,
   tool,
   drawConfig,
   activeDrawLayer,
@@ -41,9 +44,11 @@ export default function CanvasStage({
   const drawing = useRef(null);
   const shapePreview = useRef(null);
   const marquee = useRef(null);
+  const snapGuides = useRef(null);
   const guideImage = useRef(null);
   const [mediaDragging, setMediaDragging] = useState(false);
   const [textEditor, setTextEditor] = useState(null);
+  const [pointerCursor, setPointerCursor] = useState('');
 
   useEffect(() => {
     if (!guide || guide === 'none') {
@@ -75,7 +80,7 @@ export default function CanvasStage({
         }
 
         if (drawing.current) {
-          drawObject(ctx, { id: 'draw_preview', tipo: 'draw', x: Number(activeDrawLayer?.x) || 0, y: Number(activeDrawLayer?.y) || 0, w: Number(activeDrawLayer?.w) || CANVAS_WIDTH, h: Number(activeDrawLayer?.h) || CANVAS_HEIGHT, sourceWidth: Number(activeDrawLayer?.sourceWidth) || CANVAS_WIDTH, sourceHeight: Number(activeDrawLayer?.sourceHeight) || CANVAS_HEIGHT, lineas: [drawing.current], zIndex: Number.MAX_SAFE_INTEGER });
+          drawObject(ctx, { id: 'draw_preview', tipo: 'draw', x: Number(activeDrawLayer?.x) || 0, y: Number(activeDrawLayer?.y) || 0, w: Number(activeDrawLayer?.w) || CANVAS_WIDTH, h: Number(activeDrawLayer?.h) || CANVAS_HEIGHT, sourceWidth: Number(activeDrawLayer?.sourceWidth) || CANVAS_WIDTH, sourceHeight: Number(activeDrawLayer?.sourceHeight) || CANVAS_HEIGHT, rotation: Number(activeDrawLayer?.rotation) || 0, lineas: [drawing.current], zIndex: Number.MAX_SAFE_INTEGER });
         }
 
         if (shapePreview.current) {
@@ -91,7 +96,9 @@ export default function CanvasStage({
 
         const accent = getComputedStyle(document.documentElement).getPropertyValue('--dc-accent').trim() || '#ff315c';
         const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
-        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter(Boolean), accent);
+        const cssScale = Math.max(0.01, canvas.getBoundingClientRect().width / CANVAS_WIDTH);
+        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter(Boolean), accent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
+        drawSnapGuides(ctx, snapGuides.current, accent, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
 
         if (marquee.current) drawMarquee(ctx, marquee.current.start, marquee.current.end, accent);
         lastFrame = timestamp;
@@ -120,7 +127,14 @@ export default function CanvasStage({
     const sourceHeight = Math.max(1, Number(layer.sourceHeight) || CANVAS_HEIGHT);
     const scaleX = Math.max(0.0001, (Number(layer.w) || sourceWidth) / sourceWidth);
     const scaleY = Math.max(0.0001, (Number(layer.h) || sourceHeight) / sourceHeight);
-    return { x: (point.x - (Number(layer.x) || 0)) / scaleX, y: (point.y - (Number(layer.y) || 0)) / scaleY };
+    const frame = getObjectFrame(layer);
+    const canvasPoint = frame && Number(layer.rotation) ? unrotatePointAround(point, boundsCenter(frame), Number(layer.rotation) || 0) : point;
+    return { x: (canvasPoint.x - (Number(layer.x) || 0)) / scaleX, y: (canvasPoint.y - (Number(layer.y) || 0)) / scaleY };
+  };
+
+  const groupIdsForObject = (object) => {
+    if (!object?.groupId) return object?.id ? [object.id] : [];
+    return Object.values(objects).filter((candidate) => candidate?.groupId === object.groupId).map((candidate) => candidate.id);
   };
 
   const openTextEditor = (point, object = null) => {
@@ -182,31 +196,72 @@ export default function CanvasStage({
     if (tool !== 'select') return;
 
     const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
-    const selected = selection.length === 1 ? objects[selection[0]] : null;
-    const resizeHandle = selected ? hitResizeHandle(selected, point.x, point.y) : null;
+    const selectionObjects = selection.map((id) => objects[id]).filter(Boolean);
+    const selectionBounds = getSelectionBounds(selectionObjects);
+    const selectionTarget = selectionObjects.length === 1 ? selectionObjects[0] : selectionBounds;
+    const canvasBounds = canvas.getBoundingClientRect();
+    const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+    const rotateDistance = 34 / cssScale;
+    const rotateHandle = selectionTarget ? hitRotateHandle(selectionTarget, point.x, point.y, 14 / cssScale, rotateDistance) : false;
+    const resizeHandle = selectionTarget ? hitResizeHandle(selectionTarget, point.x, point.y, 12 / cssScale) : null;
     const append = event.ctrlKey || event.metaKey || event.shiftKey;
 
-    if (selected && resizeHandle) {
-      onTransformStart?.();
-      interaction.current = {
-        type: 'resize',
-        id: selected.id,
-        handle: resizeHandle,
-        start: point,
-        original: { ...selected }
-      };
-      return;
+    if (selectionBounds && rotateHandle) {
+      const items = selectionObjects.filter((object) => [object?.x, object?.y].every((value) => Number.isFinite(Number(value))));
+      if (items.length) {
+        const center = boundsCenter(selectionBounds);
+        onTransformStart?.(items.length > 1 ? 'Rotar selección' : 'Rotar capa');
+        interaction.current = {
+          type: 'rotate',
+          start: point,
+          startAngle: Math.atan2(point.y - center.y, point.x - center.x),
+          bounds: { ...selectionBounds },
+          items: items.map((object) => ({ ...object })),
+          changed: false
+        };
+        setPointerCursor('grabbing');
+        return;
+      }
+    }
+
+    if (selectionBounds && resizeHandle) {
+      const items = selectionObjects.filter((object) => [object?.x, object?.y, object?.w, object?.h].every((value) => Number.isFinite(Number(value))));
+      if (items.length) {
+        onTransformStart?.(items.length > 1 ? 'Redimensionar selección' : 'Redimensionar capa');
+        interaction.current = {
+          type: 'resize',
+          handle: resizeHandle,
+          start: point,
+          bounds: { ...selectionBounds },
+          items: items.map((object) => ({ ...object })),
+          snapTargets: snapEnabled ? buildSnapTargets(objects, selection, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }) : null,
+          snapAllowed: items.length > 1 || !(Number(items[0]?.rotation) || 0),
+          changed: false
+        };
+        snapGuides.current = null;
+        setPointerCursor(resizeCursorForHandle(resizeHandle, selectionTarget));
+        return;
+      }
     }
 
     const startMove = (ids) => {
-      const items = ids
+      const movingObjects = ids
         .map((id) => objects[id])
-        .filter((object) => object && Number.isFinite(Number(object.x)) && Number.isFinite(Number(object.y)))
-        .map((object) => ({ id: object.id, x: Number(object.x) || 0, y: Number(object.y) || 0 }));
+        .filter((object) => object && Number.isFinite(Number(object.x)) && Number.isFinite(Number(object.y)));
+      const items = movingObjects.map((object) => ({ id: object.id, x: Number(object.x) || 0, y: Number(object.y) || 0 }));
       if (!items.length) return false;
 
-      onTransformStart?.();
-      interaction.current = { type: 'move', start: point, items };
+      onTransformStart?.(items.length > 1 ? 'Mover selección' : 'Mover capa');
+      interaction.current = {
+        type: 'move',
+        start: point,
+        items,
+        bounds: getSelectionBounds(movingObjects),
+        snapTargets: snapEnabled ? buildSnapTargets(objects, ids, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT }) : null,
+        changed: false
+      };
+      snapGuides.current = null;
+      setPointerCursor('grabbing');
       return true;
     };
 
@@ -214,7 +269,6 @@ export default function CanvasStage({
     // cualquier arrastre dentro de su cuadro mueve toda la selección, incluso
     // si el puntero cae en una zona transparente entre trazos u objetos.
     if (!append && selection.length) {
-      const selectionBounds = getSelectionBounds(selection.map((id) => objects[id]).filter(Boolean));
       const padding = 4;
       const insideSelection = selectionBounds
         && point.x >= selectionBounds.x - padding
@@ -234,8 +288,12 @@ export default function CanvasStage({
         return;
       }
 
-      const movingIds = selection.includes(hit.id) ? selection : [hit.id];
-      if (!selection.includes(hit.id)) onSelect?.(hit.id);
+      const groupedIds = groupIdsForObject(hit);
+      const movingIds = selection.includes(hit.id) ? selection : groupedIds;
+      if (!selection.includes(hit.id)) {
+        if (groupedIds.length > 1) onSelectMany?.(groupedIds, hit.id);
+        else onSelect?.(hit.id);
+      }
       startMove(movingIds);
       return;
     }
@@ -257,7 +315,43 @@ export default function CanvasStage({
     }
 
     const active = interaction.current;
-    if (!active) return;
+    if (!active) {
+      if (tool !== 'select') {
+        if (pointerCursor) setPointerCursor('');
+        return;
+      }
+
+      const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
+      const selectedObjects = selection.map((id) => objects[id]).filter(Boolean);
+      const selectionBounds = getSelectionBounds(selectedObjects);
+      const selectionTarget = selectedObjects.length === 1 ? selectedObjects[0] : selectionBounds;
+      if (!selectionBounds || !selectionTarget) {
+        if (pointerCursor) setPointerCursor('');
+        return;
+      }
+
+      const canvasBounds = canvasRef.current.getBoundingClientRect();
+      const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+      if (hitRotateHandle(selectionTarget, point.x, point.y, 14 / cssScale, 34 / cssScale)) {
+        if (pointerCursor !== 'grab') setPointerCursor('grab');
+        return;
+      }
+      const handle = hitResizeHandle(selectionTarget, point.x, point.y, 12 / cssScale);
+      if (handle) {
+        const nextCursor = resizeCursorForHandle(handle, selectionTarget);
+        if (pointerCursor !== nextCursor) setPointerCursor(nextCursor);
+        return;
+      }
+
+      const padding = 4 / cssScale;
+      const insideSelection = point.x >= selectionBounds.x - padding
+        && point.x <= selectionBounds.x + selectionBounds.w + padding
+        && point.y >= selectionBounds.y - padding
+        && point.y <= selectionBounds.y + selectionBounds.h + padding;
+      const nextCursor = insideSelection ? 'move' : '';
+      if (pointerCursor !== nextCursor) setPointerCursor(nextCursor);
+      return;
+    }
 
     if (active.type === 'shape') {
       shapePreview.current = buildShapeFromDrag(active.start, point, shapeConfig, event.shiftKey, event.altKey);
@@ -265,14 +359,57 @@ export default function CanvasStage({
     }
 
     if (active.type === 'move') {
-      const dx = point.x - active.start.x;
-      const dy = point.y - active.start.y;
+      let dx = point.x - active.start.x;
+      let dy = point.y - active.start.y;
+      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
+        snapGuides.current = null;
+        return;
+      }
+
+      if (snapEnabled && !event.altKey && active.bounds && active.snapTargets) {
+        const canvasBounds = canvasRef.current.getBoundingClientRect();
+        const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+        const snapped = snapMove(active.bounds, dx, dy, active.snapTargets, SNAP_THRESHOLD_PX / cssScale);
+        dx = snapped.dx;
+        dy = snapped.dy;
+        snapGuides.current = snapped.guides;
+      } else {
+        snapGuides.current = null;
+      }
+
+      active.changed = true;
+      setPointerCursor('grabbing');
       onPatchObjects?.(active.items.map((item) => ({ id: item.id, patch: { x: item.x + dx, y: item.y + dy } })));
       return;
     }
 
     if (active.type === 'resize') {
-      onPatchObject(active.id, resizeFromHandle(active.original, active.handle, point, active.start, event.shiftKey));
+      let resizePoint = point;
+      if (snapEnabled && !event.altKey && active.snapAllowed && active.snapTargets) {
+        const canvasBounds = canvasRef.current.getBoundingClientRect();
+        const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+        const snapped = snapResizePointer(active.bounds, active.handle, point, active.start, active.snapTargets, SNAP_THRESHOLD_PX / cssScale);
+        resizePoint = snapped.point;
+        snapGuides.current = snapped.guides;
+      } else {
+        snapGuides.current = null;
+      }
+
+      const updates = resizeSelectionFromHandle(active.items, active.bounds, active.handle, resizePoint, active.start, event.shiftKey);
+      if (!updates.length) return;
+      active.changed = true;
+      setPointerCursor(resizeCursorForHandle(active.handle, active.items.length === 1 ? active.items[0] : null));
+      onPatchObjects?.(updates);
+      return;
+    }
+
+    if (active.type === 'rotate') {
+      snapGuides.current = null;
+      const updates = rotateSelection(active.items, active.bounds, point, active.start, active.startAngle, event.shiftKey);
+      if (!updates.length) return;
+      active.changed = true;
+      setPointerCursor('grabbing');
+      onPatchObjects?.(updates);
       return;
     }
 
@@ -308,7 +445,12 @@ export default function CanvasStage({
       marquee.current = null;
     }
 
+    const finished = interaction.current;
+    if (finished?.type === 'move' || finished?.type === 'resize' || finished?.type === 'rotate') onTransformEnd?.({ type: finished.type, changed: Boolean(finished.changed) });
+
     interaction.current = null;
+    snapGuides.current = null;
+    setPointerCursor('');
     if (event?.pointerId != null && canvasRef.current.hasPointerCapture?.(event.pointerId)) canvasRef.current.releasePointerCapture?.(event.pointerId);
   };
 
@@ -326,6 +468,11 @@ export default function CanvasStage({
   const onContextMenu = (event) => {
     event.preventDefault();
 
+    if (tool === 'draw' || tool === 'eraser') {
+      onOpenProperties?.({ clientX: event.clientX, clientY: event.clientY, hasSelectionTarget: false });
+      return;
+    }
+
     const point = pointFromEvent(event);
     const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
     const selectedObjects = selection.map((id) => objects[id]).filter(Boolean);
@@ -342,7 +489,11 @@ export default function CanvasStage({
     if (!hasSelectionTarget) {
       const hit = topObjectAt(point);
       if (hit) {
-        if (!selection.includes(hit.id)) onSelect?.(hit.id);
+        if (!selection.includes(hit.id)) {
+          const groupedIds = groupIdsForObject(hit);
+          if (groupedIds.length > 1) onSelectMany?.(groupedIds, hit.id);
+          else onSelect?.(hit.id);
+        }
         hasSelectionTarget = true;
       } else {
         onSelect?.(null);
@@ -387,10 +538,12 @@ export default function CanvasStage({
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
         className={`dc-canvas tool-${tool} ${mediaDragging ? 'is-media-dragging' : ''}`}
+        style={pointerCursor ? { cursor: pointerCursor } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishInteraction}
         onPointerCancel={finishInteraction}
+        onPointerLeave={() => { if (!interaction.current) setPointerCursor(''); }}
         onDoubleClick={onDoubleClick}
         onContextMenu={onContextMenu}
         onDragEnter={(event) => { event.preventDefault(); setMediaDragging(true); }}

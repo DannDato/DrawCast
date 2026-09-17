@@ -27,3 +27,9 @@ backend/uploads/avatars/*
 Thumbs.db
 .vscode/
 .idea/
+
+/DrawCast.zip
+/Drawcast.zip
+/drawcast.zip
+
+*.zip

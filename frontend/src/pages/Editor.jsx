@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../api/axios';
 import { importChannelImageUrl, uploadChannelImage } from '../api/media';
+import { getSavedDesign, getSavedDesigns } from '../api/designs';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
 import Inspector from '../components/editor/Inspector';
@@ -12,7 +13,7 @@ import SavedDesignsModal from '../components/editor/SavedDesignsModal';
 import { useSystemAlert } from '../components/ui/SystemAlert';
 import { makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
-import { moveSelectionOneLevel, reorderLayerUnits } from '../components/editor/layers/layerUtils';
+import { moveSelectionOneLevel, reorderLayerUnitToIndex } from '../components/editor/layers/layerUtils';
 import { DEFAULT_SHAPE_CONFIG } from '../components/editor/tools/shapes/shapeTool';
 import { DEFAULT_IMAGE_CONFIG, fitImageSize, getImageKind, loadImageMetadata, validateImageFile } from '../components/editor/tools/images/imageTool';
 import { DEFAULT_TEXT_CONFIG, applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
@@ -60,6 +61,16 @@ export default function Editor() {
   const [mediaStatus, setMediaStatus] = useState('');
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [designsOpen, setDesignsOpen] = useState(false);
+  const [designsIntent, setDesignsIntent] = useState('load');
+  const [recentDesigns, setRecentDesigns] = useState([]);
+  const [snapEnabled, setSnapEnabled] = useState(() => {
+    try { return localStorage.getItem('drawcast.editor.snap') !== 'off'; } catch { return true; }
+  });
+  const [liveEnabled, setLiveEnabled] = useState(true);
+  const [overlayHidden, setOverlayHidden] = useState(false);
+  const [hasDraftChanges, setHasDraftChanges] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [controlBusy, setControlBusy] = useState('');
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [propertiesAnchor, setPropertiesAnchor] = useState(null);
   const objectsRef = useRef({});
@@ -106,6 +117,11 @@ export default function Editor() {
       });
     },
     'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
+    'channel-control': ({ liveEnabled: nextLive, overlayHidden: nextHidden, hasDraftChanges: nextDraft } = {}) => {
+      if (typeof nextLive === 'boolean') setLiveEnabled(nextLive);
+      if (typeof nextHidden === 'boolean') setOverlayHidden(nextHidden);
+      if (typeof nextDraft === 'boolean') setHasDraftChanges(nextDraft);
+    },
     'clear-all': () => {
       if (historyStartRef.current) historyStartRef.current.before = {};
       objectsRef.current = {};
@@ -117,6 +133,103 @@ export default function Editor() {
   }), []);
 
   const { socket, presence, connected, denied } = useChannelSocket(publicKey, 'editor', handlers);
+
+  const applyControlState = (control = {}) => {
+    if (typeof control.liveEnabled === 'boolean') setLiveEnabled(control.liveEnabled);
+    if (typeof control.overlayHidden === 'boolean') setOverlayHidden(control.overlayHidden);
+    if (typeof control.hasDraftChanges === 'boolean') setHasDraftChanges(control.hasDraftChanges);
+  };
+
+  const emitChannelAction = (event, payload = {}) => new Promise((resolve, reject) => {
+    if (!socket.connected) {
+      reject(new Error('DrawCast perdió conexión con el canal.'));
+      return;
+    }
+    socket.timeout(6000).emit(event, payload, (error, response) => {
+      if (error) {
+        reject(new Error('El canal no confirmó la acción. Vuelve a intentarlo.'));
+        return;
+      }
+      if (!response?.ok) {
+        reject(new Error(response?.message || 'El canal rechazó la acción.'));
+        return;
+      }
+      applyControlState(response.control);
+      resolve(response);
+    });
+  });
+
+  const toggleLiveMode = async () => {
+    if (controlBusy || !connected) return;
+    const nextLive = !liveEnabled;
+
+    if (nextLive && hasDraftChanges) {
+      const accepted = await confirmDialog({
+        title: '¿Volver a Live?',
+        message: 'Lo que tienes preparado se publicará de inmediato y, desde ahí, cada cambio volverá a salir en tiempo real.',
+        confirmLabel: 'Publicar y activar Live',
+        cancelLabel: 'Seguir en Estudio'
+      });
+      if (!accepted) return;
+    }
+
+    setControlBusy('live');
+    try {
+      await emitChannelAction('live-mode-set', { enabled: nextLive });
+      setMediaStatus(nextLive ? 'Modo Live activado. El workspace actual ya está al aire.' : 'Modo Estudio activado. Prepara cambios y publícalos cuando estén listos.');
+    } catch (error) {
+      setMediaStatus(error.message || 'No se pudo cambiar el modo de salida.');
+    } finally {
+      setControlBusy('');
+    }
+  };
+
+  const publishScene = async () => {
+    if (controlBusy || !connected || liveEnabled || !hasDraftChanges) return;
+    setControlBusy('publish');
+    try {
+      await emitChannelAction('publish-scene');
+      setMediaStatus(overlayHidden ? 'Cambios publicados. El overlay sigue oculto por el botón de pánico.' : 'Cambios publicados en el overlay.');
+    } catch (error) {
+      setMediaStatus(error.message || 'No se pudieron publicar los cambios.');
+    } finally {
+      setControlBusy('');
+    }
+  };
+
+  const togglePanic = async () => {
+    if (!isOwner || controlBusy || !connected) return;
+    const nextHidden = !overlayHidden;
+    setControlBusy('panic');
+    try {
+      await emitChannelAction('panic-set', { hidden: nextHidden });
+      setMediaStatus(nextHidden ? 'PÁNICO activado: el overlay está oculto. El workspace sigue intacto.' : 'Overlay restaurado.');
+    } catch (error) {
+      setMediaStatus(error.message || 'No se pudo cambiar la visibilidad del overlay.');
+    } finally {
+      setControlBusy('');
+    }
+  };
+
+  const refreshRecentDesigns = async () => {
+    if (!channelId) {
+      setRecentDesigns([]);
+      return [];
+    }
+    try {
+      const rows = await getSavedDesigns(channelId);
+      const ordered = [...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      setRecentDesigns(ordered);
+      return ordered;
+    } catch {
+      return [];
+    }
+  };
+
+  const openDesigns = (intent = 'load') => {
+    setDesignsIntent(intent);
+    setDesignsOpen(true);
+  };
 
   const beginHistory = (label = 'Editar') => {
     if (historyStartRef.current) return;
@@ -145,8 +258,13 @@ export default function Editor() {
 
   const openPropertiesAt = ({ clientX, clientY, hasSelectionTarget = false } = {}) => {
     if (hasSelectionTarget) setTool('select');
-    propertiesRequestRef.current += 1;
-    setPropertiesAnchor({ clientX, clientY, requestId: propertiesRequestRef.current });
+    const hasAnchor = Number.isFinite(clientX) && Number.isFinite(clientY);
+    if (hasAnchor) {
+      propertiesRequestRef.current += 1;
+      setPropertiesAnchor({ clientX, clientY, requestId: propertiesRequestRef.current });
+    } else {
+      setPropertiesAnchor(null);
+    }
     setPropertiesOpen(true);
   };
 
@@ -157,6 +275,11 @@ export default function Editor() {
     }
     setPropertiesAnchor(null);
     setPropertiesOpen(true);
+  };
+
+  const openInsertProperties = ({ id, clientX, clientY } = {}) => {
+    if (!['text', 'shape', 'timer'].includes(id)) return;
+    openPropertiesAt({ clientX, clientY });
   };
 
   const select = (id, options = {}) => {
@@ -375,12 +498,19 @@ export default function Editor() {
     setSelection(ids, ids[0] || null);
   };
 
-  const reorderLayers = (draggedId, targetId) => {
-    const updates = reorderLayerUnits(objectsRef.current, draggedId, targetId);
+  const reorderLayers = (draggedId, destinationIndex) => {
+    const updates = reorderLayerUnitToIndex(objectsRef.current, draggedId, destinationIndex);
     if (!updates.length) return;
-    beginHistory('Ordenar capas');
+
+    const before = Object.fromEntries(
+      updates.map(({ id }) => [id, cloneValue(objectsRef.current[id])])
+    );
     applyUpdates(updates);
-    commitHistory('Ordenar capas');
+    const after = Object.fromEntries(
+      updates.map(({ id }) => [id, cloneValue(objectsRef.current[id])])
+    );
+    const entry = makeHistoryEntry(before, after, 'Ordenar capas');
+    if (entry) setHistory((current) => ({ past: pushHistoryEntry(current.past, entry), future: [] }));
   };
 
   const moveSelectedLayer = (direction) => {
@@ -478,6 +608,7 @@ export default function Editor() {
       layerY: Number(layer.y) || 0,
       layerW: Number(layer.w) || 1920,
       layerH: Number(layer.h) || 1080,
+      layerRotation: Number(layer.rotation) || 0,
       point
     });
   };
@@ -514,9 +645,22 @@ export default function Editor() {
   }, [guide]);
 
   useEffect(() => {
+    try { localStorage.setItem('drawcast.editor.snap', snapEnabled ? 'on' : 'off'); } catch { /* noop */ }
+  }, [snapEnabled]);
+
+  useEffect(() => {
     api.get('/channels/mine').then(({ data }) => {
+      setIsOwner(data.owned?.publicKey === publicKey);
       const allChannels = [data.owned, ...(data.collaborations || [])].filter(Boolean);
-      setChannelId(allChannels.find((channel) => channel.publicKey === publicKey)?.id || null);
+      const nextChannelId = allChannels.find((channel) => channel.publicKey === publicKey)?.id || null;
+      setChannelId(nextChannelId);
+      if (!nextChannelId) {
+        setRecentDesigns([]);
+        return;
+      }
+      getSavedDesigns(nextChannelId)
+        .then((rows) => setRecentDesigns([...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))))
+        .catch(() => setRecentDesigns([]));
     });
   }, [publicKey]);
 
@@ -698,15 +842,18 @@ export default function Editor() {
     const rawY = point && Number.isFinite(point.y) ? point.y : 200;
     const x = Math.max(0, Math.min(1920 - size.w, rawX));
     const y = Math.max(0, Math.min(1080 - size.h, rawY));
-
-    add(makeImage(x, y, url, name, {
+    const object = makeImage(x, y, url, name, {
       ...imageConfig,
       ...size,
       ...metadata,
       mimeType,
       mediaKind: getImageKind(mimeType, name)
-    }));
+    });
+
+    add(object);
     setTool('select');
+    openPropertiesAt();
+    return object;
   };
 
   const uploadFile = async (file, point = null) => {
@@ -811,6 +958,28 @@ export default function Editor() {
     setMediaStatus(`Diseño cargado: ${design?.name || 'sin nombre'}.`);
   };
 
+  const loadRecentDesign = async (design) => {
+    if (!design || !channelId) return;
+    if (Object.keys(objectsRef.current).length) {
+      const accepted = await confirmDialog({
+        title: `¿Cargar “${design.name}”?`,
+        message: liveEnabled ? 'El lienzo actual será reemplazado para todos los editores y el overlay conectado.' : 'El lienzo actual será reemplazado para todos los editores. Estás en modo Estudio, así que el overlay conservará lo publicado hasta que presiones Publicar.',
+        confirmLabel: 'Cargar diseño',
+        cancelLabel: 'Cancelar'
+      });
+      if (!accepted) return;
+    }
+
+    setMediaStatus(`Cargando “${design.name}”...`);
+    try {
+      const fullDesign = await getSavedDesign(channelId, design.id);
+      await loadDesignSnapshot(fullDesign.state, fullDesign);
+      refreshRecentDesigns();
+    } catch (error) {
+      setMediaStatus(error?.response?.data?.message || error?.response?.data?.error || error?.message || 'No se pudo cargar el diseño.');
+    }
+  };
+
   const singleSelected = selectedIds.length === 1 ? objects[selectedId] : null;
 
   const patchSelectedText = (patchData) => {
@@ -855,7 +1024,43 @@ export default function Editor() {
   return (
     <div className="dc-editor">
       <div className="dc-editor-toolbar">
-        <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} onDesigns={() => setDesignsOpen(true)} onProperties={toggleProperties} propertiesOpen={propertiesOpen} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
+        <Toolbar
+          tool={tool}
+          setTool={setTool}
+          guide={guide}
+          setGuide={setGuide}
+          onClear={requestClear}
+          onUndo={undo}
+          onRedo={redo}
+          onCopy={() => copySelection()}
+          onCut={() => cutSelection()}
+          onPaste={() => pasteClipboard()}
+          onHotkeys={() => setHotkeysOpen(true)}
+          onSaveDesign={() => openDesigns('save')}
+          onLoadDesigns={() => openDesigns('load')}
+          onLoadRecent={loadRecentDesign}
+          onFileOpen={refreshRecentDesigns}
+          recentDesigns={recentDesigns}
+          onProperties={toggleProperties}
+          onInsertTool={openInsertProperties}
+          onImageFile={uploadFile}
+          propertiesOpen={propertiesOpen}
+          snapEnabled={snapEnabled}
+          onToggleSnap={() => setSnapEnabled((value) => !value)}
+          liveEnabled={liveEnabled}
+          hasDraftChanges={hasDraftChanges}
+          onToggleLive={toggleLiveMode}
+          onPublish={publishScene}
+          isOwner={isOwner}
+          overlayHidden={overlayHidden}
+          onTogglePanic={togglePanic}
+          controlBusy={controlBusy}
+          canUndo={history.past.length > 0}
+          canRedo={history.future.length > 0}
+          canCopy={selectedIds.length > 0}
+          canPaste={Boolean(clipboardPayload?.objects?.length)}
+          connected={connected}
+        />
       </div>
 
       <main className="dc-workspace">
@@ -868,10 +1073,10 @@ export default function Editor() {
           onSelect={select}
           onSelectMany={setSelection}
           onOpenProperties={openPropertiesAt}
-          onPatchObject={patch}
           onPatchObjects={applyUpdates}
-          onTransformStart={() => beginHistory('Transformar capa')}
-          onTransformEnd={() => commitHistory('Transformar capa')}
+          onTransformStart={(label) => beginHistory(label || 'Transformar capa')}
+          onTransformEnd={() => commitHistory()}
+          snapEnabled={snapEnabled}
           tool={tool}
           drawConfig={drawConfig}
           activeDrawLayer={activeDrawLayer}
@@ -891,8 +1096,8 @@ export default function Editor() {
           guide={guide}
         />
 
-        <Inspector
-          open={propertiesOpen}
+        {propertiesOpen && <Inspector
+          open
           anchor={propertiesAnchor}
           onClose={() => setPropertiesOpen(false)}
           tool={tool}
@@ -928,14 +1133,19 @@ export default function Editor() {
           onClearDrawLayer={clearActiveDrawLayer}
           onSelectDraw={() => setTool('draw')}
           onSelectEraser={() => setTool('eraser')}
-        />
+        />}
 
         <div className="dc-status">
-          <span className={`dc-status-chip connection ${connected ? 'online' : 'offline'}`}>{connected ? 'EN LÍNEA' : 'SIN CONEXIÓN'}</span>
-          <span className="dc-status-chip">HERRAMIENTA // {TOOL_LABELS[tool] || tool}</span>
-          <span className="dc-status-chip">SELECCIONADAS // {selectedIds.length}</span>
-          <span className="dc-status-presence">CONECTADOS {presence.clients} // EDITORES {presence.editors} // OBS {presence.overlays}</span>
+          {/* <span className={`dc-status-chip connection ${connected ? 'online' : 'offline'}`}>{connected ? 'EN LÍNEA' : 'SIN CONEXIÓN'}</span> */}
+          {TOOL_LABELS[tool] && (
+            <span className="dc-status-presence">Herramienta: {TOOL_LABELS[tool]} //</span>
+          )}
+          {selectedIds.length > 0 && (
+            <span className="dc-status-presence">Seleccionada: {selectedIds.length} //</span>
+          )}
+          <span className="dc-status-presence">Conectados: {presence.clients} // Editores: {presence.editors} // OBS: {presence.overlays}</span>
           {mediaStatus && <span className="dc-media-status">{mediaStatus}</span>}
+          
           <button type="button" className="dc-status-hotkeys" onClick={() => setHotkeysOpen(true)}>ATAJOS [?]</button>
         </div>
       </main>
@@ -950,6 +1160,7 @@ export default function Editor() {
           onPatchMany={(updates) => applyUpdatesWithHistory(updates, 'Editar capas')}
           onRemove={removeLayers}
           onReorder={reorderLayers}
+          onNewDrawLayer={createDrawLayer}
           onGroup={groupSelection}
           onUngroup={ungroupSelection}
           onDuplicate={duplicateSelected}
@@ -957,7 +1168,7 @@ export default function Editor() {
       </div>
 
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-      {designsOpen && <SavedDesignsModal onClose={() => setDesignsOpen(false)} channelId={channelId} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} />}
+      {designsOpen && <SavedDesignsModal initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelId={channelId} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
     </div>
   );
 }

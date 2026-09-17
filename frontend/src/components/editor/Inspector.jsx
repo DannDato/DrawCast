@@ -70,12 +70,16 @@ export default function Inspector({
   onSelectEraser
 }) {
   const [compact, setCompact] = useState(() => {
+    if (anchor?.requestId) return false;
     try { return localStorage.getItem(PROPERTY_MODE_KEY) === 'compact'; } catch { return false; }
   });
   const [position, setPosition] = useState(readPropertyPosition);
+  const [revealed, setRevealed] = useState(false);
+  const [layerNameDraft, setLayerNameDraft] = useState('');
   const previousToolRef = useRef(tool);
   const panelRef = useRef(null);
   const dragRef = useRef(null);
+  const layerNameEditingRef = useRef(false);
 
   const clampPosition = useCallback((x, y) => {
     const panel = panelRef.current;
@@ -100,6 +104,11 @@ export default function Inspector({
   const showTextPanel = tool === 'text' || isText;
   const showTimerPanel = tool === 'timer' || isTimer;
   const showDrawingPanel = tool === 'draw' || tool === 'eraser';
+  const selectedLayerName = selected ? String(selected.layerName ?? selected.fileName ?? selected.name ?? selected.tipo ?? 'CAPA') : '';
+
+  useEffect(() => {
+    if (!layerNameEditingRef.current) setLayerNameDraft(selectedLayerName);
+  }, [selected?.id, selectedLayerName]);
 
   useEffect(() => {
     if (previousToolRef.current !== tool) {
@@ -118,43 +127,52 @@ export default function Inspector({
 
   useEffect(() => {
     if (!open) return undefined;
-    const keepInsideWorkspace = () => setPosition((current) => clampPosition(current.x, current.y));
-    const frame = window.requestAnimationFrame(keepInsideWorkspace);
-    window.addEventListener('resize', keepInsideWorkspace);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener('resize', keepInsideWorkspace);
-    };
-  }, [open, compact, clampPosition]);
 
-  useEffect(() => {
-    if (!open || !anchor?.requestId) return undefined;
+    let measureFrame;
+    let revealFrame;
+    const prepareFrame = window.requestAnimationFrame(() => {
+      if (anchor?.requestId) setCompact(false);
 
-    const frame = window.requestAnimationFrame(() => {
-      setCompact(false);
-      const panel = panelRef.current;
-      const parent = panel?.parentElement;
-      if (!panel || !parent) return;
+      measureFrame = window.requestAnimationFrame(() => {
+        const panel = panelRef.current;
+        const parent = panel?.parentElement;
+        if (!panel || !parent) return;
 
-      const parentBounds = parent.getBoundingClientRect();
-      const cursorX = anchor.clientX - parentBounds.left;
-      const cursorY = anchor.clientY - parentBounds.top;
-      const gap = 14;
-      const bottomReserve = 52;
-      const panelWidth = panel.offsetWidth || 310;
-      const panelHeight = panel.offsetHeight || 260;
+        if (anchor?.requestId) {
+          const parentBounds = parent.getBoundingClientRect();
+          const cursorX = anchor.clientX - parentBounds.left;
+          const cursorY = anchor.clientY - parentBounds.top;
+          const gap = 14;
+          const bottomReserve = 52;
+          const panelWidth = panel.offsetWidth || 310;
+          const panelHeight = panel.offsetHeight || 260;
 
-      let x = cursorX + gap;
-      let y = cursorY + gap;
+          let x = cursorX + gap;
+          let y = cursorY + gap;
+          if (x + panelWidth > parent.clientWidth - 8) x = cursorX - panelWidth - gap;
+          if (y + panelHeight > parent.clientHeight - bottomReserve) y = cursorY - panelHeight - gap;
+          setPosition(clampPosition(x, y));
+        } else {
+          setPosition((current) => clampPosition(current.x, current.y));
+        }
 
-      if (x + panelWidth > parent.clientWidth - 8) x = cursorX - panelWidth - gap;
-      if (y + panelHeight > parent.clientHeight - bottomReserve) y = cursorY - panelHeight - gap;
-
-      setPosition(clampPosition(x, y));
+        revealFrame = window.requestAnimationFrame(() => setRevealed(true));
+      });
     });
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(prepareFrame);
+      if (measureFrame) window.cancelAnimationFrame(measureFrame);
+      if (revealFrame) window.cancelAnimationFrame(revealFrame);
+    };
   }, [open, anchor?.requestId, anchor?.clientX, anchor?.clientY, clampPosition]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const keepInsideWorkspace = () => setPosition((current) => clampPosition(current.x, current.y));
+    window.addEventListener('resize', keepInsideWorkspace);
+    return () => window.removeEventListener('resize', keepInsideWorkspace);
+  }, [open, compact, clampPosition]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -188,6 +206,17 @@ export default function Inspector({
 
   const resetPosition = () => setPosition(clampPosition(DEFAULT_PROPERTY_POSITION.x, DEFAULT_PROPERTY_POSITION.y));
 
+  const commitLayerName = () => {
+    layerNameEditingRef.current = false;
+    if (!selected || layerNameDraft === selectedLayerName) return;
+    onPatch({ layerName: layerNameDraft });
+  };
+
+  const cancelLayerName = () => {
+    layerNameEditingRef.current = false;
+    setLayerNameDraft(selectedLayerName);
+  };
+
   const shapeValue = (canonical, legacy) => {
     if (isShape) return selected[canonical] ?? selected[legacy] ?? DEFAULT_SHAPE_CONFIG[canonical];
     return shapeConfig[canonical];
@@ -201,7 +230,7 @@ export default function Inspector({
   if (!open) return null;
 
   return (
-    <aside ref={panelRef} className={`dc-inspector dc-inspector-floating ${compact ? 'is-compact' : ''}`} style={{ left: position.x, top: position.y }}>
+    <aside ref={panelRef} className={`dc-inspector dc-inspector-floating ${compact ? 'is-compact' : ''} ${revealed ? 'is-visible' : 'is-positioning'}`} style={{ left: position.x, top: position.y }}>
       <header className="dc-inspector-head" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} title="Arrastra para mover las propiedades">
         <div className="dc-inspector-title">
           <Move size={13} className="dc-inspector-drag-icon" aria-hidden="true" />
@@ -294,7 +323,7 @@ export default function Inspector({
         {isMulti && tool === 'select' && (
           <section className="dc-multi-selection-panel">
             <h3>{selectionCount} CAPAS SELECCIONADAS</h3>
-            <p className="dc-help">Arrastra cualquiera de las capas seleccionadas para moverlas juntas.</p>
+            <p className="dc-help">Mueve, redimensiona o rota toda la selección desde el cuadro exterior. Shift ajusta la rotación en pasos de 15°.</p>
             <div className="dc-selection-grid">
               {canGroup && <button type="button" onClick={onGroup}><Group size={14} /> AGRUPAR</button>}
               {selectedGroupCount > 0 && <button type="button" onClick={onUngroup}><Ungroup size={14} /> DESAGRUPAR</button>}
@@ -312,7 +341,20 @@ export default function Inspector({
             <h3>CAPA // POSICIÓN Y TAMAÑO</h3>
 
             <label>NOMBRE DE LA CAPA</label>
-            <input value={selected.layerName || selected.fileName || selected.name || selected.tipo || 'CAPA'} onChange={(event) => onPatch({ layerName: event.target.value })} />
+            <input
+              value={layerNameDraft}
+              onFocus={() => { layerNameEditingRef.current = true; }}
+              onChange={(event) => setLayerNameDraft(event.target.value)}
+              onBlur={commitLayerName}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  cancelLayerName();
+                  event.currentTarget.blur();
+                }
+              }}
+            />
 
             {isImage && <p className="dc-help">{selected.mediaKind === 'gif' ? 'GIF animado, se reproduce directo en OBS.' : 'Capa de imagen.'}{selected.naturalWidth && selected.naturalHeight ? ` Tamaño original: ${selected.naturalWidth}×${selected.naturalHeight}.` : ''}</p>}
 
@@ -331,6 +373,9 @@ export default function Inspector({
                 </div>
               </>
             )}
+
+            <label>ROTACIÓN °</label>
+            <NumberField value={selected.rotation || 0} onChange={(rotation) => onPatch({ rotation })} />
 
             <label className="dc-check-row">
               <span>VISIBLE</span>

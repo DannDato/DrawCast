@@ -57,7 +57,31 @@ export function reorderLayerUnits(objects, draggedId, targetId) {
 
   const flattened = units.flatMap((unit) => unit.ids);
   const total = flattened.length;
-  return flattened.map((id, index) => ({ id, patch: { zIndex: total - index } }));
+  return flattened
+    .map((id, index) => ({ id, patch: { zIndex: total - index } }))
+    .filter(({ id, patch }) => Number(objects?.[id]?.zIndex) !== patch.zIndex);
+}
+
+export function reorderLayerUnitToIndex(objects, draggedId, destinationIndex) {
+  if (!draggedId || !Number.isFinite(Number(destinationIndex))) return [];
+
+  const sourceKey = unitKeyForObject(objects, draggedId);
+  if (!sourceKey) return [];
+
+  const units = layerUnits(objects);
+  const sourceIndex = units.findIndex((unit) => unit.key === sourceKey);
+  if (sourceIndex < 0) return [];
+
+  const [source] = units.splice(sourceIndex, 1);
+  const nextIndex = Math.max(0, Math.min(units.length, Math.trunc(Number(destinationIndex))));
+  if (nextIndex === sourceIndex) return [];
+
+  units.splice(nextIndex, 0, source);
+  const flattened = units.flatMap((unit) => unit.ids);
+  const total = flattened.length;
+  return flattened
+    .map((id, index) => ({ id, patch: { zIndex: total - index } }))
+    .filter(({ id, patch }) => Number(objects?.[id]?.zIndex) !== patch.zIndex);
 }
 
 export function moveSelectionOneLevel(objects, ids, direction) {

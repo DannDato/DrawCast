@@ -34,6 +34,7 @@ export function renderScene(ctx, objects, options = {}) {
       h: Number(stroke.layerH) || 1080,
       sourceWidth: 1920,
       sourceHeight: 1080,
+      rotation: Number(stroke.layerRotation) || 0,
       lineas: [stroke],
       zIndex: Number.MAX_SAFE_INTEGER
     }, options);

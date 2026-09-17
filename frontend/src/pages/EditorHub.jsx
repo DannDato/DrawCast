@@ -14,7 +14,7 @@ export default function EditorHub() {
     ...data.collaborations.map((channel) => ({ ...channel, relation: 'COLABORADOR' }))
   ];
 
-  return <div className="dc-dashboard">
+  return <div className="dc-dashboard mx-auto w-[min(1200px,calc(100%-32px))] py-8 pt-7">
     <header><h1>ABRIR // EDITOR</h1><span>CANALES DISPONIBLES</span></header>
     <p className="muted">Entra al editor de tu canal o a cualquiera donde te hayan agregado como colaborador.</p>
     {loading ? <section className="dc-panel"><p>Cargando tus canales...</p></section> : null}

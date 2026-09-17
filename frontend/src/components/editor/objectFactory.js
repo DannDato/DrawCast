@@ -15,6 +15,7 @@ export const makeText = (x, y, text = 'TEXTO', options = {}) => {
     x,
     y,
     ...bounds,
+    rotation: 0,
     text,
     ...config,
     hidden: false,
@@ -35,6 +36,7 @@ export const makeShape = (draft = {}) => {
     y: Number(shape.y) || 0,
     w: Math.max(8, Number(shape.w) || 220),
     h: Math.max(8, Number(shape.h) || 180),
+    rotation: 0,
     fillColor: shape.fillColor ?? shape.fill ?? DEFAULT_SHAPE_CONFIG.fillColor,
     strokeColor: shape.strokeColor ?? shape.stroke ?? DEFAULT_SHAPE_CONFIG.strokeColor,
     strokeWidth: Number(shape.strokeWidth ?? shape.strokeSize) || 0,
@@ -55,6 +57,7 @@ export const makeTimer = (x, y, options = {}) => {
     x,
     y,
     ...bounds,
+    rotation: 0,
     ...config,
     timerCurrentSeconds: config.startSeconds,
     timerResumeSeconds: config.startSeconds,
@@ -78,6 +81,7 @@ export const makeImage = (x, y, url, name = 'IMAGEN', options = {}) => {
     y: Number(y) || 0,
     w: Math.max(8, Number(options.w) || 400),
     h: Math.max(8, Number(options.h) || 300),
+    rotation: 0,
     url,
     name,
     fileName: name,
@@ -96,6 +100,7 @@ export const makeImage = (x, y, url, name = 'IMAGEN', options = {}) => {
 export const makeDraw = (lines) => ({
   id: id('draw'),
   tipo: 'draw',
+  rotation: 0,
   lineas: lines,
   zIndex: Date.now()
 });

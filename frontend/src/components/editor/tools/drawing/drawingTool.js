@@ -1,3 +1,5 @@
+import { boundsCenter, unrotatePointAround } from '../../renderer/transformUtils';
+
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
 
@@ -56,6 +58,7 @@ export function makeDrawLayer(objects = {}, options = {}) {
     h: CANVAS_HEIGHT,
     sourceWidth: CANVAS_WIDTH,
     sourceHeight: CANVAS_HEIGHT,
+    rotation: 0,
     lineas: [],
     hidden: false,
     layerName: options.layerName || nextDrawLayerName(objects),
@@ -174,8 +177,10 @@ export function hitDrawLayer(layer, x, y) {
   const sourceHeight = Math.max(1, Number(layer.sourceHeight ?? CANVAS_HEIGHT));
   const scaleX = Math.max(0.0001, Number(layer.w ?? sourceWidth) / sourceWidth);
   const scaleY = Math.max(0.0001, Number(layer.h ?? sourceHeight) / sourceHeight);
-  const localX = (x - (Number(layer.x) || 0)) / scaleX;
-  const localY = (y - (Number(layer.y) || 0)) / scaleY;
+  const frame = getDrawLayerBounds(layer);
+  const canvasPoint = frame && Number(layer.rotation) ? unrotatePointAround({ x, y }, boundsCenter(frame), Number(layer.rotation) || 0) : { x, y };
+  const localX = (canvasPoint.x - (Number(layer.x) || 0)) / scaleX;
+  const localY = (canvasPoint.y - (Number(layer.y) || 0)) / scaleY;
 
   for (let strokeIndex = (layer.lineas || []).length - 1; strokeIndex >= 0; strokeIndex -= 1) {
     const segments = strokeSegments(layer.lineas[strokeIndex]);
@@ -210,6 +215,7 @@ export function reduceLiveStrokeMap(current, payload) {
       layerY: Number(payload.layerY) || 0,
       layerW: Number(payload.layerW) || 1920,
       layerH: Number(payload.layerH) || 1080,
+      layerRotation: Number(payload.layerRotation) || 0,
       points: payload.point ? [payload.point] : [],
       updatedAt: Date.now()
     };

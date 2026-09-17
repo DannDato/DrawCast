@@ -10,6 +10,7 @@ export default function Overlay() {
   const { publicKey } = useParams();
   const [objects, setObjects] = useState({});
   const [liveStrokes, setLiveStrokes] = useState({});
+  const [overlayHidden, setOverlayHidden] = useState(false);
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -30,6 +31,10 @@ export default function Overlay() {
       return next;
     }),
     'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
+    'overlay-visibility': ({ hidden } = {}) => {
+      setOverlayHidden(Boolean(hidden));
+      if (hidden) setLiveStrokes({});
+    },
     'clear-all': () => { setObjects({}); setLiveStrokes({}); }
   }), []);
 
@@ -43,7 +48,8 @@ export default function Overlay() {
 
     const render = (timestamp) => {
       if (timestamp - lastFrame >= FRAME_MS) {
-        renderScene(ctx, objects, { width: 1920, height: 1080, grid: false, now: Date.now(), liveStrokes });
+        if (overlayHidden) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        else renderScene(ctx, objects, { width: 1920, height: 1080, grid: false, now: Date.now(), liveStrokes });
         lastFrame = timestamp;
       }
       animationFrame = requestAnimationFrame(render);
@@ -51,7 +57,7 @@ export default function Overlay() {
 
     animationFrame = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationFrame);
-  }, [objects, liveStrokes]);
+  }, [objects, liveStrokes, overlayHidden]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setLiveStrokes((current) => pruneLiveStrokes(current)), 2000);

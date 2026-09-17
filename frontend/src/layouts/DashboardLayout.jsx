@@ -46,17 +46,19 @@ export default function DashboardLayout() {
                         <span className="max-w-[130px] truncate text-[11px] font-semibold text-[#7e8592] sm:max-w-[180px]">{user?.username}</span>
                     </NavLink>
 
-                    <nav className="hidden items-center gap-1 md:flex">
+                    <nav className="hidden items-center gap-1 md:flex w-full justify-center">
                         {items.map((item) => navItem(item))}
                     </nav>
 
                     <div className="ml-auto hidden items-center gap-2 md:flex">
                         {user?.avatarUrl ? (
-                            <img className="h-8 w-8 border border-[#2a2e37] bg-[#101216] object-cover" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
+                            <img className="h-8 w-8 border border-[#2a2e37] bg-[#101216] object-cover rounded-full" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
                         ) : (
-                            <div className="grid h-8 w-8 place-items-center border border-[#2a2e37] bg-[#101216] text-[11px] font-black" title={user?.displayName || user?.username || "Tu cuenta"}>
-                                {(user?.displayName || user?.username || "U").slice(0, 1).toUpperCase()}
-                            </div>
+                            <a href={items.find(item => item.name === "Perfil")?.path}>
+                                <div className="grid h-8 w-8 place-items-center border border-[#2a2e37] bg-[#101216] text-[11px] font-black rounded-full" title={user?.displayName || user?.username || "Tu cuenta"}>
+                                    {(user?.displayName || user?.username || "U").slice(0, 1).toUpperCase()}
+                                </div>
+                            </a>
                         )}
                         <button className="inline-grid h-9 w-9 place-items-center border border-transparent text-[#7e8592] transition hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white" onClick={exit} aria-label="Cerrar sesión" title="Cerrar sesión">
                             <LogOut size={16} />

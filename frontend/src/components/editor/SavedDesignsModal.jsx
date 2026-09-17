@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FolderOpen, HardDrive, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { createSavedDesign, deleteSavedDesign, getSavedDesign, getSavedDesigns, updateSavedDesign } from '../../api/designs';
 import { useSystemAlert } from '../ui/SystemAlert';
@@ -27,13 +27,15 @@ function sameName(a, b) {
   return String(a || '').trim().localeCompare(String(b || '').trim(), 'es-MX', { sensitivity: 'accent' }) === 0;
 }
 
-export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, onLoad, hasScene }) {
+export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, onLoad, hasScene, liveEnabled = true, initialView = 'load' }) {
   const { confirmDialog } = useSystemAlert();
   const [designs, setDesigns] = useState([]);
   const [name, setName] = useState('');
   const [activeDesignId, setActiveDesignId] = useState(null);
   const [busy, setBusy] = useState('list');
   const [status, setStatus] = useState('');
+  const saveInputRef = useRef(null);
+  const listRef = useRef(null);
 
   const activeDesign = useMemo(() => designs.find((design) => Number(design.id) === Number(activeDesignId)) || null, [designs, activeDesignId]);
 
@@ -59,6 +61,19 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
       .finally(() => { if (active) setBusy(''); });
     return () => { active = false; };
   }, [channelId]);
+
+  useEffect(() => {
+    if (busy === 'list') return undefined;
+    const frame = requestAnimationFrame(() => {
+      if (initialView === 'save') {
+        saveInputRef.current?.focus();
+        saveInputRef.current?.select();
+        return;
+      }
+      listRef.current?.querySelector('.dc-design-card-actions .load')?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [busy, designs.length, initialView]);
 
   const applyUpdatedDesign = (updated) => {
     setDesigns((current) => current
@@ -135,7 +150,7 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
     if (hasScene) {
       const accepted = await confirmDialog({
         title: `¿Cargar “${design.name}”?`,
-        message: 'El lienzo actual será reemplazado para todos los editores y el overlay conectado.',
+        message: liveEnabled ? 'El lienzo actual será reemplazado para todos los editores y el overlay conectado.' : 'El lienzo actual será reemplazado para todos los editores. Como estás en modo Estudio, el overlay no cambiará hasta que publiques.',
         confirmLabel: 'Cargar diseño',
         cancelLabel: 'Cancelar'
       });
@@ -200,7 +215,7 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
             <span>Si usas un nombre existente, DrawCast te preguntará si quieres sobrescribirlo.</span>
           </div>
           <div className="dc-designs-save-row">
-            <input maxLength="120" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveNew(); }} placeholder="Ej. Sorteo de subs, charla, pantalla de espera..." />
+            <input ref={saveInputRef} maxLength="120" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveNew(); }} placeholder="Ej. Sorteo de subs, charla, pantalla de espera..." />
             <button type="button" className="primary" onClick={saveNew} disabled={!channelId || Boolean(busy)}><Save size={14} /> GUARDAR</button>
             {activeDesign && <button type="button" onClick={() => overwriteDesign(activeDesign)} disabled={Boolean(busy)} title={`Sobrescribir ${activeDesign.name} con el workspace actual`}><RefreshCw size={14} /> SOBRESCRIBIR</button>}
           </div>
@@ -211,7 +226,7 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
           <button type="button" onClick={refresh} disabled={Boolean(busy)}><RefreshCw size={13} /> RECARGAR</button>
         </div>
 
-        <div className="dc-designs-list">
+        <div ref={listRef} className="dc-designs-list">
           {busy === 'list' && !designs.length && <div className="dc-designs-empty">Buscando tus diseños...</div>}
           {!busy && !designs.length && <div className="dc-designs-empty"><FolderOpen size={22} /><b>Todavía no has guardado ninguno</b><span>Arma tu escena, ponle nombre arriba y guárdala.</span></div>}
 
@@ -231,7 +246,7 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
         </div>
 
         <footer className="dc-designs-footer">
-          <span>{status || 'Cargar reemplaza el lienzo del canal; sobrescribir reemplaza sólo la copia guardada.'}</span>
+          <span>{status || (liveEnabled ? 'Cargar reemplaza el lienzo del canal y se refleja en el overlay.' : 'Modo Estudio: cargar cambia el workspace, pero no el overlay hasta que publiques.')}</span>
           <button type="button" onClick={onClose}>LISTO</button>
         </footer>
       </section>

@@ -57,7 +57,7 @@ export default function ChannelDashboard() {
     const overlay = `${origin}/overlay/${channel.publicKey}`;
 
     return (
-        <div className="dc-dashboard">
+        <div className="dc-dashboard mx-auto w-[min(1200px,calc(100%-32px))] py-8 pt-7">
             <header>
                 <h1>CANAL // {channel.name}</h1>
             </header>

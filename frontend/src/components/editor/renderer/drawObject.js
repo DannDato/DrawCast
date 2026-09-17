@@ -1,6 +1,8 @@
 import { drawShape, traceRoundedRect } from './shapeRenderer';
 import { drawTextLayer } from './textRenderer';
 import { getTimerText } from '../tools/timer/timerTool';
+import { getDrawLayerBounds, isDrawLayer } from '../tools/drawing/drawingTool';
+import { boundsCenter, unrotatePointAround } from './transformUtils';
 
 const images = new Map();
 
@@ -90,10 +92,32 @@ export function drawStrokeLayer(ctx, object) {
   }
 }
 
+function transformFrame(object) {
+  if (isDrawLayer(object)) return getDrawLayerBounds(object);
+  const x = Number(object?.x);
+  const y = Number(object?.y);
+  const w = Number(object?.w);
+  const h = Number(object?.h);
+  if (![x, y, w, h].every(Number.isFinite)) return null;
+  return { x, y, w, h };
+}
+
+function applyObjectRotation(ctx, object) {
+  const rotation = Number(object?.rotation) || 0;
+  if (!rotation) return;
+  const frame = transformFrame(object);
+  if (!frame) return;
+  const center = boundsCenter(frame);
+  ctx.translate(center.x, center.y);
+  ctx.rotate(rotation * Math.PI / 180);
+  ctx.translate(-center.x, -center.y);
+}
+
 export function drawObject(ctx, object, options = {}) {
   if (!object || object.hidden) return;
   const type = getObjectType(object);
   ctx.save();
+  applyObjectRotation(ctx, object);
   if (type === 'shape') drawShape(ctx, object);
   else if (type === 'image') drawImage(ctx, object);
   else if (type === 'text') drawTextLayer(ctx, object, object.text ?? object.texto ?? '');
@@ -108,5 +132,7 @@ export function hitObject(object, x, y) {
   const oy = Number(object.y) || 0;
   const ow = Number(object.w) || 0;
   const oh = Number(object.h) || 0;
-  return x >= ox && x <= ox + ow && y >= oy && y <= oy + oh;
+  const frame = transformFrame(object);
+  const point = frame && Number(object.rotation) ? unrotatePointAround({ x, y }, boundsCenter(frame), Number(object.rotation) || 0) : { x, y };
+  return point.x >= ox && point.x <= ox + ow && point.y >= oy && point.y <= oy + oh;
 }
