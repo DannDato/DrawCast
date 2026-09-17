@@ -67,7 +67,7 @@ models.TrustedDevice.belongsTo(models.User, { foreignKey: 'userId', as: 'user' }
 models.User.hasMany(models.EmailChange, { foreignKey: 'userId', as: 'emailChanges', onDelete: 'CASCADE' });
 models.EmailChange.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
 
-models.User.hasOne(models.Channel, { foreignKey: 'ownerId', as: 'ownedChannel', onDelete: 'CASCADE' });
+models.User.hasMany(models.Channel, { foreignKey: 'ownerId', as: 'ownedChannels', onDelete: 'CASCADE' });
 models.Channel.belongsTo(models.User, { foreignKey: 'ownerId', as: 'owner' });
 models.Channel.hasMany(models.ChannelCollaborator, { foreignKey: 'channelId', as: 'collaborators', onDelete: 'CASCADE' });
 models.ChannelCollaborator.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });

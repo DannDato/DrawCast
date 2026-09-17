@@ -28,7 +28,7 @@ export default function TwitchAuthButton({ onError }) {
   return (
     <button type="button" className="dc-oauth-button dc-oauth-twitch" onClick={start} disabled={loading}>
       <img src="/icons/twitch.svg" alt="Twitch" className="w-8 h-8 m-[-10px]" />
-      <span>{loading ? 'PREPARANDO TWITCH...' : 'ENTRAR CON TWITCH'}</span>
+      <span>{loading ? 'PREPARANDO TWITCH...' : 'TWITCH'}</span>
     </button>
   );
 }

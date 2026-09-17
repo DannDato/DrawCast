@@ -21,6 +21,10 @@ export function useChannelSocket(publicKey, role, handlers = {}) {
     };
     const onDisconnect = () => { if (active) setConnected(false); };
     const onDenied = () => { if (active) setDenied(true); };
+    const onRevoked = (payload) => {
+      if (!active || role !== 'editor' || payload?.publicKey !== publicKey) return;
+      setDenied(true);
+    };
     const onPresence = (value) => { if (active) setPresence(value); };
     const handlerEntries = Object.entries(handlers);
 
@@ -29,6 +33,7 @@ export function useChannelSocket(publicKey, role, handlers = {}) {
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('access-denied', onDenied);
+    socket.on('access-revoked', onRevoked);
     socket.on('presence', onPresence);
     handlerEntries.forEach(([event, handler]) => socket.on(event, handler));
 
@@ -40,6 +45,7 @@ export function useChannelSocket(publicKey, role, handlers = {}) {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('access-denied', onDenied);
+      socket.off('access-revoked', onRevoked);
       active = false;
       socket.off('presence', onPresence);
       socket.disconnect();

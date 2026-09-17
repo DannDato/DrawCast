@@ -73,6 +73,7 @@ export function getChannelPresence(channelId) {
   const editorList = Array.from(r.editors.entries()).map(([socketId, editor]) => ({
     socketId,
     userId: editor.userId,
+    username: editor.username,
     displayName: editor.displayName,
     avatarUrl: editor.avatarUrl || null,
     color: editor.color,
@@ -189,7 +190,8 @@ export function connectRole(channelId, socketId, role, metadata = {}) {
     const wasEmpty = r.editors.size === 0;
     r.editors.set(socketId, {
       userId: metadata.userId ?? null,
-      displayName: String(metadata.displayName || 'Editor').slice(0, 120),
+      username: String(metadata.username || '').trim().replace(/^@/, '').slice(0, 80),
+      displayName: String(metadata.displayName || metadata.username || 'Editor').slice(0, 120),
       avatarUrl: metadata.avatarUrl ? String(metadata.avatarUrl).slice(0, 500) : null,
       isOwner: Boolean(metadata.isOwner),
       color: editorColor(r)

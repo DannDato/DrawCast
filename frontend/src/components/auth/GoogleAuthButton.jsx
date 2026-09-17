@@ -63,7 +63,7 @@ export default function GoogleAuthButton({ mode = 'signin', onError }) {
   return (
     <button type="button" className="dc-oauth-button dc-oauth-google" onClick={start} disabled={busy}>
       <span className="dc-google-mark" aria-hidden="true">G</span>
-      <span>{busy ? 'ABRIENDO GOOGLE...' : mode === 'signup' ? 'REGISTRARME CON GOOGLE' : 'ENTRAR CON GOOGLE'}</span>
+      <span>{busy ? 'ABRIENDO GOOGLE...' : mode === 'signup' ? 'GOOGLE' : 'GOOGLE'}</span>
     </button>
   );
 }

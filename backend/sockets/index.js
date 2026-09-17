@@ -108,13 +108,19 @@ export function configureSockets(io) {
       const beforePresence = getChannelPresence(channel.id);
       const beforeControl = getChannelControl(channel.id);
       const isOwner = Number(channel.ownerId) === Number(user.id);
-      const displayName = user.displayName || user.username || 'Editor';
+      const username = user.username || `editor${user.id}`;
+      const displayName = user.displayName || username || 'Editor';
 
       joined = { channelId: channel.id, role: 'editor', userId: user.id, isOwner };
+      socket.data.channelId = channel.id;
+      socket.data.userId = user.id;
+      socket.data.role = 'editor';
       socket.join(room(channel.id));
       socket.join(editorRoom(channel.id));
+      socket.join(`user:${user.id}`);
       connectRole(channel.id, socket.id, 'editor', {
         userId: user.id,
+        username,
         displayName,
         avatarUrl: user.avatarUrl || null,
         isOwner
@@ -132,7 +138,7 @@ export function configureSockets(io) {
         const studioEditor = getChannelPresence(channel.id).editorList.find((editor) => editor.canEdit && editor.socketId !== socket.id);
         if (studioEditor) {
           io.to(studioEditor.socketId).emit('studio-collaborator-waiting', {
-            editor: { displayName, avatarUrl: user.avatarUrl || null }
+            editor: { username, displayName, avatarUrl: user.avatarUrl || null }
           });
         }
       }

@@ -149,7 +149,7 @@ export default function Editor() {
     'studio-collaborator-waiting': ({ editor } = {}) => {
       void showAlert({
         title: 'Entró otro editor',
-        message: `${editor?.displayName || 'Un colaborador'} acaba de entrar. Para trabajar juntos, publica tus cambios y activa Live.`
+        message: `${editor?.username ? `@${editor.username}` : 'Un colaborador'} acaba de entrar. Para trabajar juntos, publica tus cambios y activa Live.`
       });
     },
     'studio-forced-live': ({ message } = {}) => {
@@ -179,7 +179,12 @@ export default function Editor() {
   const studioEditor = !liveEnabled ? (presence.editorList || []).find((editor) => editor.canEdit) : null;
   const remoteCursorList = useMemo(() => Object.values(remoteCursors).map((cursor) => {
     const editor = (presence.editorList || []).find((item) => item.socketId === cursor.socketId);
-    return { ...cursor, color: editor?.color, displayName: editor?.displayName || 'Editor' };
+    const username = String(editor?.username || '').trim();
+    return {
+      ...cursor,
+      color: editor?.color,
+      cursorLabel: username ? `@${username}` : 'Editor'
+    };
   }), [remoteCursors, presence.editorList]);
 
   const applyControlState = (control = {}) => {
@@ -769,8 +774,9 @@ export default function Editor() {
     let active = true;
     getChannels().then((data) => {
       if (!active) return;
-      setIsOwner(data.owned?.publicKey === publicKey);
-      const allChannels = [data.owned, ...(data.collaborations || [])].filter(Boolean);
+      const ownedChannels = data.ownedChannels || (data.owned ? [data.owned] : []);
+      setIsOwner(ownedChannels.some((channel) => channel.publicKey === publicKey));
+      const allChannels = [...ownedChannels, ...(data.collaborations || [])].filter(Boolean);
       const nextChannelId = allChannels.find((channel) => channel.publicKey === publicKey)?.id || null;
       setChannelId(nextChannelId);
       if (!nextChannelId) {
@@ -1275,7 +1281,7 @@ export default function Editor() {
           <div className="dc-collab-lock-overlay" role="status" aria-live="polite">
             <div className="dc-collab-lock-card">
               <span className="dc-collab-lock-kicker">MODO ESTUDIO EN USO</span>
-              <strong>{studioEditor?.displayName || 'Otro editor'} está preparando cambios</strong>
+              <strong>{studioEditor?.username ? `@${studioEditor.username}` : 'Otro editor'} está preparando cambios</strong>
               <p>Este editor queda en espera para no mezclar escenas. Se habilitará automáticamente cuando el workspace se publique y el canal vuelva a Live.</p>
               <span className="dc-collab-lock-wait"><i /> Esperando Live...</span>
             </div>

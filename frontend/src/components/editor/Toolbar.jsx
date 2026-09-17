@@ -57,21 +57,29 @@ function IconButton({ label, icon, onClick, disabled = false, active = false, da
 }
 
 function editorInitials(editor) {
-  const value = String(editor?.displayName || 'Editor').trim();
-  const words = value.split(/\s+/).filter(Boolean);
-  if (!words.length) return 'E';
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0] || ''}${words.at(-1)?.[0] || ''}`.toUpperCase();
+  const value = String(editor?.username || editor?.displayName || 'Editor').trim().replace(/^@/, '');
+  if (!value) return 'E';
+  const parts = value.split(/[\s._-]+/).filter(Boolean);
+  if (parts.length > 1) return `${parts[0][0] || ''}${parts.at(-1)?.[0] || ''}`.toUpperCase();
+  return value.slice(0, 2).toUpperCase();
 }
 
 function PresenceAvatar({ editor }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const title = `${editor.displayName || 'Editor'}${editor.isOwner ? ' · propietario' : ''}${editor.canEdit === false ? ' · esperando Live' : ''}`;
+  const username = String(editor.username || '').trim();
+  const displayName = String(editor.displayName || username || 'Editor').trim();
+  const handle = username ? `@${username}` : displayName;
+  const title = `${displayName}${username ? ` · ${handle}` : ''}${editor.isOwner ? ' · propietario' : ''}${editor.canEdit === false ? ' · esperando Live' : ''}`;
+  const hasImage = Boolean(editor.avatarUrl && !imageFailed);
+
   return (
-    <span className={`dc-presence-avatar ${editor.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor.color || 'var(--dc-accent)' }} title={title}>
-      {editor.avatarUrl && !imageFailed
-        ? <img src={editor.avatarUrl} alt="" onError={() => setImageFailed(true)} />
-        : <b>{editorInitials(editor)}</b>}
+    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor.color || 'var(--dc-accent)' }} title={title}>
+      <span className="dc-presence-avatar-media">
+        {hasImage
+          ? <img src={editor.avatarUrl} alt="" onError={() => setImageFailed(true)} />
+          : <b>{editorInitials(editor)}</b>}
+      </span>
+      <span className="dc-presence-avatar-name">{displayName}</span>
     </span>
   );
 }
@@ -311,7 +319,7 @@ export default function Toolbar({
           </div>
         )}
         <span className={`dc-toolbar-live ${connected ? 'online' : ''}`} title={connected ? 'Conectado al canal' : 'Sin conexión'}>
-          <i />
+          <i className="pulse"/>
           <span>{connected ? 'En línea' : 'Sin conexión'}</span>
         </span>
       </div>

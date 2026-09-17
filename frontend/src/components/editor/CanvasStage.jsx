@@ -117,7 +117,7 @@ export default function CanvasStage({
           if (age > 12000) return;
           const alpha = age > 7000 ? Math.max(0, 1 - ((age - 7000) / 5000)) : 1;
           const color = cursor.color || '#4cc9f0';
-          const name = String(cursor.displayName || 'Editor').slice(0, 32);
+          const name = String(cursor.cursorLabel || 'Editor').slice(0, 32);
 
           ctx.save();
           ctx.globalAlpha = alpha;

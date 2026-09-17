@@ -16,8 +16,9 @@ export async function createInvitation(channel, inviter, email) {
   }
   if (Number(invitedUser.id) === Number(inviter.id)) throw Object.assign(new Error('No puedes invitarte a tu propio canal'), { status: 400 });
 
-  const existingCollaborator = await models.ChannelCollaborator.findOne({ where: { channelId: channel.id, userId: invitedUser.id, canEdit: true } });
-  if (existingCollaborator) throw Object.assign(new Error('Ese usuario ya tiene acceso al canal'), { status: 409 });
+  const existingCollaborator = await models.ChannelCollaborator.findOne({ where: { channelId: channel.id, userId: invitedUser.id } });
+  if (existingCollaborator?.canEdit) throw Object.assign(new Error('Ese usuario ya tiene acceso al lienzo'), { status: 409 });
+  if (existingCollaborator && !existingCollaborator.canEdit) throw Object.assign(new Error('Ese usuario ya está agregado, pero está suspendido. Reactívalo desde la lista de colaboradores.'), { status: 409 });
 
   await models.ChannelInvitation.update({ revokedAt: new Date() }, { where: { channelId: channel.id, email: normalized, acceptedAt: null, revokedAt: null } });
   const token = crypto.randomBytes(32).toString('hex');
@@ -31,7 +32,8 @@ export async function acceptInvitation(token, user) {
   const invitation = await models.ChannelInvitation.findOne({ where: { tokenHash: sha256(token), acceptedAt: null, revokedAt: null, expiresAt: { [Op.gt]: new Date() } } });
   if (!invitation) throw Object.assign(new Error('Invitación inválida o expirada'), { status: 400 });
   if (user.email.toLowerCase() !== invitation.email.toLowerCase()) throw Object.assign(new Error('La invitación pertenece a otro correo'), { status: 403 });
-  await models.ChannelCollaborator.findOrCreate({ where: { channelId: invitation.channelId, userId: user.id }, defaults: { invitedBy: invitation.invitedBy, canEdit: true } });
+  const [collaborator, created] = await models.ChannelCollaborator.findOrCreate({ where: { channelId: invitation.channelId, userId: user.id }, defaults: { invitedBy: invitation.invitedBy, canEdit: true } });
+  if (!created && !collaborator.canEdit) await collaborator.update({ canEdit: true });
   await invitation.update({ acceptedAt: new Date() });
   logger.info('Invitación de canal aceptada', { channelId: invitation.channelId, userId: user.id, invitationId: invitation.id });
   return invitation;
