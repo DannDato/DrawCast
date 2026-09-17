@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowRight, Copy, ExternalLink, FileStack, Link2, MonitorPlay, Pause, Play, Plus, Radio, Trash2, UserPlus, Users, Video, X } from 'lucide-react';
+import { Activity, ArrowRight, Copy, ExternalLink, FileStack, Link2, MonitorPlay, Pause, Play, Plus, Radio, Search, Trash2, UserPlus, Users, Video, X } from 'lucide-react';
 import { createChannel, getChannels, getCollaborators, getFeaturedChannel, inviteCollaborator, removeCollaborator, setCollaboratorAccess } from '../api/channels';
 import { useAuth } from '../context/AuthContext';
 import { useSystemAlert } from '../components/ui/SystemAlert';
+import ConnectionDiagnostics from '../components/dashboard/ConnectionDiagnostics';
 
 function initials(user) {
   const source = String(user?.username || user?.displayName || 'U').replace(/^@/, '').trim();
@@ -96,19 +97,26 @@ function canvasStatus(channel) {
 
 function CanvasSummaryCard({ channel, selected, onClick }) {
   const status = canvasStatus(channel);
+  const overlayUrl = `${window.location.origin}/overlay/${channel.publicKey}`;
   return (
-    <button type="button" className={`dc-home-canvas-card ${selected ? 'selected' : ''}`} onClick={onClick} aria-expanded={selected}>
-      <div className="dc-home-canvas-main">
-        <div className="dc-home-canvas-title-row"><h3>{channel.name}</h3><span className={`dc-home-canvas-status ${status.tone}`}><i />{status.label}</span></div>
-        <p>{channel.channelUrl ? `${channel.platform?.toUpperCase() || 'WEB'} · ${channelHandle(channel.channelUrl) ? `@${channelHandle(channel.channelUrl)}` : 'CANAL VINCULADO'}` : 'SIN CANAL VINCULADO'}</p>
+    <article className={`dc-home-canvas-card ${selected ? 'selected' : ''}`}>
+      <button type="button" className="dc-home-canvas-card-main" onClick={onClick} aria-expanded={selected}>
+        <div className="dc-home-canvas-main">
+          <div className="dc-home-canvas-title-row"><h3>{channel.name}</h3><span className={`dc-home-canvas-status ${status.tone}`}><i />{status.label}</span></div>
+          <p>{channel.channelUrl ? `${channel.platform?.toUpperCase() || 'WEB'} · ${channelHandle(channel.channelUrl) ? `@${channelHandle(channel.channelUrl)}` : 'CANAL VINCULADO'}` : 'SIN CANAL VINCULADO'}</p>
+        </div>
+        <div className="dc-home-canvas-facts">
+          <span title="Colaboradores activos"><Users size={14} /> {channel.activeCollaboratorCount ?? channel.collaboratorCount ?? 0}</span>
+          <span title="Diseños guardados"><FileStack size={14} /> {channel.savedDesignCount || 0}</span>
+          {(channel.runtime?.editorCount || 0) > 0 && <span title="Editores conectados"><Activity size={14} /> {channel.runtime.editorCount}</span>}
+        </div>
+        <ArrowRight size={17} className="dc-home-canvas-arrow" />
+      </button>
+      <div className="dc-home-canvas-quick-actions">
+        <Link className="dc-home-canvas-quick-action" to={`/app/editor/${channel.publicKey}`} title={`Abrir ${channel.name} en el editor`}><MonitorPlay size={14} /> Editor</Link>
+        <CopyLink value={overlayUrl} label="OBS" />
       </div>
-      <div className="dc-home-canvas-facts">
-        <span><Users size={13} /> {channel.activeCollaboratorCount ?? channel.collaboratorCount ?? 0}</span>
-        <span><FileStack size={13} /> {channel.savedDesignCount || 0}</span>
-        {(channel.runtime?.editorCount || 0) > 0 && <span><Activity size={13} /> {channel.runtime.editorCount}</span>}
-      </div>
-      <ArrowRight size={17} className="dc-home-canvas-arrow" />
-    </button>
+    </article>
   );
 }
 
@@ -219,12 +227,21 @@ export default function ChannelDashboard() {
   const [collaboratorsByCanvas, setCollaboratorsByCanvas] = useState({});
   const [collabLoading, setCollabLoading] = useState({});
   const [inviteByCanvas, setInviteByCanvas] = useState({});
+  const [canvasQuery, setCanvasQuery] = useState('');
 
   const ownedChannels = useMemo(() => data.ownedChannels || (data.owned ? [data.owned] : []), [data]);
   const selectedChannel = useMemo(() => ownedChannels.find((channel) => channel.id === expandedId) || null, [ownedChannels, expandedId]);
   const limit = data.limits?.canvases ?? 1;
   const used = data.limits?.used ?? ownedChannels.length;
   const atLimit = used >= limit;
+  const filteredOwnedChannels = useMemo(() => {
+    const query = canvasQuery.trim().toLowerCase();
+    if (!query) return ownedChannels;
+    return ownedChannels.filter((channel) => {
+      const handle = channelHandle(channel.channelUrl);
+      return [channel.name, channel.platform, channel.channelUrl, handle ? `@${handle}` : ''].some((value) => String(value || '').toLowerCase().includes(query));
+    });
+  }, [ownedChannels, canvasQuery]);
 
   const load = async ({ force = false } = {}) => {
     const next = await getChannels({ force });
@@ -328,10 +345,17 @@ export default function ChannelDashboard() {
             <button type="button" className="dc-home-new-canvas" onClick={() => setCreating((value) => !value)} disabled={atLimit}><Plus size={15} /> Nuevo</button>
           </div>
 
+          <div className="dc-home-canvas-search">
+            <Search size={15} />
+            <input value={canvasQuery} onChange={(event) => setCanvasQuery(event.target.value)} placeholder="Buscar lienzo, canal o plataforma..." />
+            {canvasQuery && <button type="button" onClick={() => setCanvasQuery('')} title="Limpiar búsqueda"><X size={14} /></button>}
+          </div>
+
           <div className="dc-home-canvas-stack">
             {loading ? <div className="dc-home-canvas-placeholder">Cargando tus lienzos...</div> : null}
             {!loading && ownedChannels.length === 0 ? <button type="button" className="dc-home-canvas-empty" onClick={() => setCreating(true)} disabled={atLimit}><Plus size={22} /><strong>Crea tu primer lienzo</strong><span>Obtendrás un editor y un overlay para OBS.</span></button> : null}
-            {ownedChannels.map((channel) => <CanvasSummaryCard key={channel.id} channel={channel} selected={expandedId === channel.id} onClick={() => toggleCanvas(channel)} />)}
+            {!loading && ownedChannels.length > 0 && filteredOwnedChannels.length === 0 ? <div className="dc-home-canvas-placeholder">No encontramos lienzos con “{canvasQuery}”.</div> : null}
+            {filteredOwnedChannels.map((channel) => <CanvasSummaryCard key={channel.id} channel={channel} selected={expandedId === channel.id} onClick={() => toggleCanvas(channel)} />)}
           </div>
 
           <div className="dc-home-canvases-foot"><span>{used} de {limit} usados</span><span>{Math.max(0, limit - used)} disponible{Math.max(0, limit - used) === 1 ? '' : 's'}</span></div>
@@ -350,6 +374,7 @@ export default function ChannelDashboard() {
       {selectedChannel && <CanvasDetails channel={selectedChannel} collaborators={collaboratorsByCanvas[selectedChannel.id]} loadingCollaborators={Boolean(collabLoading[selectedChannel.id])} inviteState={inviteState(selectedChannel.id)} onInviteChange={(next) => setInviteState(selectedChannel.id, next)} onInvite={() => handleInvite(selectedChannel.id)} onToggleCollaborator={(row) => handleToggleCollaborator(selectedChannel.id, row)} onRemoveCollaborator={(row) => handleRemoveCollaborator(selectedChannel.id, row)} onClose={() => setExpandedId(null)} />}
 
       <DashboardSummary user={user} channels={ownedChannels} used={used} limit={limit} />
+      <ConnectionDiagnostics />
 
       {(data.collaborations || []).length > 0 && <section className="dc-shared-canvases"><div className="dc-canvas-section-heading"><div><span className="dc-kicker">COLABORACIÓN</span><h2>Compartidos contigo</h2></div><span>{data.collaborations.length} lienzo{data.collaborations.length === 1 ? '' : 's'}</span></div><div className="dc-shared-grid">{data.collaborations.map((channel) => <Link key={channel.id} to={`/app/editor/${channel.publicKey}`} className="dc-shared-card"><div><strong>{channel.name}</strong><span>{channel.platform ? channel.platform.toUpperCase() : 'LIENZO COMPARTIDO'}</span></div><ExternalLink size={16} /></Link>)}</div></section>}
     </div>
