@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, PenTool, User } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, PenTool, User, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const items = [
@@ -12,7 +12,6 @@ const items = [
 export default function DashboardLayout() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const [collapsed, setCollapsed] = useState(true);
     const [mobileOpen, setMobileOpen] = useState(false);
 
     const exit = async () => {
@@ -20,111 +19,74 @@ export default function DashboardLayout() {
         navigate("/login");
     };
 
-    return (
-        <div
-            className={`min-h-screen bg-[#101216] lg:grid lg:transition-[grid-template-columns] lg:duration-200 ${collapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[250px_minmax(0,1fr)]"}`}
-        >
-            <aside
-                className={`fixed inset-y-0 left-0 z-30 flex h-screen w-[min(300px,86vw)] flex-col overflow-hidden border-r border-[#2a2e37] bg-[#0d0f12] shadow-lg transition-transform duration-200 lg:sticky lg:top-0 lg:w-auto lg:translate-x-0 lg:shadow-none ${mobileOpen ? "translate-x-0" : "-translate-x-[105%]"}`}
+    const navItem = (item, mobile = false) => {
+        const Icon = item.icon;
+        return (
+            <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.end}
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) => `flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent)] bg-[var(--dc-accent-soft)] text-white" : "border-transparent text-[#9ba1ac] hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white"}`}
             >
-                <div
-                    className={`hidden min-h-[72px] items-center p-3.5 lg:flex ${collapsed ? "justify-center px-0" : ""}`}
-                >
-                    <button
-                        className="ml-auto inline-grid h-9 w-9 place-items-center  border border-[#2a2e37] bg-[#101216] text-[#ebebeb] transition hover:bg-[#171a20] lg:ml-0"
-                        onClick={() => setCollapsed((value) => !value)}
-                        aria-label={collapsed ? "Mostrar menú" : "Ocultar menú"}
-                        title={collapsed ? "Mostrar menú" : "Ocultar menú"}
-                    >
-                        {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-                    </button>
-                </div>
-                <nav className="flex-1 overflow-y-auto px-2.5 py-3.5">
-                    <div className="grid gap-1">
-                        <span
-                            className={`px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[.08em] text-[#7e8592] ${collapsed ? "lg:hidden" : ""}`}
-                        >
-                            Sistema
-                        </span>
-                        {items.map((item) => {
-                            const Icon = item.icon;
-                            return (
-                                <NavLink
-                                    key={item.path}
-                                    to={item.path}
-                                    end={item.end}
-                                    title={collapsed ? item.name : undefined}
-                                    className={({ isActive }) =>
-                                        `flex w-full items-center gap-2.5  border px-2.5 py-2.5 font-semibold transition ${collapsed ? "lg:justify-center" : ""} ${isActive ? "border-[var(--dc-accent)] bg-[var(--dc-accent)] text-white" : "border-transparent text-[#ebebeb] hover:border-[#2a2e37] hover:bg-[#101216]"}`
-                                    }
-                                    onClick={() => setMobileOpen(false)}
-                                >
-                                    <Icon size={18} className="min-w-[18px]" />
-                                    <span className={collapsed ? "lg:hidden" : ""}>{item.name}</span>
-                                </NavLink>
-                            );
-                        })}
-                    </div>
-                </nav>
-                <div className="grid gap-2 border-t border-[#2a2e37] px-2.5 py-3">
-                    <div className={`flex items-center gap-2.5 p-2 ${collapsed ? "lg:justify-center" : ""}`}>
+                <Icon size={15} />
+                <span className="text-[11px] font-bold">{item.name}</span>
+            </NavLink>
+        );
+    };
+
+    return (
+        <div className="min-h-screen bg-[#101216] text-[#ebebeb]">
+            <header className="sticky top-0 z-40 border-b border-[#2a2e37] bg-[#0d0f12]/95 backdrop-blur">
+                <div className="flex h-14 min-w-0 items-center gap-3 px-3 md:px-5">
+                    <NavLink to="/app" className="flex min-w-0 shrink-0 items-baseline gap-1.5 no-underline" onClick={() => setMobileOpen(false)}>
+                        <strong className="dc-nav-brand whitespace-nowrap">
+                            {import.meta.env.VITE_APP_NAME || "DrawCast"} <b>//</b>
+                        </strong>
+                        <span className="max-w-[130px] truncate text-[11px] font-semibold text-[#7e8592] sm:max-w-[180px]">{user?.username}</span>
+                    </NavLink>
+
+                    <nav className="hidden items-center gap-1 md:flex">
+                        {items.map((item) => navItem(item))}
+                    </nav>
+
+                    <div className="ml-auto hidden items-center gap-2 md:flex">
                         {user?.avatarUrl ? (
-                            <img
-                                className="h-[38px] w-[38px] min-w-[38px]  border border-[var(--dc-accent)] bg-[#101216] object-cover"
-                                src={user.avatarUrl}
-                                alt=""
-                            />
+                            <img className="h-8 w-8 border border-[#2a2e37] bg-[#101216] object-cover" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
                         ) : (
-                            <div className="grid h-[38px] w-[38px] min-w-[38px] place-items-center  border border-[var(--dc-accent)] bg-[#101216] font-black">
+                            <div className="grid h-8 w-8 place-items-center border border-[#2a2e37] bg-[#101216] text-[11px] font-black" title={user?.displayName || user?.username || "Tu cuenta"}>
                                 {(user?.displayName || user?.username || "U").slice(0, 1).toUpperCase()}
                             </div>
                         )}
-                        <div className={`min-w-0 leading-tight ${collapsed ? "lg:hidden" : ""}`}>
-                            <strong className="block truncate">{user?.displayName || user?.username}</strong>
-                            <span className="mt-1 block truncate text-xs text-[#7e8592]">{user?.email}</span>
-                        </div>
+                        <button className="inline-grid h-9 w-9 place-items-center border border-transparent text-[#7e8592] transition hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white" onClick={exit} aria-label="Cerrar sesión" title="Cerrar sesión">
+                            <LogOut size={16} />
+                        </button>
                     </div>
-                    <button
-                        className={`flex w-full items-center gap-2.5  px-2.5 py-2.5 text-left font-semibold text-[#ebebeb] transition hover:bg-[#101216] ${collapsed ? "lg:justify-center" : ""}`}
-                        onClick={exit}
-                        title={collapsed ? "Cerrar sesión" : undefined}
-                    >
-                        <LogOut size={18} className="min-w-[18px]" />
-                        <span className={collapsed ? "lg:hidden" : ""}>Cerrar sesión</span>
+
+                    <button className="ml-auto inline-grid h-9 w-9 place-items-center border border-[#2a2e37] bg-[#101216] text-[#ebebeb] md:hidden" onClick={() => setMobileOpen((value) => !value)} aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}>
+                        {mobileOpen ? <X size={18} /> : <Menu size={18} />}
                     </button>
                 </div>
-            </aside>
 
-            {mobileOpen && (
-                <button
-                    className="fixed inset-0 z-20 border-0 bg-black/25 lg:hidden"
-                    onClick={() => setMobileOpen(false)}
-                    aria-label="Cerrar menú"
-                />
-            )}
-
-            <section className="min-w-0">
-                <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2.5 border-b border-[#2a2e37] bg-[#101216]/95 px-3.5 backdrop-blur lg:px-6">
-                    <div>
-                        <strong>
-                            <span className="dc-nav-brand">
-                                {import.meta.env.VITE_APP_NAME || "DrawCast"} <b>// </b>
-                            </span>
-                        </strong>
-                        <span className="text-[#7e8592]"> {user?.username}</span>
+                {mobileOpen && (
+                    <div className="border-t border-[#2a2e37] bg-[#0d0f12] p-2 md:hidden">
+                        <nav className="grid gap-1">{items.map((item) => navItem(item, true))}</nav>
+                        <div className="mt-2 flex items-center gap-2 border-t border-[#2a2e37] px-2 pt-2">
+                            <div className="min-w-0 flex-1">
+                                <strong className="block truncate text-xs">{user?.displayName || user?.username}</strong>
+                                <span className="block truncate text-[10px] text-[#7e8592]">{user?.email}</span>
+                            </div>
+                            <button className="flex h-9 items-center gap-2 border border-[#2a2e37] px-3 text-[10px] font-bold text-[#ebebeb]" onClick={exit}>
+                                <LogOut size={14} /> Cerrar sesión
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        className="inline-grid h-9 w-9 place-items-center  border border-[#2a2e37] bg-[#101216] text-[#ebebeb] lg:hidden"
-                        onClick={() => setMobileOpen(true)}
-                        aria-label="Abrir menú"
-                    >
-                        <Menu size={20} />
-                    </button>
-                </header>
-                <main className="min-w-0">
-                    <Outlet />
-                </main>
-            </section>
+                )}
+            </header>
+
+            <main className="min-w-0">
+                <Outlet />
+            </main>
         </div>
     );
 }

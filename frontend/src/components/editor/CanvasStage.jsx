@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { drawObject, hitObject } from './renderer/drawObject';
 import { orderedObjects, renderScene } from './renderer/sceneRenderer';
-import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, hitResizeHandle, resizeFromHandle } from './renderer/selectionRenderer';
+import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getSelectionBounds, hitResizeHandle, resizeFromHandle } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
 import InlineTextEditor from './tools/text/InlineTextEditor';
 import { textConfigFromObject } from './tools/text/textTool';
@@ -181,6 +181,7 @@ export default function CanvasStage({
     const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
     const selected = selection.length === 1 ? objects[selection[0]] : null;
     const resizeHandle = selected ? hitResizeHandle(selected, point.x, point.y) : null;
+    const append = event.ctrlKey || event.metaKey || event.shiftKey;
 
     if (selected && resizeHandle) {
       onTransformStart?.();
@@ -194,8 +195,34 @@ export default function CanvasStage({
       return;
     }
 
+    const startMove = (ids) => {
+      const items = ids
+        .map((id) => objects[id])
+        .filter((object) => object && Number.isFinite(Number(object.x)) && Number.isFinite(Number(object.y)))
+        .map((object) => ({ id: object.id, x: Number(object.x) || 0, y: Number(object.y) || 0 }));
+      if (!items.length) return false;
+
+      onTransformStart?.();
+      interaction.current = { type: 'move', start: point, items };
+      return true;
+    };
+
+    // Una selección activa se comporta como un bloque: una vez seleccionada,
+    // cualquier arrastre dentro de su cuadro mueve toda la selección, incluso
+    // si el puntero cae en una zona transparente entre trazos u objetos.
+    if (!append && selection.length) {
+      const selectionBounds = getSelectionBounds(selection.map((id) => objects[id]).filter(Boolean));
+      const padding = 4;
+      const insideSelection = selectionBounds
+        && point.x >= selectionBounds.x - padding
+        && point.x <= selectionBounds.x + selectionBounds.w + padding
+        && point.y >= selectionBounds.y - padding
+        && point.y <= selectionBounds.y + selectionBounds.h + padding;
+
+      if (insideSelection && startMove(selection)) return;
+    }
+
     const hit = topObjectAt(point);
-    const append = event.ctrlKey || event.metaKey || event.shiftKey;
 
     if (hit) {
       if (append) {
@@ -206,15 +233,7 @@ export default function CanvasStage({
 
       const movingIds = selection.includes(hit.id) ? selection : [hit.id];
       if (!selection.includes(hit.id)) onSelect?.(hit.id);
-      onTransformStart?.();
-      interaction.current = {
-        type: 'move',
-        start: point,
-        items: movingIds
-          .map((id) => objects[id])
-          .filter((object) => object && Number.isFinite(Number(object.x)) && Number.isFinite(Number(object.y)))
-          .map((object) => ({ id: object.id, x: Number(object.x) || 0, y: Number(object.y) || 0 }))
-      };
+      startMove(movingIds);
       return;
     }
 
@@ -357,7 +376,7 @@ export default function CanvasStage({
         }}
       />
 
-      <div className={`dc-drop-overlay ${mediaDragging ? 'show' : ''}`}>READY TO DECODE IMAGE 🖼️</div>
+      <div className={`dc-drop-overlay ${mediaDragging ? 'show' : ''}`}>SUELTA LA IMAGEN AQUÍ 🖼️</div>
     </>
   );
 }

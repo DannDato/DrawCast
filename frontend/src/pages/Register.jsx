@@ -35,7 +35,7 @@ export default function Register() {
         <AuthShell
             eyebrow=""
             title="CREAR // CUENTA"
-            description="Crea tu identidad DrawCast. Después podrás inicializar tu canal e invitar colaboradores registrados."
+            description="Crea tu cuenta de DrawCast. Después podrás abrir tu canal e invitar a tu equipo para ayudarte durante el stream."
         >
             <Helmet>
                 <title>Crear Cuenta Gratis — DrawCast</title>
@@ -69,7 +69,7 @@ export default function Register() {
                     CORREO ELECTRÓNICO
                     <input
                         type="email"
-                        placeholder="Email"
+                        placeholder="Correo electrónico"
                         value={form.email}
                         disabled={loading}
                         onChange={(event) => setForm({ ...form, email: event.target.value })}
@@ -92,12 +92,12 @@ export default function Register() {
                 </button>
             </form>
             <div className="dc-auth-divider">
-                <span>O CONTINUAR CON</span>
+                <span>O REGÍSTRATE CON</span>
             </div>
             <GoogleAuthButton mode="signup" onError={setError} />
             <div className="dc-auth-links">
                 <span>¿Ya estás registrado?</span>
-                <Link to="/login">Iniciar sesion</Link>
+                <Link to="/login">Iniciar sesión</Link>
             </div>
         </AuthShell>
     );

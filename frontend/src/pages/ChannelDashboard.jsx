@@ -28,10 +28,10 @@ export default function ChannelDashboard() {
     const handleInvite = async () => {
         try {
             await inviteCollaborator(data.owned.id, email);
-            setMsg('INVITATION SENT');
+            setMsg('Invitación enviada.');
             setEmail('');
         } catch (error) {
-            setMsg(error.response?.data?.message || 'ERROR');
+            setMsg(error.response?.data?.message || 'No se pudo enviar la invitación.');
         }
     };
 
@@ -43,10 +43,10 @@ export default function ChannelDashboard() {
     if (!data.owned) {
         return (
             <div className="dc-dashboard">
-                <h1>CREA TU // CANAL DE DRAWCAST</h1>
-                <p>Configura el canal que usarás en stream. Recibirás un link único para OBS y otro para el editor.</p>
+                <h1>CREA TU // CANAL</h1>
+                <p>Configura el canal que usarás en directo. Tendrás un enlace para OBS y otro para abrir el editor.</p>
                 <input value={name} onChange={event => setName(event.target.value)} placeholder="Nombre del canal" className='my-5'/>
-                <button onClick={handleCreateChannel} className='my-5'>INICIALIZAR CANAL</button>
+                <button onClick={handleCreateChannel} className='my-5'>CREAR CANAL</button>
             </div>
         );
     }
@@ -63,14 +63,14 @@ export default function ChannelDashboard() {
             </header>
 
             <div className="dc-link-card">
-                <label>Link del editor</label>
+                <label>Enlace del editor</label>
                 <code>{editor}</code>
                 <button onClick={() => navigator.clipboard.writeText(editor)}><Copy /> COPIAR</button>
                 <Link to={`/app/editor/${channel.publicKey}`}><ExternalLink /> ABRIR</Link>
             </div>
 
             <div className="dc-link-card">
-                <label>Fuente para el OBS // 1920×1080</label>
+                <label>FUENTE DE NAVEGADOR PARA OBS // 1920×1080</label>
                 <code>{overlay}</code>
                 <button onClick={() => navigator.clipboard.writeText(overlay)}><Copy /> COPIAR</button>
             </div>
@@ -78,7 +78,7 @@ export default function ChannelDashboard() {
             <section className="dc-panel">
                 <h2>COLABORADORES</h2>
                 <div className="dc-invite">
-                    <input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="correo de un usuario registrado" />
+                    <input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="Correo de un usuario de DrawCast" />
                     <button onClick={handleInvite}><UserPlus /> INVITAR</button>
                 </div>
                 <p>{msg}</p>

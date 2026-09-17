@@ -44,7 +44,7 @@ export default function Login() {
         <AuthShell
             eyebrow=""
             title="INICIAR // SESIÓN"
-            description="Accede a tu consola DrawCast para administrar tu canal, colaboradores y editor."
+            description="Entra a DrawCast para administrar tu canal, abrir el editor y darle acceso a tu equipo."
         >
             <Helmet>
                 <title>Iniciar Sesión — DrawCast</title>
@@ -57,9 +57,9 @@ export default function Login() {
             </Helmet>
             <form onSubmit={submit} className="dc-auth-form">
                 <label>
-                    USUARIO / EMAIL
+                    USUARIO O CORREO
                     <input
-                        placeholder="Usuario o email"
+                        placeholder="Usuario o correo"
                         value={login}
                         disabled={loading}
                         onChange={(event) => setLogin(event.target.value)}
@@ -78,11 +78,11 @@ export default function Login() {
                 {error ? <p className="dc-auth-alert error">{error}</p> : null}
                 <button className="dc-auth-primary" disabled={loading}>
                     <LogIn size={16} />
-                    {loading ? "AUTENTICANDO..." : "INICIAR SESIÓN"}
+                    {loading ? "ENTRANDO..." : "INICIAR SESIÓN"}
                 </button>
             </form>
             <div className="dc-auth-divider">
-                <span>O CONTINUAR CON</span>
+                <span>O ENTRA CON</span>
             </div>
             <div className="dc-oauth-stack">
                 <GoogleAuthButton mode="signin" onError={setError} />
@@ -90,7 +90,7 @@ export default function Login() {
             </div>
             <div className="dc-auth-links">
                 <Link to="/register">Crear cuenta</Link>
-                <Link to="/forgot-password">Olvidaste tu contraseña?</Link>
+                <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
             </div>
         </AuthShell>
     );

@@ -14,7 +14,7 @@ export function objectsEqual(a, b) {
   try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
 }
 
-export function makeHistoryEntry(beforeScene, afterScene, label = 'EDIT') {
+export function makeHistoryEntry(beforeScene, afterScene, label = 'Editar') {
   const before = beforeScene || {};
   const after = afterScene || {};
   const ids = new Set([...Object.keys(before), ...Object.keys(after)]);

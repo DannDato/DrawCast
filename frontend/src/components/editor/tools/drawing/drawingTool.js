@@ -4,9 +4,9 @@ const CANVAS_HEIGHT = 1080;
 const token = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 export const BRUSH_PRESETS = [
-  { value: 'pencil', label: 'PENCIL', opacity: 1 },
-  { value: 'marker', label: 'MARKER', opacity: 0.78 },
-  { value: 'highlighter', label: 'HIGHLIGHTER', opacity: 0.36 }
+  { value: 'pencil', label: 'LÁPIZ', opacity: 1 },
+  { value: 'marker', label: 'MARCADOR', opacity: 0.78 },
+  { value: 'highlighter', label: 'RESALTADOR', opacity: 0.36 }
 ];
 
 export const DEFAULT_DRAW_CONFIG = {

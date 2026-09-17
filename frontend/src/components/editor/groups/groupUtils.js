@@ -20,7 +20,7 @@ export function groupMembers(objects, groupId) {
 }
 
 export function nextGroupName(objects) {
-  const regex = /^GROUP\s+(\d+)$/i;
+  const regex = /^(?:GROUP|GRUPO)\s+(\d+)$/i;
   let max = 0;
 
   Object.values(objects || {}).forEach((object) => {
@@ -28,7 +28,7 @@ export function nextGroupName(objects) {
     if (match) max = Math.max(max, Number(match[1]) || 0);
   });
 
-  return `GROUP ${String(max + 1).padStart(2, '0')}`;
+  return `GRUPO ${String(max + 1).padStart(2, '0')}`;
 }
 
 export function createGroupPatches(objects, ids) {
@@ -105,7 +105,7 @@ export function duplicateSelection(objects, ids, offset = 28) {
     copy.y = (Number(source.y) || 0) + offset;
     copy.zIndex = maxZ + index + 1;
     copy.hidden = false;
-    copy.layerName = source.layerName ? `${source.layerName} COPY` : source.layerName;
+    copy.layerName = source.layerName ? `${source.layerName} COPIA` : source.layerName;
     copy.groupId = newGroupId;
     copy.groupName = newGroupName;
     return copy;

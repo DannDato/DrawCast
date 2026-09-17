@@ -5,7 +5,7 @@ import { DEFAULT_TIMER_CONFIG, normalizeTimerConfig, timerBounds } from './tools
 
 const id = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-export const makeText = (x, y, text = 'TEXT', options = {}) => {
+export const makeText = (x, y, text = 'TEXTO', options = {}) => {
   const config = normalizeTextConfig({ ...DEFAULT_TEXT_CONFIG, ...options });
   const bounds = measureTextBounds(text, config);
 
@@ -61,12 +61,12 @@ export const makeTimer = (x, y, options = {}) => {
     startedAtMs: null,
     timerRunning: false,
     hidden: false,
-    layerName: `TIMER ${Date.now().toString().slice(-4)}`,
+    layerName: `TEMPORIZADOR ${Date.now().toString().slice(-4)}`,
     zIndex: Date.now()
   };
 };
 
-export const makeImage = (x, y, url, name = 'IMAGE', options = {}) => {
+export const makeImage = (x, y, url, name = 'IMAGEN', options = {}) => {
   const config = clampImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...options });
   const mimeType = options.mimeType || '';
   const mediaKind = options.mediaKind || getImageKind(mimeType, name);

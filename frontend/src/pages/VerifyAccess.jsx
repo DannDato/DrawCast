@@ -108,14 +108,14 @@ export default function VerifyAccess() {
   };
 
   return (
-    <AuthShell eyebrow="TWO-STEP VERIFICATION" title="VERIFY // ACCESS" description={<>Enviamos un código de 6 dígitos a <strong>{pending.emailHint}</strong>.</>}>
+    <AuthShell eyebrow="VERIFICACIÓN EN DOS PASOS" title="CONFIRMA // TU ACCESO" description={<>Enviamos un código de 6 dígitos a <strong>{pending.emailHint}</strong>.</>}>
       <div className="dc-auth-shield"><ShieldCheck size={22} /></div>
       <div className="dc-auth-otp" onPaste={paste}>{digits.map((digit, index) => <input key={index} ref={(element) => { refs.current[index] = element; }} inputMode="numeric" autoComplete={index === 0 ? 'one-time-code' : 'off'} maxLength={1} value={digit} disabled={loading} onChange={(event) => setDigit(index, event.target.value)} onKeyDown={(event) => keyDown(index, event)} aria-label={`Dígito ${index + 1}`} />)}</div>
       {error ? <p className="dc-auth-alert error">{error}</p> : null}
       {message ? <p className="dc-auth-alert success">{message}</p> : null}
-      <button type="button" className="dc-auth-primary" disabled={loading || !digits.every(Boolean)} onClick={() => verify()}>{loading ? 'VERIFYING...' : 'VERIFY ACCESS'}</button>
-      <button type="button" className="dc-auth-secondary" disabled={loading || cooldown > 0} onClick={resend}>{cooldown > 0 ? `RESEND IN ${cooldown}s` : 'RESEND CODE'}</button>
-      <div className="dc-auth-links"><Link to="/login" onClick={clearPendingVerifyAccess}>BACK TO LOGIN</Link></div>
+      <button type="button" className="dc-auth-primary" disabled={loading || !digits.every(Boolean)} onClick={() => verify()}>{loading ? 'VERIFICANDO...' : 'CONFIRMAR ACCESO'}</button>
+      <button type="button" className="dc-auth-secondary" disabled={loading || cooldown > 0} onClick={resend}>{cooldown > 0 ? `REENVIAR EN ${cooldown}s` : 'REENVIAR CÓDIGO'}</button>
+      <div className="dc-auth-links"><Link to="/login" onClick={clearPendingVerifyAccess}>VOLVER AL INICIO DE SESIÓN</Link></div>
     </AuthShell>
   );
 }

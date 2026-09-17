@@ -1,5 +1,5 @@
 export const TEXT_FONTS = [
-  { key: 'segoe', label: 'Segoe UI (Default)', family: "'Segoe UI', sans-serif" },
+  { key: 'segoe', label: 'Segoe UI (Predeterminada)', family: "'Segoe UI', sans-serif" },
   { key: 'bebas', label: 'Bebas Neue', family: "'Bebas Neue', sans-serif" },
   { key: 'outfit', label: 'Outfit', family: "'Outfit', sans-serif" },
   { key: 'montserrat', label: 'Montserrat', family: "'Montserrat', sans-serif" }

@@ -18,7 +18,7 @@ export default function GoogleConnectButton({ onConnected, onError }) {
         try { const { data } = await api.post('/user/profile/google/connect', { credential }); onConnected?.(data); }
         catch (error) { onError?.(error.response?.data?.message || 'No se pudo conectar Google'); }
       }});
-      window.google.accounts.id.renderButton(ref.current, { theme: 'outline', size: 'large', width: 280, text: 'continue_with' });
+      window.google.accounts.id.renderButton(ref.current, { theme: 'outline', size: 'large', width: 280, text: 'continue_with', locale: 'es' });
     };
     render();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };

@@ -52,7 +52,8 @@ export default function GoogleAuthButton({ mode = 'signin', onError }) {
         shape: 'rectangular',
         width: 400,
         text: mode === 'signup' ? 'signup_with' : 'signin_with',
-        logo_alignment: 'left'
+        logo_alignment: 'left',
+        locale: 'es'
       });
     };
 

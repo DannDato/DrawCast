@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-export default function AuthShell({ eyebrow = 'SECURE ACCESS', title, description, children, footer }) {
+export default function AuthShell({ eyebrow = 'ACCESO SEGURO', title, description, children, footer }) {
   return <main className="dc-auth-page">
     <div className="dc-auth-grid" aria-hidden="true" />
     <Link className="dc-auth-brand" to="/"><strong>DrawCast</strong><span>//</span></Link>
@@ -12,6 +12,6 @@ export default function AuthShell({ eyebrow = 'SECURE ACCESS', title, descriptio
       {children}
       {footer ? <div className="dc-auth-footer">{footer}</div> : null}
     </section>
-    <div className="dc-auth-system">DRAWCAST CLOUD // REALTIME GRAPHICS SYSTEM</div>
+    <div className="dc-auth-system">DRAWCAST // GRÁFICOS EN TIEMPO REAL</div>
   </main>;
 }

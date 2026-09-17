@@ -21,27 +21,31 @@ import {
 import { GUIDE_SHORTCUTS, TOOL_SHORTCUTS } from './hotkeys/shortcuts';
 
 const primaryTools = [
-  { id: 'select', label: 'SELECT // MOVE', icon: MousePointer2 },
-  { id: 'draw', label: 'DRAW // BRUSH', icon: Pencil },
-  { id: 'image', label: 'IMPORT IMAGE / GIF', icon: Image },
-  { id: 'text', label: 'TEXT GENERATOR', icon: Type }
+  { id: 'select', label: 'Seleccionar / mover', icon: MousePointer2 },
+  { id: 'draw', label: 'Lápiz / pincel', icon: Pencil },
+  { id: 'image', label: 'Imagen / GIF', icon: Image },
+  { id: 'text', label: 'Texto', icon: Type }
 ];
 
 const extraTools = [
-  { id: 'eraser', label: 'DRAW // ERASER', icon: Eraser },
-  { id: 'shape', label: 'SHAPES', icon: Shapes },
-  { id: 'timer', label: 'TIMER', icon: Timer }
+  { id: 'eraser', label: 'Borrador', icon: Eraser },
+  { id: 'shape', label: 'Formas', icon: Shapes },
+  { id: 'timer', label: 'Temporizador', icon: Timer }
 ];
 
 const guides = [
-  { id: 'none', label: 'DISABLE CANVA GUIDE', text: null },
-  { id: 'canva-guide.png', label: 'CANVA GUIDE 01', text: 'G1' },
-  { id: 'canva-guide2.png', label: 'CANVA GUIDE 02', text: 'G2' },
-  { id: 'canva-guide3.png', label: 'CANVA GUIDE 03', text: 'G3' }
+  { id: 'none', label: 'Sin guía', text: null },
+  { id: 'canva-guide.png', label: 'Guía 1', text: 'G1' },
+  { id: 'canva-guide2.png', label: 'Guía 2', text: 'G2' },
+  { id: 'canva-guide3.png', label: 'Guía 3', text: 'G3' }
 ];
 
 function Tip({ children }) {
   return <span className="dc-tool-tip">{children}</span>;
+}
+
+function SectionDivider({ children }) {
+  return <div className="dc-toolbar-divider"><span>{children}</span></div>;
 }
 
 function ActionButton({ label, icon, onClick, disabled = false, className = '' }) {
@@ -81,19 +85,20 @@ export default function Toolbar({
 
   return (
     <aside className={`dc-toolbar ${expanded ? 'is-expanded' : ''}`}>
-      
+      <div className="dc-toolbar-head">
+        <div className="dc-logo" aria-label="DrawCast">▦</div>
+        <span className={`dc-connection-dot ${connected ? 'online' : ''}`} title={connected ? 'Conectado' : 'Sin conexión'} />
+      </div>
 
+      <SectionDivider>Herramientas</SectionDivider>
       <div className="dc-toolbar-grid">{primaryTools.map(toolButton)}</div>
-
-      <button type="button" className="dc-toolbar-more" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
-        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        <span>{expanded ? 'VER MENOS' : 'VER MÁS'}</span>
-      </button>
 
       {expanded && (
         <div className="dc-toolbar-expanded">
+          <SectionDivider>Más herramientas</SectionDivider>
           <div className="dc-toolbar-grid">{extraTools.map(toolButton)}</div>
-          <div className="dc-sep" />
+
+          <SectionDivider>Guías</SectionDivider>
           <div className="dc-toolbar-grid">
             {guides.map((item) => (
               <button key={item.id} className={`dc-guide-btn ${guide === item.id ? 'active' : ''}`} onClick={() => setGuide(item.id)} aria-label={`${item.label} // ${GUIDE_SHORTCUTS[item.id]}`}>
@@ -102,18 +107,24 @@ export default function Toolbar({
               </button>
             ))}
           </div>
-          <div className="dc-sep" />
+
+          <SectionDivider>Edición</SectionDivider>
           <div className="dc-toolbar-grid">
-            <ActionButton label="UNDO // CTRL+Z" icon={Undo2} onClick={onUndo} disabled={!canUndo} />
-            <ActionButton label="REDO // CTRL+SHIFT+Z / CTRL+Y" icon={Redo2} onClick={onRedo} disabled={!canRedo} />
-            <ActionButton label="COPY // CTRL+C" icon={ClipboardCopy} onClick={onCopy} disabled={!canCopy} />
-            <ActionButton label="CUT // CTRL+X" icon={Scissors} onClick={onCut} disabled={!canCopy} />
-            <ActionButton label="PASTE // CTRL+V" icon={ClipboardPaste} onClick={onPaste} disabled={!canPaste} />
-            <ActionButton label="HOTKEYS // ? / F1" icon={Keyboard} onClick={onHotkeys} />
-            <ActionButton label="PURGE CANVA DATA // CTRL+SHIFT+DEL" icon={Trash2} onClick={onClear} className="danger" />
+            <ActionButton label="Deshacer // Ctrl+Z" icon={Undo2} onClick={onUndo} disabled={!canUndo} />
+            <ActionButton label="Rehacer // Ctrl+Shift+Z / Ctrl+Y" icon={Redo2} onClick={onRedo} disabled={!canRedo} />
+            <ActionButton label="Copiar // Ctrl+C" icon={ClipboardCopy} onClick={onCopy} disabled={!canCopy} />
+            <ActionButton label="Cortar // Ctrl+X" icon={Scissors} onClick={onCut} disabled={!canCopy} />
+            <ActionButton label="Pegar // Ctrl+V" icon={ClipboardPaste} onClick={onPaste} disabled={!canPaste} />
+            <ActionButton label="Atajos // ? / F1" icon={Keyboard} onClick={onHotkeys} />
+            <ActionButton label="Vaciar el lienzo // Ctrl+Shift+Supr" icon={Trash2} onClick={onClear} className="danger" />
           </div>
         </div>
       )}
+
+      <button type="button" className="dc-toolbar-more" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
+        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <span>{expanded ? 'Ver menos' : 'Ver más'}</span>
+      </button>
     </aside>
   );
 }

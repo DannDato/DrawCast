@@ -94,7 +94,7 @@ class AuthController {
     const cleanUsername = String(username || '').trim();
     const cleanEmail = normalizeEmail(email);
 
-    if (!cleanUsername || !validEmail(cleanEmail)) return res.status(400).json({ message: 'Usuario y email válido son obligatorios' });
+    if (!cleanUsername || !validEmail(cleanEmail)) return res.status(400).json({ message: 'Usuario y correo válido son obligatorios' });
     const passwordPolicy = validatePasswordPolicy(password);
     if (!passwordPolicy.ok) return res.status(400).json({ message: passwordPolicy.message });
 
@@ -102,7 +102,7 @@ class AuthController {
       where: { [Op.or]: [{ username: cleanUsername }, { email: cleanEmail }] }
     });
 
-    if (exists) return res.status(409).json({ message: 'Usuario o email ya registrado' });
+    if (exists) return res.status(409).json({ message: 'Usuario o correo ya registrado' });
 
     const user = await models.User.create({
       username: cleanUsername,
@@ -123,7 +123,7 @@ class AuthController {
     const identifier = normalizeLogin(req.body.login);
     const password = String(req.body.password || '');
 
-    if (!identifier || !password) return res.status(400).json({ message: 'Usuario/email y contraseña son obligatorios' });
+    if (!identifier || !password) return res.status(400).json({ message: 'Usuario/correo y contraseña son obligatorios' });
 
     if (!(await loginAllowed(identifier))) {
       await audit(req, { event: 'auth.login_blocked', category: 'auth', status: 'failure' });
@@ -317,7 +317,7 @@ class AuthController {
       if (!twitchUser?.id) throw new Error('Twitch identity missing');
 
       const email = normalizeEmail(twitchUser.email);
-      if (!validEmail(email)) return res.redirect(oauthErrorRedirect('Twitch no devolvió un correo válido. Revisa que tu cuenta tenga email disponible.'));
+      if (!validEmail(email)) return res.redirect(oauthErrorRedirect('Twitch no devolvió un correo válido. Revisa que tu cuenta tenga un correo disponible.'));
 
       let account = await models.OAuthAccount.findOne({ where: { provider: 'twitch', providerUserId: twitchUser.id } });
       if (account && !account.active) return res.redirect(oauthErrorRedirect('Esta cuenta de Twitch fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));

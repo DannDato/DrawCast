@@ -17,55 +17,55 @@ export const GUIDE_SHORTCUTS = {
 
 export const HOTKEY_SECTIONS = [
   {
-    title: 'TOOLS',
+    title: 'HERRAMIENTAS',
     items: [
-      ['V', 'Select / Move'],
-      ['P', 'Brush'],
-      ['E', 'Eraser'],
-      ['I', 'Image / GIF'],
-      ['S / G', 'Shapes'],
-      ['T', 'Text'],
-      ['R', 'Timer']
+      ['V', 'Seleccionar / mover'],
+      ['P', 'Pincel'],
+      ['E', 'Borrador'],
+      ['I', 'Imagen / GIF'],
+      ['S / G', 'Formas'],
+      ['T', 'Texto'],
+      ['R', 'Temporizador']
     ]
   },
   {
-    title: 'CANVAS',
+    title: 'LIENZO',
     items: [
-      ['0', 'Guide off'],
-      ['1 / 2 / 3', 'Guide 01 / 02 / 03'],
-      ['ARROWS', 'Nudge selection 1 px'],
-      ['SHIFT + ARROWS', 'Nudge selection 10 px'],
-      ['ESC', 'Return to Select / clear selection'],
-      ['DELETE', 'Delete selection']
+      ['0', 'Quitar guía'],
+      ['1 / 2 / 3', 'Guía 1 / 2 / 3'],
+      ['FLECHAS', 'Mover selección 1 px'],
+      ['SHIFT + FLECHAS', 'Mover selección 10 px'],
+      ['ESC', 'Volver a Selección / limpiar selección'],
+      ['SUPR', 'Eliminar selección']
     ]
   },
   {
-    title: 'LAYERS + GROUPS',
+    title: 'CAPAS Y GRUPOS',
     items: [
-      ['CTRL/CMD + A', 'Select all visible layers'],
-      ['CTRL/CMD + G', 'Group selection'],
-      ['CTRL/CMD + SHIFT + G', 'Ungroup selection'],
-      ['CTRL/CMD + D', 'Duplicate selection'],
-      ['CTRL/CMD + ↑ / ↓', 'Move layer one level'],
-      ['CTRL/CMD + SHIFT + DELETE', 'Purge canvas (confirm)']
+      ['CTRL/CMD + A', 'Seleccionar todas las capas visibles'],
+      ['CTRL/CMD + G', 'Agrupar selección'],
+      ['CTRL/CMD + SHIFT + G', 'Desagrupar selección'],
+      ['CTRL/CMD + D', 'Duplicar selección'],
+      ['CTRL/CMD + ↑ / ↓', 'Subir o bajar una capa'],
+      ['CTRL/CMD + SHIFT + SUPR', 'Vaciar el lienzo (pide confirmación)']
     ]
   },
   {
-    title: 'HISTORY + CLIPBOARD',
+    title: 'HISTORIAL Y PORTAPAPELES',
     items: [
-      ['CTRL/CMD + Z', 'Undo'],
-      ['CTRL/CMD + SHIFT + Z', 'Redo'],
-      ['CTRL/CMD + Y', 'Redo'],
-      ['CTRL/CMD + C', 'Copy'],
-      ['CTRL/CMD + X', 'Cut'],
-      ['CTRL/CMD + V', 'Paste']
+      ['CTRL/CMD + Z', 'Deshacer'],
+      ['CTRL/CMD + SHIFT + Z', 'Rehacer'],
+      ['CTRL/CMD + Y', 'Rehacer'],
+      ['CTRL/CMD + C', 'Copiar'],
+      ['CTRL/CMD + X', 'Cortar'],
+      ['CTRL/CMD + V', 'Pegar']
     ]
   },
   {
-    title: 'HELP',
+    title: 'AYUDA',
     items: [
-      ['?', 'Open / close hotkeys'],
-      ['F1', 'Open / close hotkeys']
+      ['?', 'Abrir / cerrar atajos'],
+      ['F1', 'Abrir / cerrar atajos']
     ]
   }
 ];

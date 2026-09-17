@@ -8,7 +8,7 @@ export default function ImagePanel({ channelId, tool, selected, imageConfig, set
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
-  const [status, setStatus] = useState('Arrastra un resultado al canvas para agregarlo.');
+  const [status, setStatus] = useState('Arrastra un resultado al lienzo para agregarlo.');
   const [searching, setSearching] = useState(false);
   const isImage = selected?.tipo === 'image' || selected?.tipo === 'imagen';
 
@@ -45,7 +45,7 @@ export default function ImagePanel({ channelId, tool, selected, imageConfig, set
     try {
       const data = await searchChannelImages(channelId, trimmed);
       setResults(data.results || []);
-      setStatus(`${data.results?.length || 0} resultado(s) desde Wikimedia Commons. Arrastra una imagen al canvas.`);
+      setStatus(`${data.results?.length || 0} resultado${data.results?.length === 1 ? '' : 's'} en Wikimedia Commons. Arrastra una imagen al lienzo.`);
     } catch (error) {
       setStatus(error.response?.data?.message || error.response?.data?.error || 'No fue posible buscar imágenes.');
     } finally {
@@ -61,9 +61,9 @@ export default function ImagePanel({ channelId, tool, selected, imageConfig, set
 
   return (
     <section className="dc-image-panel">
-      <h3>[02A] IMAGENES // GIF</h3>
+      <h3>IMÁGENES // GIF</h3>
 
-      <label>BORDER-RADIUS <b>{Math.round(current.borderRadius)}</b></label>
+      <label>ESQUINAS REDONDEADAS <b>{Math.round(current.borderRadius)}</b></label>
       <input type="range" min="0" max="300" value={current.borderRadius} onChange={(event) => updateConfig({ borderRadius: Number(event.target.value) })} />
 
       <label>OPACIDAD <b>{Math.round(current.opacity * 100)}%</b></label>
@@ -94,7 +94,7 @@ export default function ImagePanel({ channelId, tool, selected, imageConfig, set
                 key={`${item.imageUrl}-${item.title}`}
                 className="dc-image-result-card"
                 draggable
-                title="Arrastra al canvas // doble click para agregar"
+                title="Arrastra al lienzo o haz doble clic para agregar"
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'copy';
                   event.dataTransfer.setData('text/plain', item.imageUrl);
@@ -108,7 +108,7 @@ export default function ImagePanel({ channelId, tool, selected, imageConfig, set
             ))}
           </div>
 
-          {!results.length && !searching && <div className="dc-image-search-empty"><ImagePlus size={18} /> NO RESULTS LOADED</div>}
+          {!results.length && !searching && <div className="dc-image-search-empty"><ImagePlus size={18} /> TODAVÍA NO HAY RESULTADOS</div>}
         </div>
       )}
     </section>

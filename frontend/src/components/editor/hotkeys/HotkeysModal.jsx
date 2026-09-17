@@ -6,13 +6,13 @@ export default function HotkeysModal({ open, onClose }) {
 
   return (
     <div className="dc-hotkeys-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="dc-hotkeys-modal" role="dialog" aria-modal="true" aria-label="DrawCast hotkeys" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="dc-hotkeys-modal" role="dialog" aria-modal="true" aria-label="Atajos de teclado de DrawCast" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
-            <span className="dc-hotkeys-kicker"><Keyboard size={15} /> KEYBOARD CONTROL MAP</span>
-            <h2>HOTKEYS // DRAWCAST</h2>
+            <span className="dc-hotkeys-kicker"><Keyboard size={15} /> MAPA DE CONTROLES</span>
+            <h2>ATAJOS // DRAWCAST</h2>
           </div>
-          <button type="button" className="dc-hotkeys-close" onClick={onClose} aria-label="Close hotkeys"><X size={18} /></button>
+          <button type="button" className="dc-hotkeys-close" onClick={onClose} aria-label="Cerrar atajos"><X size={18} /></button>
         </header>
 
         <div className="dc-hotkeys-grid">
@@ -31,7 +31,7 @@ export default function HotkeysModal({ open, onClose }) {
           ))}
         </div>
 
-        <footer>Hotkeys are disabled while typing in inputs, textareas, selects or inline text editing.</footer>
+        <footer>Los atajos se pausan mientras escribes en un campo, selector o texto editable.</footer>
       </section>
     </div>
   );

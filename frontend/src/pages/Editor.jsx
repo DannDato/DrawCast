@@ -19,6 +19,8 @@ import { DEFAULT_DRAW_CONFIG, appendStrokeToLayer, clearDrawLayer, isDrawLayer, 
 import { applyHistoryEntry, cloneValue, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
 import { createClipboardPayload, materializeClipboardPayload, parseClipboardText, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
 
+const TOOL_LABELS = { select: 'Selección', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', text: 'Texto', timer: 'Temporizador' };
+
 export default function Editor() {
   const { publicKey } = useParams();
   const [channelId, setChannelId] = useState(null);
@@ -95,7 +97,7 @@ export default function Editor() {
 
   const { socket, presence, connected, denied } = useChannelSocket(publicKey, 'editor', handlers);
 
-  const beginHistory = (label = 'EDIT') => {
+  const beginHistory = (label = 'Editar') => {
     if (historyStartRef.current) return;
     historyStartRef.current = { label, before: cloneValue(objectsRef.current) };
   };
@@ -160,14 +162,14 @@ export default function Editor() {
 
   const patch = (id, patchData) => applyUpdates([{ id, patch: patchData }]);
 
-  const patchWithHistory = (id, patchData, label = 'LAYER EDIT') => {
+  const patchWithHistory = (id, patchData, label = 'Editar capa') => {
     if (!objectsRef.current[id]) return;
     beginHistory(label);
     patch(id, patchData);
     commitHistory(label);
   };
 
-  const applyUpdatesWithHistory = (updates = [], label = 'LAYERS EDIT') => {
+  const applyUpdatesWithHistory = (updates = [], label = 'Editar capas') => {
     if (!updates.some(({ id }) => objectsRef.current[id])) return;
     beginHistory(label);
     applyUpdates(updates);
@@ -176,16 +178,16 @@ export default function Editor() {
 
   const add = (object, options = {}) => {
     if (!object?.id) return;
-    if (options.history !== false) beginHistory(options.label || 'ADD LAYER');
+    if (options.history !== false) beginHistory(options.label || 'Agregar capa');
     upsert(object);
     setSelectedIds([object.id]);
     setSelectedId(object.id);
-    if (options.history !== false) commitHistory(options.label || 'ADD LAYER');
+    if (options.history !== false) commitHistory(options.label || 'Agregar capa');
   };
 
   const addMany = (list, options = {}) => {
     if (!list.length) return;
-    if (options.history !== false) beginHistory(options.label || 'ADD LAYERS');
+    if (options.history !== false) beginHistory(options.label || 'Agregar capas');
     updateScene((current) => {
       const next = { ...current };
       list.forEach((object) => { next[object.id] = object; });
@@ -194,19 +196,19 @@ export default function Editor() {
     list.forEach((object) => socket.emit('obj-upsert', object));
     setSelectedIds(list.map((object) => object.id));
     setSelectedId(list.at(-1)?.id || null);
-    if (options.history !== false) commitHistory(options.label || 'ADD LAYERS');
+    if (options.history !== false) commitHistory(options.label || 'Agregar capas');
   };
 
   const clear = () => {
     if (!Object.keys(objectsRef.current).length) return;
-    beginHistory('PURGE CANVAS');
+    beginHistory('Vaciar lienzo');
     setScene({});
     setSelectedIds([]);
     setSelectedId(null);
     setActiveDrawLayerId(null);
     setLiveStrokes({});
     socket.emit('clear-all');
-    commitHistory('PURGE CANVAS');
+    commitHistory('Vaciar lienzo');
   };
 
   const syncHistoryResult = (result) => {
@@ -229,7 +231,7 @@ export default function Editor() {
       past: current.past.slice(0, -1),
       future: result.applied.length ? [entry, ...current.future] : current.future
     }));
-    if (result.skipped.length) setMediaStatus(`UNDO PARTIAL // ${result.skipped.length} LAYER(S) CHANGED BY COLLABORATOR`);
+    if (result.skipped.length) setMediaStatus(`Deshacer parcial: ${result.skipped.length} capa(s) cambiaron desde otro editor.`);
   };
 
   const redo = () => {
@@ -241,13 +243,13 @@ export default function Editor() {
       past: result.applied.length ? pushHistoryEntry(current.past, entry) : current.past,
       future: current.future.slice(1)
     }));
-    if (result.skipped.length) setMediaStatus(`REDO PARTIAL // ${result.skipped.length} LAYER(S) CHANGED BY COLLABORATOR`);
+    if (result.skipped.length) setMediaStatus(`Rehacer parcial: ${result.skipped.length} capa(s) cambiaron desde otro editor.`);
   };
 
   const removeLayers = (ids = selectedIds, options = {}) => {
     const targets = [...new Set(ids)].filter((id) => objectsRef.current[id]);
     if (!targets.length) return;
-    if (options.history !== false) beginHistory(options.label || 'DELETE LAYERS');
+    if (options.history !== false) beginHistory(options.label || 'Eliminar capas');
     targets.forEach((id) => socket.emit('obj-remove', { id }));
     updateScene((current) => {
       const next = { ...current };
@@ -258,7 +260,7 @@ export default function Editor() {
     if (activeDrawLayerId && targets.includes(activeDrawLayerId)) setActiveDrawLayerId(null);
     setSelectedIds(remainingSelection);
     setSelectedId(remainingSelection.at(-1) || null);
-    if (options.history !== false) commitHistory(options.label || 'DELETE LAYERS');
+    if (options.history !== false) commitHistory(options.label || 'Eliminar capas');
   };
 
   const groupSelection = () => {
@@ -270,23 +272,23 @@ export default function Editor() {
 
     const result = createGroupPatches(objectsRef.current, transformable);
     if (!result.updates.length) return;
-    beginHistory('GROUP LAYERS');
+    beginHistory('Agrupar capas');
     applyUpdates(result.updates);
-    commitHistory('GROUP LAYERS');
+    commitHistory('Agrupar capas');
     setSelection(transformable, transformable.at(-1));
   };
 
   const ungroupSelection = () => {
     const updates = ungroupPatches(objectsRef.current, selectedIds);
     if (!updates.length) return;
-    beginHistory('UNGROUP LAYERS');
+    beginHistory('Desagrupar capas');
     applyUpdates(updates);
-    commitHistory('UNGROUP LAYERS');
+    commitHistory('Desagrupar capas');
   };
 
   const duplicateSelected = () => {
     const result = duplicateSelection(objectsRef.current, selectedIds.length ? selectedIds : selectedId ? [selectedId] : []);
-    addMany(result.objects, { label: 'DUPLICATE LAYERS' });
+    addMany(result.objects, { label: 'Duplicar capas' });
   };
 
   const copySelection = (clipboardEvent = null) => {
@@ -297,7 +299,7 @@ export default function Editor() {
     const serialized = serializeClipboardPayload(payload);
     setClipboardPayload(payload);
     setPasteSerial(1);
-    setMediaStatus(`COPIED // ${payload.objects.length} LAYER(S)`);
+    setMediaStatus(`Copiadas ${payload.objects.length} capa(s).`);
 
     if (clipboardEvent?.clipboardData) {
       clipboardEvent.clipboardData.setData('text/plain', serialized);
@@ -312,11 +314,11 @@ export default function Editor() {
     if (!payload?.objects?.length) return;
     const result = materializeClipboardPayload(payload, objectsRef.current, serial);
     if (!result.objects.length) return;
-    addMany(result.objects, { label: 'PASTE LAYERS' });
+    addMany(result.objects, { label: 'Pegar capas' });
     setClipboardPayload(payload);
     setPasteSerial((current) => Math.max(current, serial) + 1);
     setTool('select');
-    setMediaStatus(`PASTED // ${result.objects.length} LAYER(S)`);
+    setMediaStatus(`Pegadas ${result.objects.length} capa(s).`);
   };
 
   const cutSelection = (clipboardEvent = null) => {
@@ -324,8 +326,8 @@ export default function Editor() {
     if (!ids.length) return;
     const payload = copySelection(clipboardEvent);
     if (!payload) return;
-    removeLayers(ids, { label: 'CUT LAYERS' });
-    setMediaStatus(`CUT // ${ids.length} LAYER(S)`);
+    removeLayers(ids, { label: 'Cortar capas' });
+    setMediaStatus(`Cortadas ${ids.length} capa(s).`);
   };
 
   const selectAllLayers = () => {
@@ -339,22 +341,22 @@ export default function Editor() {
   const reorderLayers = (draggedId, targetId) => {
     const updates = reorderLayerUnits(objectsRef.current, draggedId, targetId);
     if (!updates.length) return;
-    beginHistory('REORDER LAYERS');
+    beginHistory('Ordenar capas');
     applyUpdates(updates);
-    commitHistory('REORDER LAYERS');
+    commitHistory('Ordenar capas');
   };
 
   const moveSelectedLayer = (direction) => {
     const updates = moveSelectionOneLevel(objectsRef.current, selectedIds, direction);
     if (!updates.length) return;
-    beginHistory('MOVE LAYER');
+    beginHistory('Mover capa');
     applyUpdates(updates);
-    commitHistory('MOVE LAYER');
+    commitHistory('Mover capa');
   };
 
   const requestClear = () => {
     if (!Object.keys(objectsRef.current).length) return;
-    const confirmed = window.confirm('PURGE CANVA DATA?\n\nThis clears the current runtime canvas for every connected client. You can Undo immediately after if no collaborator changes the scene.');
+    const confirmed = window.confirm('¿Vaciar todo el lienzo?\n\nEsto borra la escena actual para todos los clientes conectados. Puedes deshacerlo de inmediato si ningún colaborador cambia la escena.');
     if (!confirmed) return;
     clear();
   };
@@ -374,7 +376,7 @@ export default function Editor() {
 
     if (!updates.length) return false;
     if (!nudgeActiveRef.current) {
-      beginHistory('NUDGE LAYERS');
+      beginHistory('Mover capas');
       nudgeActiveRef.current = true;
     }
     applyUpdates(updates);
@@ -384,7 +386,7 @@ export default function Editor() {
   const finishNudge = () => {
     if (!nudgeActiveRef.current) return;
     nudgeActiveRef.current = false;
-    commitHistory('NUDGE LAYERS');
+    commitHistory('Mover capas');
   };
 
 
@@ -392,11 +394,11 @@ export default function Editor() {
 
   const createDrawLayer = () => {
     const layer = makeDrawLayer(objectsRef.current);
-    beginHistory('NEW DRAW LAYER');
+    beginHistory('Nueva capa de dibujo');
     upsert(layer);
     setActiveDrawLayerId(layer.id);
     setSelection([layer.id], layer.id);
-    commitHistory('NEW DRAW LAYER');
+    commitHistory('Nueva capa de dibujo');
     return layer;
   };
 
@@ -413,9 +415,9 @@ export default function Editor() {
   const clearActiveDrawLayer = () => {
     const layer = ensureDrawLayer();
     if (!layer || !(layer.lineas || []).length) return;
-    beginHistory('CLEAR DRAW LAYER');
+    beginHistory('Limpiar capa de dibujo');
     upsert(clearDrawLayer(layer));
-    commitHistory('CLEAR DRAW LAYER');
+    commitHistory('Limpiar capa de dibujo');
   };
 
   const emitLiveStroke = (phase, stroke, layer, point = null) => {
@@ -446,12 +448,12 @@ export default function Editor() {
   const commitDrawStroke = (stroke) => {
     const layer = objectsRef.current[stroke.layerId];
     if (!layer || !isDrawLayer(layer)) return;
-    beginHistory(stroke.mode === 'erase' ? 'ERASE STROKE' : 'DRAW STROKE');
+    beginHistory(stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
     upsert(appendStrokeToLayer(layer, stroke));
     emitLiveStroke('end', stroke, layer);
     setActiveDrawLayerId(layer.id);
     setSelection([layer.id], layer.id);
-    commitHistory(stroke.mode === 'erase' ? 'ERASE STROKE' : 'DRAW STROKE');
+    commitHistory(stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
   };
 
   useEffect(() => {
@@ -564,14 +566,14 @@ export default function Editor() {
       if (!modifier && !event.altKey && Object.prototype.hasOwnProperty.call(guideByKey, event.key)) {
         event.preventDefault();
         setGuide(guideByKey[event.key]);
-        setMediaStatus(guideByKey[event.key] === 'none' ? 'GUIDE // OFF' : `GUIDE // ${event.key}`);
+        setMediaStatus(guideByKey[event.key] === 'none' ? 'Guías desactivadas.' : `Guía ${event.key} activada.`);
         return;
       }
 
       if (!modifier && !event.altKey && !event.shiftKey && toolByKey[key]) {
         event.preventDefault();
         setTool(toolByKey[key]);
-        setMediaStatus(`TOOL // ${toolByKey[key].toUpperCase()}`);
+        setMediaStatus(`Herramienta: ${TOOL_LABELS[toolByKey[key]] || toolByKey[key]}.`);
         return;
       }
 
@@ -597,7 +599,7 @@ export default function Editor() {
         event.preventDefault();
         if (tool !== 'select') {
           setTool('select');
-          setMediaStatus('TOOL // SELECT');
+          setMediaStatus('Herramienta: Selección');
         } else {
           setSelection([]);
         }
@@ -665,7 +667,7 @@ export default function Editor() {
 
   const uploadFile = async (file, point = null) => {
     if (!channelId) {
-      setMediaStatus('CHANNEL NOT READY');
+      setMediaStatus('El canal todavía no está listo.');
       return;
     }
 
@@ -675,38 +677,38 @@ export default function Editor() {
       return;
     }
 
-    setMediaStatus(`UPLOADING // ${file.name}`);
+    setMediaStatus(`Subiendo ${file.name}...`);
     try {
       const data = await uploadChannelImage(channelId, file);
       await addMediaObject({ url: data.url, name: file.name, mimeType: data.mimeType || file.type, point });
-      setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'IMAGE'} READY // ${file.name}`);
+      setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'Imagen'} lista: ${file.name}`);
     } catch (error) {
-      setMediaStatus(error.response?.data?.message || error.response?.data?.error || 'UPLOAD FAILED');
+      setMediaStatus(error.response?.data?.message || error.response?.data?.error || 'No se pudo subir la imagen.');
     }
   };
 
   const importRemote = async (url, point = null) => {
     if (!channelId) {
-      setMediaStatus('CHANNEL NOT READY');
+      setMediaStatus('El canal todavía no está listo.');
       return;
     }
 
-    setMediaStatus('IMPORTING REMOTE IMAGE...');
+    setMediaStatus('Importando imagen desde la web...');
     try {
       const data = await importChannelImageUrl(channelId, url);
       const name = data.fileName || 'Imagen web';
       await addMediaObject({ url: data.url, name, mimeType: data.mimeType || '', point });
-      setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'IMAGE'} IMPORTED`);
+      setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'Imagen'} importada.`);
     } catch (error) {
-      setMediaStatus(error.response?.data?.message || error.response?.data?.error || 'REMOTE IMPORT FAILED');
+      setMediaStatus(error.response?.data?.message || error.response?.data?.error || 'No se pudo importar la imagen.');
     }
   };
 
   const commitText = ({ id, x, y, text, config }) => {
     if (id && objectsRef.current[id]) {
-      beginHistory('EDIT TEXT');
+      beginHistory('Editar texto');
       upsert(updateTextContent({ ...objectsRef.current[id], x, y }, text, config));
-      commitHistory('EDIT TEXT');
+      commitHistory('Editar texto');
       setSelection([id], id);
     } else {
       add(makeText(x, y, text, config));
@@ -719,9 +721,9 @@ export default function Editor() {
   const patchSelectedText = (patchData) => {
     const current = singleSelected;
     if (!current || (current.tipo !== 'text' && current.tipo !== 'texto')) return;
-    beginHistory('TEXT STYLE');
+    beginHistory('Estilo de texto');
     upsert(applyTextStyle(current, patchData));
-    commitHistory('TEXT STYLE');
+    commitHistory('Estilo de texto');
   };
 
   const createTimer = (point) => {
@@ -732,51 +734,73 @@ export default function Editor() {
   const patchSelectedTimer = (patchData) => {
     const current = singleSelected;
     if (!current || current.tipo !== 'timer') return;
-    beginHistory('TIMER EDIT');
+    beginHistory('Editar temporizador');
     upsert(applyTimerConfig(current, patchData));
-    commitHistory('TIMER EDIT');
+    commitHistory('Editar temporizador');
   };
 
   const toggleSelectedTimer = () => {
     const current = singleSelected;
     if (!current || current.tipo !== 'timer') return;
-    beginHistory('TIMER TOGGLE');
+    beginHistory('Pausar / iniciar temporizador');
     upsert(toggleTimer(current));
-    commitHistory('TIMER TOGGLE');
+    commitHistory('Pausar / iniciar temporizador');
   };
 
   const adjustSelectedTimer = (deltaSeconds) => {
     const current = singleSelected;
     if (!current || current.tipo !== 'timer') return;
-    beginHistory('TIMER ADJUST');
+    beginHistory('Ajustar temporizador');
     upsert(adjustTimerSeconds(current, deltaSeconds));
-    commitHistory('TIMER ADJUST');
+    commitHistory('Ajustar temporizador');
   };
 
-  if (denied) return <div className="dc-denied">ACCESS DENIED // <Link to="/app">RETURN</Link></div>;
+  if (denied) return <div className="dc-denied">NO TIENES ACCESO A ESTE CANAL // <Link to="/app">VOLVER AL INICIO</Link></div>;
 
   return (
     <div className="dc-editor">
       <aside className="dc-editor-sidebar">
         <Toolbar tool={tool} setTool={setTool} guide={guide} setGuide={setGuide} onClear={requestClear} onUndo={undo} onRedo={redo} onCopy={() => copySelection()} onCut={() => cutSelection()} onPaste={() => pasteClipboard()} onHotkeys={() => setHotkeysOpen(true)} canUndo={history.past.length > 0} canRedo={history.future.length > 0} canCopy={selectedIds.length > 0} canPaste={Boolean(clipboardPayload?.objects?.length)} connected={connected} />
 
-        <LayersPanel
-          objects={objects}
-          selectedIds={selectedIds}
-          onSelect={select}
-          onSelectMany={setSelection}
-          onPatch={(id, patchData) => patchWithHistory(id, patchData, 'LAYER EDIT')}
-          onPatchMany={(updates) => applyUpdatesWithHistory(updates, 'LAYERS EDIT')}
-          onRemove={removeLayers}
-          onReorder={reorderLayers}
+        <Inspector
+          tool={tool}
+          selected={singleSelected}
+          selectedObjects={selectedIds.map((id) => objects[id]).filter(Boolean)}
+          selectionCount={selectedIds.length}
+          selectedGroupCount={selectedGroupIds(objects, selectedIds).length}
+          drawConfig={drawConfig}
+          setDrawConfig={setDrawConfig}
+          shapeConfig={shapeConfig}
+          setShapeConfig={setShapeConfig}
+          imageConfig={imageConfig}
+          setImageConfig={setImageConfig}
+          textConfig={textConfig}
+          setTextConfig={setTextConfig}
+          timerConfig={timerConfig}
+          setTimerConfig={setTimerConfig}
+          channelId={channelId}
+          onUploadFile={uploadFile}
+          onImportUrl={importRemote}
+          onPatch={(patchData) => selectedId && patchWithHistory(selectedId, patchData, 'Editar capa')}
+          onPatchText={patchSelectedText}
+          onPatchTimer={patchSelectedTimer}
+          onToggleTimer={toggleSelectedTimer}
+          onAdjustTimer={adjustSelectedTimer}
+          onDelete={() => removeLayers()}
           onGroup={groupSelection}
           onUngroup={ungroupSelection}
           onDuplicate={duplicateSelected}
+          onMoveLayer={moveSelectedLayer}
+          activeDrawLayer={activeDrawLayer}
+          onNewDrawLayer={createDrawLayer}
+          onClearDrawLayer={clearActiveDrawLayer}
+          onSelectDraw={() => setTool('draw')}
+          onSelectEraser={() => setTool('eraser')}
         />
       </aside>
 
       <main className="dc-workspace">
-        <div className="dc-watermark">DrawCast <span>// DannDato</span></div>
+        {/* <div className="dc-watermark">DrawCast <span>// DannDato</span></div> */}
 
         <CanvasStage
           objects={objects}
@@ -786,8 +810,8 @@ export default function Editor() {
           onSelectMany={setSelection}
           onPatchObject={patch}
           onPatchObjects={applyUpdates}
-          onTransformStart={() => beginHistory('TRANSFORM')}
-          onTransformEnd={() => commitHistory('TRANSFORM')}
+          onTransformStart={() => beginHistory('Transformar capa')}
+          onTransformEnd={() => commitHistory('Transformar capa')}
           tool={tool}
           drawConfig={drawConfig}
           activeDrawLayer={activeDrawLayer}
@@ -808,51 +832,30 @@ export default function Editor() {
         />
 
         <div className="dc-status">
-          <span className={`dc-status-chip connection ${connected ? 'online' : 'offline'}`}>{connected ? 'ONLINE' : 'OFFLINE'}</span>
-          <span className="dc-status-chip">TOOL // {tool.toUpperCase()}</span>
-          <span className="dc-status-chip">SELECTED // {selectedIds.length}</span>
-          <span className="dc-status-presence">CLIENTS {presence.clients} // EDITORS {presence.editors} // OBS {presence.overlays}</span>
+          <span className={`dc-status-chip connection ${connected ? 'online' : 'offline'}`}>{connected ? 'EN LÍNEA' : 'SIN CONEXIÓN'}</span>
+          <span className="dc-status-chip">HERRAMIENTA // {TOOL_LABELS[tool] || tool}</span>
+          <span className="dc-status-chip">SELECCIONADAS // {selectedIds.length}</span>
+          <span className="dc-status-presence">CONECTADOS {presence.clients} // EDITORES {presence.editors} // OBS {presence.overlays}</span>
           {mediaStatus && <span className="dc-media-status">{mediaStatus}</span>}
-          <button type="button" className="dc-status-hotkeys" onClick={() => setHotkeysOpen(true)}>HOTKEYS [?]</button>
+          <button type="button" className="dc-status-hotkeys" onClick={() => setHotkeysOpen(true)}>ATAJOS [?]</button>
         </div>
-
       </main>
 
-      <Inspector
-        tool={tool}
-        selected={singleSelected}
-        selectedObjects={selectedIds.map((id) => objects[id]).filter(Boolean)}
-        selectionCount={selectedIds.length}
-        selectedGroupCount={selectedGroupIds(objects, selectedIds).length}
-        drawConfig={drawConfig}
-        setDrawConfig={setDrawConfig}
-        shapeConfig={shapeConfig}
-        setShapeConfig={setShapeConfig}
-        imageConfig={imageConfig}
-        setImageConfig={setImageConfig}
-        textConfig={textConfig}
-        setTextConfig={setTextConfig}
-        timerConfig={timerConfig}
-        setTimerConfig={setTimerConfig}
-        channelId={channelId}
-        onUploadFile={uploadFile}
-        onImportUrl={importRemote}
-        onPatch={(patchData) => selectedId && patchWithHistory(selectedId, patchData, 'LAYER EDIT')}
-        onPatchText={patchSelectedText}
-        onPatchTimer={patchSelectedTimer}
-        onToggleTimer={toggleSelectedTimer}
-        onAdjustTimer={adjustSelectedTimer}
-        onDelete={() => removeLayers()}
-        onGroup={groupSelection}
-        onUngroup={ungroupSelection}
-        onDuplicate={duplicateSelected}
-        onMoveLayer={moveSelectedLayer}
-        activeDrawLayer={activeDrawLayer}
-        onNewDrawLayer={createDrawLayer}
-        onClearDrawLayer={clearActiveDrawLayer}
-        onSelectDraw={() => setTool('draw')}
-        onSelectEraser={() => setTool('eraser')}
-      />
+      <div className="dc-editor-layers-sidebar">
+        <LayersPanel
+          objects={objects}
+          selectedIds={selectedIds}
+          onSelect={select}
+          onSelectMany={setSelection}
+          onPatch={(id, patchData) => patchWithHistory(id, patchData, 'Editar capa')}
+          onPatchMany={(updates) => applyUpdatesWithHistory(updates, 'Editar capas')}
+          onRemove={removeLayers}
+          onReorder={reorderLayers}
+          onGroup={groupSelection}
+          onUngroup={ungroupSelection}
+          onDuplicate={duplicateSelected}
+        />
+      </div>
 
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
     </div>

@@ -65,14 +65,14 @@ export function parseClipboardText(text) {
 }
 
 function nextGroupName(sourceName, serial) {
-  const base = String(sourceName || 'GROUP').replace(/\s+COPY(?:\s+\d+)?$/i, '').trim() || 'GROUP';
-  return serial <= 1 ? `${base} COPY` : `${base} COPY ${serial}`;
+  const base = String(sourceName || 'GRUPO').replace(/\s+(?:COPY|COPIA)(?:\s+\d+)?$/i, '').trim() || 'GRUPO';
+  return serial <= 1 ? `${base} COPIA` : `${base} COPIA ${serial}`;
 }
 
 function nextLayerName(sourceName, serial) {
   if (!sourceName) return sourceName;
-  const base = String(sourceName).replace(/\s+COPY(?:\s+\d+)?$/i, '').trim();
-  return serial <= 1 ? `${base} COPY` : `${base} COPY ${serial}`;
+  const base = String(sourceName).replace(/\s+(?:COPY|COPIA)(?:\s+\d+)?$/i, '').trim();
+  return serial <= 1 ? `${base} COPIA` : `${base} COPIA ${serial}`;
 }
 
 export function materializeClipboardPayload(payload, existingObjects, pasteSerial = 1, offsetStep = 28) {

@@ -10,18 +10,19 @@ const COLLAPSED_KEY = 'drawcast.layers.collapsed.groups';
 function layerLabel(object) {
   if (object.layerName) return object.layerName;
   if (object.tipo === 'text' || object.tipo === 'texto') return textValue(object).replace(/\s+/g, ' ').trim() || 'TEXTO';
-  if (object.tipo === 'timer') return 'TIMER';
-  if (object.tipo === 'shape' || object.tipo === 'forma') return object.shapeType || object.shape || 'SHAPE';
+  if (object.tipo === 'timer') return 'TEMPORIZADOR';
+  if (object.tipo === 'shape' || object.tipo === 'forma') return object.shapeType || object.shape || 'FORMA';
   return object.fileName || object.name || object.tipo || object.id.slice(-6);
 }
 
 function layerType(object) {
   if (object.mediaKind === 'gif') return 'GIF';
-  if (object.tipo === 'text' || object.tipo === 'texto') return 'TEXT';
-  if (object.tipo === 'timer') return 'TIMER';
-  if (object.tipo === 'shape' || object.tipo === 'forma') return 'SHAPE';
-  if (object.tipo === 'draw' || object.tipo === 'trazo') return 'DRAW';
-  return String(object.tipo || 'OBJECT').toUpperCase();
+  if (object.tipo === 'text' || object.tipo === 'texto') return 'TEXTO';
+  if (object.tipo === 'timer') return 'TEMPORIZADOR';
+  if (object.tipo === 'shape' || object.tipo === 'forma') return 'FORMA';
+  if (object.tipo === 'draw' || object.tipo === 'trazo') return 'DIBUJO';
+  if (object.tipo === 'image' || object.tipo === 'imagen') return 'IMAGEN';
+  return String(object.tipo || 'OBJETO').toUpperCase();
 }
 
 function readCollapsedGroups() {
@@ -43,7 +44,7 @@ function LayerRow({ object, index, selected, compact, onSelect, onPatch, onRemov
       onDrop={(event) => onDrop(event, object.id)}
       onClick={(event) => onSelect(object.id, { append: event.ctrlKey || event.metaKey || event.shiftKey })}
     >
-      <span className="dc-layer-grip" title="DRAG TO REORDER"><GripVertical size={14} /></span>
+      <span className="dc-layer-grip" title="Arrastra para cambiar el orden"><GripVertical size={14} /></span>
       <span className="dc-layer-index">{String(index).padStart(2, '0')}</span>
       <span className="dc-layer-copy">
         <b>{layerLabel(object)}</b>
@@ -52,7 +53,7 @@ function LayerRow({ object, index, selected, compact, onSelect, onPatch, onRemov
       <button
         type="button"
         className="dc-layer-icon-btn"
-        title={object.hidden ? 'SHOW LAYER' : 'HIDE LAYER'}
+        title={object.hidden ? 'Mostrar capa' : 'Ocultar capa'}
         onClick={(event) => {
           event.stopPropagation();
           onPatch(object.id, { hidden: !object.hidden });
@@ -63,7 +64,7 @@ function LayerRow({ object, index, selected, compact, onSelect, onPatch, onRemov
       <button
         type="button"
         className="dc-layer-icon-btn danger"
-        title="DELETE LAYER"
+        title="Eliminar capa"
         onClick={(event) => {
           event.stopPropagation();
           onRemove([object.id]);
@@ -134,22 +135,22 @@ export default function LayersPanel({
   return (
     <aside className={`dc-layers ${compact ? 'is-compact' : ''}`}>
       <header className="dc-layers-head">
-        <span><Layers3 size={15} /> LAYERS // {ordered.length}</span>
-        <button type="button" onClick={() => setCompact((value) => !value)}>{compact ? 'WIDE' : 'COMPACT'}</button>
+        <span><Layers3 size={14} /> Capas <b>· {ordered.length}</b></span>
+        <button type="button" onClick={() => setCompact((value) => !value)}>{compact ? 'Detalle' : 'Compactar'}</button>
       </header>
 
       {selectedIds.length > 0 && (
         <div className="dc-layer-selection-actions">
-          <span>{selectedIds.length} SELECTED</span>
-          {canGroup && <button type="button" title="GROUP SELECTED" onClick={onGroup}><Group size={14} /></button>}
-          {canUngroup && <button type="button" title="UNGROUP" onClick={onUngroup}><Ungroup size={14} /></button>}
-          <button type="button" title="DUPLICATE" onClick={onDuplicate}><Copy size={14} /></button>
-          <button type="button" className="danger" title="DELETE" onClick={() => onRemove(selectedIds)}><Trash2 size={14} /></button>
+          <span>{selectedIds.length} seleccionada{selectedIds.length === 1 ? '' : 's'}</span>
+          {canGroup && <button type="button" title="Agrupar selección" onClick={onGroup}><Group size={14} /></button>}
+          {canUngroup && <button type="button" title="Desagrupar" onClick={onUngroup}><Ungroup size={14} /></button>}
+          <button type="button" title="Duplicar" onClick={onDuplicate}><Copy size={14} /></button>
+          <button type="button" className="danger" title="Eliminar" onClick={() => onRemove(selectedIds)}><Trash2 size={14} /></button>
         </div>
       )}
 
       <div className="dc-layer-list">
-        {!units.length && <div className="dc-layers-empty">NO ACTIVE LAYERS</div>}
+        {!units.length && <div className="dc-layers-empty">Todavía no hay capas en el lienzo.</div>}
 
         {units.map((unit) => {
           if (unit.type === 'layer') {
@@ -172,7 +173,7 @@ export default function LayersPanel({
           }
 
           const members = unit.ids.map((id) => objects[id]).filter(Boolean);
-          const groupName = members.map(getGroupName).find(Boolean) || 'GROUP';
+          const groupName = members.map(getGroupName).find(Boolean) || 'GRUPO';
           const collapsed = collapsedGroups.has(unit.groupId);
           const allSelected = members.length > 0 && members.every((object) => selectedSet.has(object.id));
           const anyVisible = members.some((object) => !object.hidden);
@@ -188,13 +189,13 @@ export default function LayersPanel({
               onDrop={(event) => representativeId && dropLayer(event, representativeId)}
             >
               <div className="dc-layer-group-head" onClick={() => onSelectMany(unit.ids, representativeId)}>
-                <button type="button" className="dc-layer-icon-btn" onClick={(event) => { event.stopPropagation(); toggleCollapsed(unit.groupId); }}>
+                <button type="button" className="dc-layer-icon-btn" title={collapsed ? 'Abrir grupo' : 'Cerrar grupo'} onClick={(event) => { event.stopPropagation(); toggleCollapsed(unit.groupId); }}>
                   {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                 </button>
-                <span className="dc-layer-grip"><GripVertical size={14} /></span>
+                <span className="dc-layer-grip" title="Arrastra para cambiar el orden"><GripVertical size={14} /></span>
                 <Group size={14} />
-                <span className="dc-layer-copy"><b>{groupName}</b>{!compact && <small>{members.length} LAYERS</small>}</span>
-                <button type="button" className="dc-layer-icon-btn" title={anyVisible ? 'HIDE GROUP' : 'SHOW GROUP'} onClick={(event) => { event.stopPropagation(); setGroupVisibility(unit.ids); }}>
+                <span className="dc-layer-copy"><b>{groupName}</b>{!compact && <small>{members.length} CAPAS</small>}</span>
+                <button type="button" className="dc-layer-icon-btn" title={anyVisible ? 'Ocultar grupo' : 'Mostrar grupo'} onClick={(event) => { event.stopPropagation(); setGroupVisibility(unit.ids); }}>
                   {anyVisible ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>
               </div>
