@@ -39,7 +39,7 @@ function decodeDesignSnapshot(value) {
 
 export default function Editor() {
   const { publicKey } = useParams();
-  const { confirmDialog } = useSystemAlert();
+  const { confirmDialog, showAlert } = useSystemAlert();
   const [channelId, setChannelId] = useState(null);
   const [objects, setObjects] = useState({});
   const [selectedId, setSelectedId] = useState(null);
@@ -73,10 +73,15 @@ export default function Editor() {
   const [controlBusy, setControlBusy] = useState('');
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [propertiesAnchor, setPropertiesAnchor] = useState(null);
+  const [remoteCursors, setRemoteCursors] = useState({});
+  const [editorAccess, setEditorAccess] = useState({ canEdit: true, liveEnabled: true, liveRequired: false, editorCount: 1, isStudioEditor: false });
   const objectsRef = useRef({});
   const historyStartRef = useRef(null);
   const nudgeActiveRef = useRef(false);
   const propertiesRequestRef = useRef(0);
+  const cursorFrameRef = useRef(null);
+  const pendingCursorRef = useRef(null);
+  const cursorLastSentRef = useRef(0);
 
   const setScene = (next) => {
     objectsRef.current = next;
@@ -117,6 +122,42 @@ export default function Editor() {
       });
     },
     'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
+    'cursor-move': (payload) => {
+      if (!payload?.socketId || !Number.isFinite(Number(payload.x)) || !Number.isFinite(Number(payload.y))) return;
+      setRemoteCursors((current) => ({ ...current, [payload.socketId]: { ...payload, x: Number(payload.x), y: Number(payload.y) } }));
+    },
+    'cursor-leave': ({ socketId } = {}) => {
+      if (!socketId) return;
+      setRemoteCursors((current) => {
+        if (!current[socketId]) return current;
+        const next = { ...current };
+        delete next[socketId];
+        return next;
+      });
+    },
+    'editor-access': (access = {}) => setEditorAccess((current) => ({ ...current, ...access })),
+    'editor-locked': (access = {}) => {
+      setEditorAccess((current) => ({ ...current, ...access, canEdit: false }));
+      setMediaStatus('Esperando Live: otro editor está preparando cambios en modo Estudio.');
+    },
+    'studio-waiting': ({ message } = {}) => {
+      void showAlert({
+        title: 'Editor en modo Estudio',
+        message: message || 'Hay un editor preparando cambios. Podrás editar cuando publique y active Live.'
+      });
+    },
+    'studio-collaborator-waiting': ({ editor } = {}) => {
+      void showAlert({
+        title: 'Entró otro editor',
+        message: `${editor?.displayName || 'Un colaborador'} acaba de entrar. Para trabajar juntos, publica tus cambios y activa Live.`
+      });
+    },
+    'studio-forced-live': ({ message } = {}) => {
+      void showAlert({
+        title: 'DrawCast volvió a Live',
+        message: message || 'El editor que controlaba el modo Estudio se desconectó. El workspace fue publicado para desbloquear al equipo.'
+      });
+    },
     'channel-control': ({ liveEnabled: nextLive, overlayHidden: nextHidden, hasDraftChanges: nextDraft } = {}) => {
       if (typeof nextLive === 'boolean') setLiveEnabled(nextLive);
       if (typeof nextHidden === 'boolean') setOverlayHidden(nextHidden);
@@ -130,9 +171,16 @@ export default function Editor() {
       setSelectedId(null);
       setLiveStrokes({});
     }
-  }), []);
+  }), [showAlert]);
 
   const { socket, presence, connected, denied } = useChannelSocket(publicKey, 'editor', handlers);
+  const editingLocked = editorAccess.canEdit === false;
+  const liveRequired = presence.editors > 1;
+  const studioEditor = !liveEnabled ? (presence.editorList || []).find((editor) => editor.canEdit) : null;
+  const remoteCursorList = useMemo(() => Object.values(remoteCursors).map((cursor) => {
+    const editor = (presence.editorList || []).find((item) => item.socketId === cursor.socketId);
+    return { ...cursor, color: editor?.color, displayName: editor?.displayName || 'Editor' };
+  }), [remoteCursors, presence.editorList]);
 
   const applyControlState = (control = {}) => {
     if (typeof control.liveEnabled === 'boolean') setLiveEnabled(control.liveEnabled);
@@ -159,9 +207,49 @@ export default function Editor() {
     });
   });
 
+  const broadcastCursor = (point) => {
+    if (editingLocked || !socket.connected || !point) return;
+    pendingCursorRef.current = point;
+    if (cursorFrameRef.current != null) return;
+
+    const flush = (timestamp) => {
+      if (timestamp - cursorLastSentRef.current < 32) {
+        cursorFrameRef.current = requestAnimationFrame(flush);
+        return;
+      }
+      cursorFrameRef.current = null;
+      const next = pendingCursorRef.current;
+      pendingCursorRef.current = null;
+      if (!next || editingLocked || !socket.connected) return;
+      cursorLastSentRef.current = timestamp;
+      socket.volatile.emit('cursor-move', { x: next.x, y: next.y });
+    };
+
+    cursorFrameRef.current = requestAnimationFrame(flush);
+  };
+
+  const broadcastCursorLeave = () => {
+    pendingCursorRef.current = null;
+    if (cursorFrameRef.current != null) {
+      cancelAnimationFrame(cursorFrameRef.current);
+      cursorFrameRef.current = null;
+    }
+    if (socket.connected) socket.volatile.emit('cursor-leave');
+  };
+
+  useEffect(() => () => {
+    if (cursorFrameRef.current != null) cancelAnimationFrame(cursorFrameRef.current);
+    cursorFrameRef.current = null;
+    pendingCursorRef.current = null;
+  }, []);
+
   const toggleLiveMode = async () => {
-    if (controlBusy || !connected) return;
+    if (controlBusy || !connected || editingLocked) return;
     const nextLive = !liveEnabled;
+    if (!nextLive && liveRequired) {
+      setMediaStatus('Live es obligatorio mientras haya más de un editor conectado.');
+      return;
+    }
 
     if (nextLive && hasDraftChanges) {
       const accepted = await confirmDialog({
@@ -185,7 +273,7 @@ export default function Editor() {
   };
 
   const publishScene = async () => {
-    if (controlBusy || !connected || liveEnabled || !hasDraftChanges) return;
+    if (controlBusy || !connected || editingLocked || liveEnabled || !hasDraftChanges) return;
     setControlBusy('publish');
     try {
       await emitChannelAction('publish-scene');
@@ -301,12 +389,13 @@ export default function Editor() {
   };
 
   const upsert = (object) => {
-    if (!object?.id) return;
+    if (editingLocked || !object?.id) return;
     updateScene((current) => ({ ...current, [object.id]: object }));
     socket.emit('obj-upsert', object);
   };
 
   const applyUpdates = (updates = []) => {
+    if (editingLocked) return;
     const scene = objectsRef.current;
     const valid = updates.filter(({ id }) => scene[id]);
     if (!valid.length) return;
@@ -337,7 +426,7 @@ export default function Editor() {
   };
 
   const add = (object, options = {}) => {
-    if (!object?.id) return;
+    if (editingLocked || !object?.id) return;
     if (options.history !== false) beginHistory(options.label || 'Agregar capa');
     upsert(object);
     setSelectedIds([object.id]);
@@ -346,7 +435,7 @@ export default function Editor() {
   };
 
   const addMany = (list, options = {}) => {
-    if (!list.length) return;
+    if (editingLocked || !list.length) return;
     if (options.history !== false) beginHistory(options.label || 'Agregar capas');
     updateScene((current) => {
       const next = { ...current };
@@ -360,6 +449,7 @@ export default function Editor() {
   };
 
   const clear = () => {
+    if (editingLocked) return;
     const currentObjects = Object.keys(objectsRef.current);
     if (!currentObjects.length) return;
 
@@ -387,6 +477,7 @@ export default function Editor() {
   };
 
   const undo = () => {
+    if (editingLocked) return;
     const entry = history.past.at(-1);
     if (!entry) return;
     cancelHistory();
@@ -399,6 +490,7 @@ export default function Editor() {
   };
 
   const redo = () => {
+    if (editingLocked) return;
     const entry = history.future[0];
     if (!entry) return;
     cancelHistory();
@@ -411,6 +503,7 @@ export default function Editor() {
   };
 
   const removeLayers = (ids = selectedIds, options = {}) => {
+    if (editingLocked) return;
     const targets = [...new Set(ids)].filter((id) => objectsRef.current[id]);
     if (!targets.length) return;
 
@@ -516,6 +609,7 @@ export default function Editor() {
   };
 
   const reorderLayers = (draggedId, destinationIndex) => {
+    if (editingLocked) return;
     const updates = reorderLayerUnitToIndex(objectsRef.current, draggedId, destinationIndex);
     if (!updates.length) return;
 
@@ -531,6 +625,7 @@ export default function Editor() {
   };
 
   const moveSelectedLayer = (direction) => {
+    if (editingLocked) return;
     const updates = moveSelectionOneLevel(objectsRef.current, selectedIds, direction);
     if (!updates.length) return;
     beginHistory('Mover capa');
@@ -539,7 +634,7 @@ export default function Editor() {
   };
 
   const requestClear = async () => {
-    if (!Object.keys(objectsRef.current).length) return;
+    if (editingLocked || !Object.keys(objectsRef.current).length) return;
     const confirmed = await confirmDialog({
       title: '¿Vaciar todo el lienzo?',
       message: 'Esto borra la escena actual para todos los clientes conectados. Puedes deshacerlo de inmediato si ningún colaborador cambia la escena.',
@@ -552,6 +647,7 @@ export default function Editor() {
   };
 
   const nudgeSelection = (dx, dy) => {
+    if (editingLocked) return false;
     const ids = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
     const updates = ids
       .map((id) => objectsRef.current[id])
@@ -583,6 +679,7 @@ export default function Editor() {
   const activeDrawLayer = activeDrawLayerId && isDrawLayer(objects[activeDrawLayerId]) ? objects[activeDrawLayerId] : null;
 
   const createDrawLayer = () => {
+    if (editingLocked) return null;
     const layer = makeDrawLayer(objectsRef.current);
     beginHistory('Nueva capa de dibujo');
     upsert(layer);
@@ -603,6 +700,7 @@ export default function Editor() {
   };
 
   const clearActiveDrawLayer = () => {
+    if (editingLocked) return;
     const layer = ensureDrawLayer();
     if (!layer || !(layer.lineas || []).length) return;
     beginHistory('Limpiar capa de dibujo');
@@ -630,13 +728,15 @@ export default function Editor() {
     });
   };
 
-  const startDrawStroke = (stroke, layer) => emitLiveStroke('start', stroke, layer, stroke.points?.[0]);
+  const startDrawStroke = (stroke, layer) => { if (!editingLocked) emitLiveStroke('start', stroke, layer, stroke.points?.[0]); };
   const continueDrawStroke = (strokeId, point) => {
+    if (editingLocked) return;
     const layer = activeDrawLayerId ? objectsRef.current[activeDrawLayerId] : null;
     if (!layer) return;
     socket.emit('draw-live', { phase: 'point', strokeId, point });
   };
   const commitDrawStroke = (stroke) => {
+    if (editingLocked) return;
     const layer = objectsRef.current[stroke.layerId];
     if (!layer || !isDrawLayer(layer)) return;
     beginHistory(stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
@@ -718,6 +818,7 @@ export default function Editor() {
     const onKeyDown = (event) => {
       if (document.querySelector('.dc-system-alert-backdrop')) return;
       if (isEditableTarget(event.target)) return;
+      if (editingLocked) return;
 
       const modifier = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
@@ -884,6 +985,7 @@ export default function Editor() {
   };
 
   const uploadFile = async (file, point = null) => {
+    if (editingLocked) return;
     if (!channelId) {
       setMediaStatus('El canal todavía no está listo.');
       return;
@@ -906,6 +1008,7 @@ export default function Editor() {
   };
 
   const importRemote = async (url, point = null) => {
+    if (editingLocked) return;
     if (!channelId) {
       setMediaStatus('El canal todavía no está listo.');
       return;
@@ -951,6 +1054,7 @@ export default function Editor() {
   });
 
   const loadDesignSnapshot = async (rawState, design) => {
+    if (editingLocked) throw new Error('Espera a que el canal vuelva a Live antes de cargar un diseño.');
     const state = decodeDesignSnapshot(rawState);
     const list = state.scene.objects;
     const next = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
@@ -1049,9 +1153,10 @@ export default function Editor() {
   if (denied) return <div className="dc-denied">NO TIENES ACCESO A ESTE CANAL // <Link to="/app">VOLVER AL INICIO</Link></div>;
 
   return (
-    <div className="dc-editor">
+    <div className={`dc-editor ${editingLocked ? 'is-collab-locked' : ''}`}>
       <div className="dc-editor-toolbar">
         <Toolbar
+          key={editingLocked ? 'locked' : 'active'}
           tool={tool}
           setTool={setTool}
           guide={guide}
@@ -1072,6 +1177,7 @@ export default function Editor() {
           onToggleSnap={() => setSnapEnabled((value) => !value)}
           onMoveLayer={moveSelectedLayer}
           liveEnabled={liveEnabled}
+          liveRequired={liveRequired}
           hasDraftChanges={hasDraftChanges}
           onToggleLive={toggleLiveMode}
           onPublish={publishScene}
@@ -1083,6 +1189,8 @@ export default function Editor() {
           canRedo={history.future.length > 0}
           canMoveLayer={selectedIds.length > 0}
           connected={connected}
+          editorLocked={editingLocked}
+          editors={presence.editorList || []}
         />
       </div>
 
@@ -1117,9 +1225,13 @@ export default function Editor() {
           onTimerCreate={createTimer}
           onMediaDrop={({ file, url, point }) => file ? uploadFile(file, point) : importRemote(url, point)}
           guide={guide}
+          remoteCursors={remoteCursorList}
+          onCursorMove={broadcastCursor}
+          onCursorLeave={broadcastCursorLeave}
+          interactionDisabled={editingLocked}
         />
 
-        {propertiesOpen && <Inspector
+        {propertiesOpen && !editingLocked && <Inspector
           open
           anchor={propertiesAnchor}
           onClose={() => setPropertiesOpen(false)}
@@ -1157,6 +1269,18 @@ export default function Editor() {
           onSelectDraw={() => setTool('draw')}
           onSelectEraser={() => setTool('eraser')}
         />}
+
+
+        {editingLocked && (
+          <div className="dc-collab-lock-overlay" role="status" aria-live="polite">
+            <div className="dc-collab-lock-card">
+              <span className="dc-collab-lock-kicker">MODO ESTUDIO EN USO</span>
+              <strong>{studioEditor?.displayName || 'Otro editor'} está preparando cambios</strong>
+              <p>Este editor queda en espera para no mezclar escenas. Se habilitará automáticamente cuando el workspace se publique y el canal vuelva a Live.</p>
+              <span className="dc-collab-lock-wait"><i /> Esperando Live...</span>
+            </div>
+          </div>
+        )}
 
         <div className="dc-status">
           {/* <span className={`dc-status-chip connection ${connected ? 'online' : 'offline'}`}>{connected ? 'EN LÍNEA' : 'SIN CONEXIÓN'}</span> */}

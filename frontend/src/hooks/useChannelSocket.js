@@ -5,7 +5,7 @@ const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 
 export function useChannelSocket(publicKey, role, handlers = {}) {
   const socket = useMemo(() => io(socketUrl, { withCredentials: true, autoConnect: false }), []);
-  const [presence, setPresence] = useState({ clients: 0, editors: 0, overlays: 0 });
+  const [presence, setPresence] = useState({ clients: 0, editors: 0, overlays: 0, editorList: [] });
   const [connected, setConnected] = useState(false);
   const [denied, setDenied] = useState(false);
 

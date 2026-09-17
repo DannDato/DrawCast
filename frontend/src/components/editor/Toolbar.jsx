@@ -56,6 +56,26 @@ function IconButton({ label, icon, onClick, disabled = false, active = false, da
   );
 }
 
+function editorInitials(editor) {
+  const value = String(editor?.displayName || 'Editor').trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (!words.length) return 'E';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0] || ''}${words.at(-1)?.[0] || ''}`.toUpperCase();
+}
+
+function PresenceAvatar({ editor }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const title = `${editor.displayName || 'Editor'}${editor.isOwner ? ' · propietario' : ''}${editor.canEdit === false ? ' · esperando Live' : ''}`;
+  return (
+    <span className={`dc-presence-avatar ${editor.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor.color || 'var(--dc-accent)' }} title={title}>
+      {editor.avatarUrl && !imageFailed
+        ? <img src={editor.avatarUrl} alt="" onError={() => setImageFailed(true)} />
+        : <b>{editorInitials(editor)}</b>}
+    </span>
+  );
+}
+
 export default function Toolbar({
   tool,
   setTool,
@@ -77,6 +97,7 @@ export default function Toolbar({
   onToggleSnap,
   onMoveLayer,
   liveEnabled = true,
+  liveRequired = false,
   hasDraftChanges = false,
   onToggleLive,
   onPublish,
@@ -87,13 +108,17 @@ export default function Toolbar({
   canUndo,
   canRedo,
   canMoveLayer,
-  connected
+  connected,
+  editorLocked = false,
+  editors = []
 }) {
   const [openMenu, setOpenMenu] = useState(null);
   const rootRef = useRef(null);
   const imageInputRef = useRef(null);
   const insertActive = insertTools.some((item) => item.id === tool);
   const controlDisabled = !connected || Boolean(controlBusy);
+  const workspaceDisabled = controlDisabled || editorLocked;
+  const liveSwitchDisabled = controlDisabled || editorLocked || (liveEnabled && liveRequired);
 
   useEffect(() => {
     const closeOutside = (event) => {
@@ -111,17 +136,20 @@ export default function Toolbar({
   }, []);
 
   const toggleMenu = (menu) => {
+    if (workspaceDisabled) return;
     const next = openMenu === menu ? null : menu;
     if (next === 'file') onFileOpen?.();
     setOpenMenu(next);
   };
 
   const chooseDirectTool = (id) => {
+    if (workspaceDisabled) return;
     setTool(id);
     setOpenMenu(null);
   };
 
   const chooseInsertTool = (id, event) => {
+    if (workspaceDisabled) return;
     setOpenMenu(null);
 
     if (id === 'image') {
@@ -136,13 +164,13 @@ export default function Toolbar({
   const onImageChange = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (file) await onImageFile?.(file);
+    if (file && !workspaceDisabled) await onImageFile?.(file);
   };
 
   return (
-    <div className="dc-toolbar-horizontal" ref={rootRef}>
+    <div className={`dc-toolbar-horizontal ${editorLocked ? 'is-editor-locked' : ''}`} ref={rootRef}>
       <div className="dc-toolbar-group dc-toolbar-menu-wrap">
-        <button type="button" className={`dc-toolbar-menu-trigger ${openMenu === 'file' ? 'active' : ''}`} onClick={() => toggleMenu('file')} aria-expanded={openMenu === 'file'}>
+        <button type="button" className={`dc-toolbar-menu-trigger ${openMenu === 'file' ? 'active' : ''}`} onClick={() => toggleMenu('file')} aria-expanded={openMenu === 'file'} disabled={workspaceDisabled}>
           <File size={15} />
           <span>Archivo</span>
           <ChevronDown size={13} />
@@ -167,9 +195,9 @@ export default function Toolbar({
       </div>
 
       <span className="dc-toolbar-separator mx-3" />
-      
+
       <div className="dc-toolbar-group dc-toolbar-menu-wrap">
-        <button type="button" className={`dc-toolbar-menu-trigger ${guide !== 'none' ? 'active' : ''}`} onClick={() => toggleMenu('guides')} aria-expanded={openMenu === 'guides'}>
+        <button type="button" className={`dc-toolbar-menu-trigger ${guide !== 'none' ? 'active' : ''}`} onClick={() => toggleMenu('guides')} aria-expanded={openMenu === 'guides'} disabled={workspaceDisabled}>
           <EyeOff size={15} />
           <span>Guías</span>
           <ChevronDown size={13} />
@@ -189,12 +217,12 @@ export default function Toolbar({
 
       <div className="dc-toolbar-group dc-toolbar-tools" aria-label="Herramientas">
         {directTools.map(({ id, label, icon }) => (
-          <IconButton key={id} label={`${label} // ${TOOL_SHORTCUTS[id]}`} icon={icon} active={tool === id} onClick={() => chooseDirectTool(id)} />
+          <IconButton key={id} label={`${label} // ${TOOL_SHORTCUTS[id]}`} icon={icon} active={tool === id} onClick={() => chooseDirectTool(id)} disabled={workspaceDisabled} />
         ))}
       </div>
 
       <div className="dc-toolbar-group dc-toolbar-menu-wrap">
-        <button type="button" className={`dc-toolbar-menu-trigger ${insertActive ? 'active' : ''}`} onClick={() => toggleMenu('insert')} aria-expanded={openMenu === 'insert'}>
+        <button type="button" className={`dc-toolbar-menu-trigger ${insertActive ? 'active' : ''}`} onClick={() => toggleMenu('insert')} aria-expanded={openMenu === 'insert'} disabled={workspaceDisabled}>
           <Plus size={15} />
           <span>Añadir</span>
           <ChevronDown size={13} />
@@ -211,10 +239,9 @@ export default function Toolbar({
           </div>
         )}
       </div>
-      <input ref={imageInputRef} className="dc-hidden-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.gif" onChange={onImageChange} />
+      <input ref={imageInputRef} className="dc-hidden-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.gif" onChange={onImageChange} disabled={workspaceDisabled} />
 
-
-      <button type="button" className={`dc-toolbar-wide ${propertiesOpen ? 'active' : ''}`} onClick={onProperties} title={propertiesOpen ? 'Ocultar propiedades' : 'Mostrar propiedades'} aria-pressed={propertiesOpen}>
+      <button type="button" className={`dc-toolbar-wide ${propertiesOpen ? 'active' : ''}`} onClick={onProperties} title={propertiesOpen ? 'Ocultar propiedades' : 'Mostrar propiedades'} aria-pressed={propertiesOpen} disabled={workspaceDisabled}>
         <SlidersHorizontal size={15} />
         <span>Propiedades</span>
       </button>
@@ -222,22 +249,22 @@ export default function Toolbar({
       <span className="dc-toolbar-separator mx-3" />
 
       <div className="dc-toolbar-group">
-        <IconButton label="Deshacer // Ctrl+Z" icon={Undo2} onClick={onUndo} disabled={!canUndo} />
-        <IconButton label="Borrar // Supr" icon={X} onClick={onClear}  />
-        <IconButton label="Rehacer // Ctrl+Shift+Z / Ctrl+Y" icon={Redo2} onClick={onRedo} disabled={!canRedo} />
-        <IconButton label="Subir capa" icon={LayerArrowUp} onClick={() => onMoveLayer?.('up')} disabled={!canMoveLayer} />
-        <IconButton label="Bajar capa" icon={LayerArrowDown} onClick={() => onMoveLayer?.('down')} disabled={!canMoveLayer} />
+        <IconButton label="Deshacer // Ctrl+Z" icon={Undo2} onClick={onUndo} disabled={workspaceDisabled || !canUndo} />
+        <IconButton label="Borrar // Supr" icon={X} onClick={onClear} disabled={workspaceDisabled} />
+        <IconButton label="Rehacer // Ctrl+Shift+Z / Ctrl+Y" icon={Redo2} onClick={onRedo} disabled={workspaceDisabled || !canRedo} />
+        <IconButton label="Subir capa" icon={LayerArrowUp} onClick={() => onMoveLayer?.('up')} disabled={workspaceDisabled || !canMoveLayer} />
+        <IconButton label="Bajar capa" icon={LayerArrowDown} onClick={() => onMoveLayer?.('down')} disabled={workspaceDisabled || !canMoveLayer} />
       </div>
-      <IconButton label={snapEnabled ? 'Imán activado // Alt para ignorarlo mientras arrastras' : 'Imán desactivado'} icon={Magnet} active={snapEnabled} onClick={onToggleSnap} />
+      <IconButton label={snapEnabled ? 'Imán activado // Alt para ignorarlo mientras arrastras' : 'Imán desactivado'} icon={Magnet} active={snapEnabled} onClick={onToggleSnap} disabled={workspaceDisabled} />
 
       <div className="dc-toolbar-broadcast-group" aria-label="Salida al overlay">
         <button
           type="button"
-          className={`dc-live-switch ${liveEnabled ? 'is-live' : 'is-studio'}`}
+          className={`dc-live-switch ${liveEnabled ? 'is-live' : 'is-studio'} ${liveEnabled && liveRequired ? 'is-required' : ''}`}
           onClick={onToggleLive}
-          disabled={controlDisabled}
+          disabled={liveSwitchDisabled}
           aria-pressed={liveEnabled}
-          title={liveEnabled ? 'Live activado: los cambios se reflejan al instante en el overlay' : 'Modo Estudio: prepara cambios sin mostrarlos hasta publicar'}
+          title={liveEnabled && liveRequired ? 'Live es obligatorio mientras haya más de un editor conectado' : liveEnabled ? 'Live activado: los cambios se reflejan al instante en el overlay' : 'Modo Estudio: prepara cambios sin mostrarlos hasta publicar'}
         >
           <Radio size={15} />
           <span className="dc-live-switch-label">{liveEnabled ? 'Live' : 'Estudio'}</span>
@@ -249,8 +276,8 @@ export default function Toolbar({
             type="button"
             className={`dc-publish-button ${hasDraftChanges ? 'has-changes' : ''}`}
             onClick={onPublish}
-            disabled={controlDisabled || !hasDraftChanges}
-            title={hasDraftChanges ? 'Enviar al overlay todo lo que tienes preparado' : 'El overlay ya tiene la última versión publicada'}
+            disabled={workspaceDisabled || !hasDraftChanges}
+            title={editorLocked ? 'Espera a que el editor en modo Estudio publique y active Live' : hasDraftChanges ? 'Enviar al overlay todo lo que tienes preparado' : 'El overlay ya tiene la última versión publicada'}
           >
             <Play size={14} />
             <span>{controlBusy === 'publish' ? 'Enviando...' : hasDraftChanges ? 'Publicar' : 'Publicado'}</span>
@@ -258,15 +285,14 @@ export default function Toolbar({
         )}
       </div>
 
-
       {isOwner ? (
         <button
-        type="button"
-        className={`dc-panic-button ${overlayHidden ? 'active' : ''}`}
-        onClick={onTogglePanic}
-        disabled={controlDisabled}
-        title={overlayHidden ? 'Encender overlay y volver a mostrar la salida publicada' : 'Apagar overlay inmediatamente sin borrar el workspace'}
-        aria-pressed={overlayHidden}
+          type="button"
+          className={`dc-panic-button ${overlayHidden ? 'active' : ''}`}
+          onClick={onTogglePanic}
+          disabled={controlDisabled}
+          title={overlayHidden ? 'Encender overlay y volver a mostrar la salida publicada' : 'Apagar overlay inmediatamente sin borrar el workspace'}
+          aria-pressed={overlayHidden}
         >
           <Power size={15} />
           <span>{overlayHidden ? 'Encender overlay' : 'Apagar overlay'}</span>
@@ -276,15 +302,19 @@ export default function Toolbar({
       ) : null}
 
       <div className="dc-toolbar-spacer" />
-      <div className="dc-toolbar-group dc-toolbar-menu-wrap">
-        
-        
-      </div>
 
-      <span className={`dc-toolbar-live ${connected ? 'online' : ''}`} title={connected ? 'Conectado al canal' : 'Sin conexión'}>
-        <span>{connected ? 'En línea' : 'Sin conexión'}</span>
-        <i />
-      </span>
+      <div className="dc-toolbar-presence" aria-label={`${editors.length} editor${editors.length === 1 ? '' : 'es'} conectado${editors.length === 1 ? '' : 's'}`}>
+        {editors.length > 0 && (
+          <div className="dc-presence-stack">
+            {editors.slice(0, 5).map((editor) => <PresenceAvatar key={editor.socketId} editor={editor} />)}
+            {editors.length > 5 && <span className="dc-presence-more">+{editors.length - 5}</span>}
+          </div>
+        )}
+        <span className={`dc-toolbar-live ${connected ? 'online' : ''}`} title={connected ? 'Conectado al canal' : 'Sin conexión'}>
+          <i />
+          <span>{connected ? 'En línea' : 'Sin conexión'}</span>
+        </span>
+      </div>
     </div>
   );
 }

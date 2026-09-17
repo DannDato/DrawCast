@@ -37,7 +37,11 @@ export default function CanvasStage({
   onTextCommit,
   onTimerCreate,
   onMediaDrop,
-  guide
+  guide,
+  remoteCursors = [],
+  onCursorMove,
+  onCursorLeave,
+  interactionDisabled = false
 }) {
   const canvasRef = useRef(null);
   const interaction = useRef(null);
@@ -46,9 +50,12 @@ export default function CanvasStage({
   const marquee = useRef(null);
   const snapGuides = useRef(null);
   const guideImage = useRef(null);
+  const remoteCursorsRef = useRef(remoteCursors);
   const [mediaDragging, setMediaDragging] = useState(false);
   const [textEditor, setTextEditor] = useState(null);
   const [pointerCursor, setPointerCursor] = useState('');
+
+  useEffect(() => { remoteCursorsRef.current = remoteCursors; }, [remoteCursors]);
 
   useEffect(() => {
     if (!guide || guide === 'none') {
@@ -101,6 +108,49 @@ export default function CanvasStage({
         const cssScale = Math.max(0.01, canvas.getBoundingClientRect().width / CANVAS_WIDTH);
         drawMultiSelection(ctx, selection.map((id) => objects[id]).filter(Boolean), accent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
         drawSnapGuides(ctx, snapGuides.current, accent, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
+
+        const cursorScale = 1 / cssScale;
+        const now = Date.now();
+        remoteCursorsRef.current.forEach((cursor) => {
+          if (!cursor || !Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)) return;
+          const age = Math.max(0, now - Number(cursor.at || now));
+          if (age > 12000) return;
+          const alpha = age > 7000 ? Math.max(0, 1 - ((age - 7000) / 5000)) : 1;
+          const color = cursor.color || '#4cc9f0';
+          const name = String(cursor.displayName || 'Editor').slice(0, 32);
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.translate(cursor.x, cursor.y);
+          ctx.scale(cursorScale, cursorScale);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(3, 20);
+          ctx.lineTo(8, 15);
+          ctx.lineTo(13, 24);
+          ctx.lineTo(17, 22);
+          ctx.lineTo(12, 13);
+          ctx.lineTo(20, 12);
+          ctx.closePath();
+          ctx.fillStyle = color;
+          ctx.strokeStyle = '#090a0c';
+          ctx.lineWidth = 2;
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = '700 12px Outfit, sans-serif';
+          const textWidth = Math.ceil(ctx.measureText(name).width);
+          const labelX = 17;
+          const labelY = 18;
+          ctx.fillStyle = '#090a0c';
+          ctx.fillRect(labelX, labelY - 13, textWidth + 14, 22);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(labelX, labelY - 13, textWidth + 14, 22);
+          ctx.fillStyle = color;
+          ctx.fillText(name, labelX + 7, labelY + 2);
+          ctx.restore();
+        });
 
         if (marquee.current) drawMarquee(ctx, marquee.current.start, marquee.current.end, accent);
         lastFrame = timestamp;
@@ -162,7 +212,7 @@ export default function CanvasStage({
   };
 
   const onPointerDown = (event) => {
-    if (event.button !== 0) return;
+    if (interactionDisabled || event.button !== 0) return;
 
     const canvas = canvasRef.current;
     const point = pointFromEvent(event);
@@ -310,6 +360,8 @@ export default function CanvasStage({
 
   const onPointerMove = (event) => {
     const point = pointFromEvent(event);
+    if (!interactionDisabled) onCursorMove?.(point);
+    if (interactionDisabled) return;
 
     if (drawing.current) {
       const localPoint = pointForDrawLayer(point);
@@ -424,6 +476,7 @@ export default function CanvasStage({
   };
 
   const finishInteraction = (event) => {
+    if (interactionDisabled) return;
     if (drawing.current) {
       if (drawing.current.points.length > 1) onDrawCommit?.(drawing.current);
       drawing.current = null;
@@ -460,7 +513,7 @@ export default function CanvasStage({
   };
 
   const onDoubleClick = (event) => {
-    if (tool !== 'select') return;
+    if (interactionDisabled || tool !== 'select') return;
     const point = pointFromEvent(event);
     const hit = topObjectAt(point);
     if (!hit || (hit.tipo !== 'text' && hit.tipo !== 'texto')) return;
@@ -472,6 +525,7 @@ export default function CanvasStage({
 
   const onContextMenu = (event) => {
     event.preventDefault();
+    if (interactionDisabled) return;
 
     if (tool === 'draw' || tool === 'eraser') {
       onOpenProperties?.({ clientX: event.clientX, clientY: event.clientY, hasSelectionTarget: false });
@@ -514,6 +568,7 @@ export default function CanvasStage({
   };
 
   const onDragOver = (event) => {
+    if (interactionDisabled) return;
     const transfer = event.dataTransfer;
     if (!transfer) return;
     event.preventDefault();
@@ -523,6 +578,7 @@ export default function CanvasStage({
 
   const onDrop = (event) => {
     event.preventDefault();
+    if (interactionDisabled) return;
     setMediaDragging(false);
 
     const point = pointFromEvent(event);
@@ -548,12 +604,12 @@ export default function CanvasStage({
         onPointerMove={onPointerMove}
         onPointerUp={finishInteraction}
         onPointerCancel={finishInteraction}
-        onPointerLeave={() => { if (!interaction.current) setPointerCursor(''); }}
+        onPointerLeave={() => { if (!interaction.current) setPointerCursor(''); onCursorLeave?.(); }}
         onDoubleClick={onDoubleClick}
         onContextMenu={onContextMenu}
-        onDragEnter={(event) => { event.preventDefault(); setMediaDragging(true); }}
+        onDragEnter={(event) => { if (interactionDisabled) return; event.preventDefault(); setMediaDragging(true); }}
         onDragOver={onDragOver}
-        onDragLeave={() => setMediaDragging(false)}
+        onDragLeave={() => { if (!interactionDisabled) setMediaDragging(false); }}
         onDrop={onDrop}
       />
 

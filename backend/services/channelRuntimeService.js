@@ -7,16 +7,22 @@ const runtimes = new Map();
 const sleepMs = Math.max(60_000, Number(process.env.CHANNEL_SLEEP_MINUTES || 10) * 60_000);
 const uploadRoot = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads', 'channels');
 
+const EDITOR_COLORS = [
+  '#ff5c8a', '#4cc9f0', '#ffd166', '#7bd88f', '#b794f4', '#ff9f68',
+  '#5eead4', '#f472b6', '#60a5fa', '#a3e635', '#f59e0b', '#c084fc'
+];
+
 function runtime(channelId) {
   if (!runtimes.has(channelId)) {
     runtimes.set(channelId, {
       objects: new Map(),
       publishedObjects: new Map(),
-      editors: new Set(),
+      editors: new Map(),
       overlays: new Set(),
       liveEnabled: true,
       overlayHidden: false,
       hasDraftChanges: false,
+      studioEditorSocketId: null,
       sleepTimer: null
     });
   }
@@ -29,6 +35,18 @@ function mapToList(map) {
 
 function copyMap(source) {
   return new Map(source.entries());
+}
+
+function editorColor(r) {
+  const used = new Set(Array.from(r.editors.values()).map((editor) => editor.color));
+  const available = EDITOR_COLORS.filter((color) => !used.has(color));
+  const pool = available.length ? available : EDITOR_COLORS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function editorCanEdit(r, socketId) {
+  if (r.liveEnabled) return true;
+  return Boolean(r.studioEditorSocketId && r.studioEditorSocketId === socketId);
 }
 
 export function getChannelState(channelId) {
@@ -44,7 +62,41 @@ export function getChannelControl(channelId) {
   return {
     liveEnabled: r.liveEnabled,
     overlayHidden: r.overlayHidden,
-    hasDraftChanges: r.hasDraftChanges
+    hasDraftChanges: r.hasDraftChanges,
+    editorCount: r.editors.size,
+    liveRequired: r.editors.size > 1
+  };
+}
+
+export function getChannelPresence(channelId) {
+  const r = runtime(channelId);
+  const editorList = Array.from(r.editors.entries()).map(([socketId, editor]) => ({
+    socketId,
+    userId: editor.userId,
+    displayName: editor.displayName,
+    avatarUrl: editor.avatarUrl || null,
+    color: editor.color,
+    isOwner: Boolean(editor.isOwner),
+    canEdit: editorCanEdit(r, socketId)
+  }));
+
+  return {
+    editors: r.editors.size,
+    overlays: r.overlays.size,
+    clients: r.editors.size + r.overlays.size,
+    editorList
+  };
+}
+
+export function getEditorAccess(channelId, socketId) {
+  const r = runtime(channelId);
+  const editor = r.editors.get(socketId);
+  return {
+    canEdit: Boolean(editor && editorCanEdit(r, socketId)),
+    liveEnabled: r.liveEnabled,
+    liveRequired: r.editors.size > 1,
+    editorCount: r.editors.size,
+    isStudioEditor: Boolean(editor && !r.liveEnabled && r.studioEditorSocketId === socketId)
   };
 }
 
@@ -104,7 +156,7 @@ export function publishChannelState(channelId) {
   return getPublishedChannelState(channelId);
 }
 
-export function setLiveEnabled(channelId, enabled) {
+export function setLiveEnabled(channelId, enabled, socketId = null) {
   const r = runtime(channelId);
   const next = Boolean(enabled);
   if (r.liveEnabled === next) return getChannelControl(channelId);
@@ -113,10 +165,13 @@ export function setLiveEnabled(channelId, enabled) {
   if (next) {
     r.publishedObjects = copyMap(r.objects);
     r.hasDraftChanges = false;
+    r.studioEditorSocketId = null;
   } else {
-    // Al entrar a modo estudio, el overlay conserva exactamente el último estado visible.
+    // Un único editor "posee" la sesión de Estudio. Si después entra alguien más,
+    // ese nuevo editor queda como observador hasta que esta sesión vuelva a Live.
     r.publishedObjects = copyMap(r.objects);
     r.hasDraftChanges = false;
+    r.studioEditorSocketId = socketId;
   }
 
   return getChannelControl(channelId);
@@ -128,33 +183,49 @@ export function setOverlayHidden(channelId, hidden) {
   return getChannelControl(channelId);
 }
 
-export function presence(channelId) {
-  const r = runtime(channelId);
-  return {
-    editors: r.editors.size,
-    overlays: r.overlays.size,
-    clients: r.editors.size + r.overlays.size
-  };
-}
-
-export function connectRole(channelId, socketId, role, io) {
+export function connectRole(channelId, socketId, role, metadata = {}) {
   const r = runtime(channelId);
   if (role === 'editor') {
-    r.editors.add(socketId);
+    const wasEmpty = r.editors.size === 0;
+    r.editors.set(socketId, {
+      userId: metadata.userId ?? null,
+      displayName: String(metadata.displayName || 'Editor').slice(0, 120),
+      avatarUrl: metadata.avatarUrl ? String(metadata.avatarUrl).slice(0, 500) : null,
+      isOwner: Boolean(metadata.isOwner),
+      color: editorColor(r)
+    });
+
+    // Si el único editor de Estudio se reconecta antes de que el canal duerma,
+    // la nueva sesión toma control de ese borrador en lugar de quedar bloqueada.
+    if (wasEmpty && !r.liveEnabled) r.studioEditorSocketId = socketId;
+
     if (r.sleepTimer) {
       clearTimeout(r.sleepTimer);
       r.sleepTimer = null;
     }
   }
   if (role === 'overlay') r.overlays.add(socketId);
-  io.to(`channel:${channelId}`).emit('presence', presence(channelId));
+  return getChannelPresence(channelId);
 }
 
 export function disconnectRole(channelId, socketId, io) {
   const r = runtime(channelId);
+  const wasStudioEditor = r.studioEditorSocketId === socketId;
   r.editors.delete(socketId);
   r.overlays.delete(socketId);
-  io.to(`channel:${channelId}`).emit('presence', presence(channelId));
+
+  let forcedLive = false;
+  if (wasStudioEditor) {
+    r.studioEditorSocketId = null;
+    if (!r.liveEnabled && r.editors.size > 0) {
+      // Evita dejar a colaboradores bloqueados para siempre si quien tenía el borrador
+      // se desconecta. Conservamos su trabajo, lo publicamos y devolvemos el canal a Live.
+      r.liveEnabled = true;
+      r.publishedObjects = copyMap(r.objects);
+      r.hasDraftChanges = false;
+      forcedLive = true;
+    }
+  }
 
   if (!r.editors.size && !r.sleepTimer) {
     r.sleepTimer = setTimeout(async () => {
@@ -165,6 +236,7 @@ export function disconnectRole(channelId, socketId, io) {
       r.liveEnabled = true;
       r.overlayHidden = false;
       r.hasDraftChanges = false;
+      r.studioEditorSocketId = null;
 
       const savedDesigns = await models.SavedDesign.count({ where: { channelId } });
       if (!savedDesigns) {
@@ -181,4 +253,11 @@ export function disconnectRole(channelId, socketId, io) {
       r.sleepTimer = null;
     }, sleepMs);
   }
+
+  return {
+    forcedLive,
+    presence: getChannelPresence(channelId),
+    control: getChannelControl(channelId),
+    publishedObjects: forcedLive ? getPublishedChannelState(channelId) : null
+  };
 }

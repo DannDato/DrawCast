@@ -9,7 +9,9 @@ import {
   connectRole,
   disconnectRole,
   getChannelControl,
+  getChannelPresence,
   getChannelState,
+  getEditorAccess,
   getPublishedChannelState,
   publishChannelState,
   removeObject,
@@ -56,11 +58,27 @@ function emitControl(io, channelId) {
   io.to(editorRoom(channelId)).emit('channel-control', getChannelControl(channelId));
 }
 
+function emitPresence(io, channelId) {
+  const presence = getChannelPresence(channelId);
+  io.to(editorRoom(channelId)).emit('presence', presence);
+  presence.editorList.forEach((editor) => {
+    io.to(editor.socketId).emit('editor-access', getEditorAccess(channelId, editor.socketId));
+  });
+}
+
 function emitWorkspaceChange(io, socket, channelId, event, payload, controlBefore) {
   socket.to(editorRoom(channelId)).emit(event, payload);
   const control = getChannelControl(channelId);
   if (control.liveEnabled) io.to(overlayRoom(channelId)).emit(event, payload);
   if (controlBefore.hasDraftChanges !== control.hasDraftChanges) emitControl(io, channelId);
+}
+
+function canUseWorkspace(context, socket, reply) {
+  const access = getEditorAccess(context.channelId, socket.id);
+  if (access.canEdit) return true;
+  socket.emit('editor-locked', access);
+  reply?.({ ok: false, message: 'Hay un editor preparando cambios en modo Estudio. Espera a que publique y active Live.' });
+  return false;
 }
 
 export function configureSockets(io) {
@@ -74,7 +92,8 @@ export function configureSockets(io) {
       joined = { channelId: channel.id, role: 'overlay' };
       socket.join(room(channel.id));
       socket.join(overlayRoom(channel.id));
-      connectRole(channel.id, socket.id, 'overlay', io);
+      connectRole(channel.id, socket.id, 'overlay');
+      emitPresence(io, channel.id);
       socket.emit('overlay-visibility', { hidden: getChannelControl(channel.id).overlayHidden });
       socket.emit('sync-state', { objects: getPublishedChannelState(channel.id) });
     });
@@ -86,27 +105,49 @@ export function configureSockets(io) {
       const channel = await getEditableChannelByPublicKey(user.id, String(publicKey || ''));
       if (!channel) return socket.emit('access-denied');
 
-      joined = {
-        channelId: channel.id,
-        role: 'editor',
-        userId: user.id,
-        isOwner: Number(channel.ownerId) === Number(user.id)
-      };
+      const beforePresence = getChannelPresence(channel.id);
+      const beforeControl = getChannelControl(channel.id);
+      const isOwner = Number(channel.ownerId) === Number(user.id);
+      const displayName = user.displayName || user.username || 'Editor';
+
+      joined = { channelId: channel.id, role: 'editor', userId: user.id, isOwner };
       socket.join(room(channel.id));
       socket.join(editorRoom(channel.id));
-      connectRole(channel.id, socket.id, 'editor', io);
+      connectRole(channel.id, socket.id, 'editor', {
+        userId: user.id,
+        displayName,
+        avatarUrl: user.avatarUrl || null,
+        isOwner
+      });
+
       socket.emit('sync-state', { objects: getChannelState(channel.id) });
       socket.emit('channel-control', getChannelControl(channel.id));
-      logger.info('Editor conectado al canal', { channelId: channel.id, userId: user.id, isOwner: joined.isOwner });
+      emitPresence(io, channel.id);
+
+      const access = getEditorAccess(channel.id, socket.id);
+      if (!beforeControl.liveEnabled && beforePresence.editors > 0 && !access.canEdit) {
+        socket.emit('studio-waiting', {
+          message: 'Hay un editor preparando cambios en modo Estudio. Podrás editar cuando publique y vuelva a Live.'
+        });
+        const studioEditor = getChannelPresence(channel.id).editorList.find((editor) => editor.canEdit && editor.socketId !== socket.id);
+        if (studioEditor) {
+          io.to(studioEditor.socketId).emit('studio-collaborator-waiting', {
+            editor: { displayName, avatarUrl: user.avatarUrl || null }
+          });
+        }
+      }
+
+      logger.info('Editor conectado al canal', { channelId: channel.id, userId: user.id, isOwner, editors: getChannelPresence(channel.id).editors });
     });
 
-    const edit = (event, handler) => socket.on(event, (payload, ack) => {
+    const edit = (event, handler, options = {}) => socket.on(event, (payload, ack) => {
       const reply = typeof ack === 'function' ? ack : null;
       if (!joined || joined.role !== 'editor') {
         socket.emit('access-denied');
         reply?.({ ok: false, message: 'Acceso denegado' });
         return;
       }
+      if (!options.allowWhenBlocked && !canUseWorkspace(joined, socket, reply)) return;
       handler(joined, payload, reply);
     });
 
@@ -152,16 +193,41 @@ export function configureSockets(io) {
       if (getChannelControl(context.channelId).liveEnabled) io.to(overlayRoom(context.channelId)).emit('draw-live', payload);
     });
 
+    edit('cursor-move', (context, payload) => {
+      const x = Number(payload?.x);
+      const y = Number(payload?.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || x < -100 || y < -100 || x > 2020 || y > 1180) return;
+      socket.to(editorRoom(context.channelId)).volatile.emit('cursor-move', {
+        socketId: socket.id,
+        x: Math.max(0, Math.min(1920, x)),
+        y: Math.max(0, Math.min(1080, y)),
+        at: Date.now()
+      });
+    });
+
+    edit('cursor-leave', (context) => {
+      socket.to(editorRoom(context.channelId)).volatile.emit('cursor-leave', { socketId: socket.id });
+    });
+
     edit('live-mode-set', (context, payload, reply) => {
       const enabled = Boolean(payload?.enabled);
       const previous = getChannelControl(context.channelId);
-      const control = setLiveEnabled(context.channelId, enabled);
+
+      if (!enabled && previous.editorCount > 1) {
+        reply?.({ ok: false, message: 'Modo Live es obligatorio mientras haya más de un editor conectado.' });
+        return;
+      }
+
+      const control = setLiveEnabled(context.channelId, enabled, socket.id);
 
       if (enabled && !previous.liveEnabled) {
+        // Publicar + habilitar colaboración se procesa como una sola transición.
+        // Los editores bloqueados se habilitan sólo después de que el overlay recibió la escena.
         io.to(overlayRoom(context.channelId)).emit('sync-state', { objects: getPublishedChannelState(context.channelId) });
       }
 
       emitControl(io, context.channelId);
+      emitPresence(io, context.channelId);
       logger.info(enabled ? 'Canal cambió a modo Live' : 'Canal cambió a modo Estudio', { channelId: context.channelId, userId: context.userId });
       reply?.({ ok: true, control });
     });
@@ -176,7 +242,7 @@ export function configureSockets(io) {
 
     edit('panic-set', (context, payload, reply) => {
       if (!context.isOwner) {
-        reply?.({ ok: false, message: 'Sólo el propietario puede usar el botón de pánico.' });
+        reply?.({ ok: false, message: 'Sólo el propietario puede apagar o encender el overlay.' });
         return;
       }
 
@@ -184,12 +250,24 @@ export function configureSockets(io) {
       const control = setOverlayHidden(context.channelId, hidden);
       io.to(overlayRoom(context.channelId)).emit('overlay-visibility', { hidden });
       emitControl(io, context.channelId);
-      logger.warn(hidden ? 'Overlay ocultado con botón de pánico' : 'Overlay restaurado tras botón de pánico', { channelId: context.channelId, userId: context.userId });
+      logger.warn(hidden ? 'Overlay apagado por el propietario' : 'Overlay encendido por el propietario', { channelId: context.channelId, userId: context.userId });
       reply?.({ ok: true, control });
-    });
+    }, { allowWhenBlocked: true });
 
     socket.on('disconnect', () => {
-      if (joined) disconnectRole(joined.channelId, socket.id, io);
+      if (!joined) return;
+      const result = disconnectRole(joined.channelId, socket.id, io);
+      if (joined.role === 'editor') {
+        socket.to(editorRoom(joined.channelId)).emit('cursor-leave', { socketId: socket.id });
+        if (result.forcedLive) {
+          io.to(overlayRoom(joined.channelId)).emit('sync-state', { objects: result.publishedObjects || [] });
+          io.to(editorRoom(joined.channelId)).emit('channel-control', result.control);
+          io.to(editorRoom(joined.channelId)).emit('studio-forced-live', {
+            message: 'El editor que estaba en modo Estudio se desconectó. DrawCast publicó el workspace y volvió a Live para no bloquear al equipo.'
+          });
+        }
+      }
+      emitPresence(io, joined.channelId);
     });
   });
 }
