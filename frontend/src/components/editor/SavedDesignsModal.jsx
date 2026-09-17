@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FolderOpen, HardDrive, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { createSavedDesign, deleteSavedDesign, getSavedDesign, getSavedDesigns, updateSavedDesign } from '../../api/designs';
+import { useSystemAlert } from '../ui/SystemAlert';
 
 function formatBytes(value = 0) {
   const bytes = Number(value) || 0;
@@ -27,6 +28,7 @@ function sameName(a, b) {
 }
 
 export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, onLoad, hasScene }) {
+  const { confirmDialog } = useSystemAlert();
   const [designs, setDesigns] = useState([]);
   const [name, setName] = useState('');
   const [activeDesignId, setActiveDesignId] = useState(null);
@@ -66,9 +68,18 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
     setName(updated.name);
   };
 
-  const overwriteDesign = async (design, { confirm = true } = {}) => {
+  const overwriteDesign = async (design, { ask = true } = {}) => {
     if (!design) return false;
-    if (confirm && !window.confirm(`¿Sobrescribir “${design.name}”?\n\nLa copia guardada se reemplazará por lo que tienes ahora en el editor.`)) return false;
+    if (ask) {
+      const accepted = await confirmDialog({
+        title: `¿Sobrescribir “${design.name}”?`,
+        message: 'La copia guardada se reemplazará por lo que tienes ahora en el editor.',
+        confirmLabel: 'Sobrescribir',
+        cancelLabel: 'Cancelar',
+        tone: 'danger'
+      });
+      if (!accepted) return false;
+    }
 
     setBusy(`update:${design.id}`);
     setStatus(`Sobrescribiendo “${design.name}”...`);
@@ -94,8 +105,14 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
 
     const existing = designs.find((design) => sameName(design.name, cleanName));
     if (existing) {
-      const accepted = window.confirm(`Ya existe “${existing.name}”.\n\n¿Quieres sobrescribirlo con lo que tienes ahora?`);
-      if (accepted) await overwriteDesign(existing, { confirm: false });
+      const accepted = await confirmDialog({
+        title: `“${existing.name}” ya existe`,
+        message: '¿Quieres sobrescribirlo con lo que tienes ahora en el editor?',
+        confirmLabel: 'Sobrescribir',
+        cancelLabel: 'Guardar con otro nombre',
+        tone: 'danger'
+      });
+      if (accepted) await overwriteDesign(existing, { ask: false });
       return;
     }
 
@@ -115,7 +132,15 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
   };
 
   const load = async (design) => {
-    if (hasScene && !window.confirm(`¿Cargar “${design.name}”?\n\nEl lienzo actual será reemplazado para todos los editores y el overlay conectado.`)) return;
+    if (hasScene) {
+      const accepted = await confirmDialog({
+        title: `¿Cargar “${design.name}”?`,
+        message: 'El lienzo actual será reemplazado para todos los editores y el overlay conectado.',
+        confirmLabel: 'Cargar diseño',
+        cancelLabel: 'Cancelar'
+      });
+      if (!accepted) return;
+    }
     setBusy(`load:${design.id}`);
     setStatus(`Cargando “${design.name}”...`);
     try {
@@ -132,7 +157,14 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
   };
 
   const remove = async (design) => {
-    if (!window.confirm(`¿Eliminar “${design.name}”?\n\nEsta copia guardada se borrará de forma permanente.`)) return;
+    const accepted = await confirmDialog({
+      title: `¿Eliminar “${design.name}”?`,
+      message: 'Esta copia guardada se borrará de forma permanente.',
+      confirmLabel: 'Eliminar diseño',
+      cancelLabel: 'Cancelar',
+      tone: 'danger'
+    });
+    if (!accepted) return;
     setBusy(`delete:${design.id}`);
     setStatus('');
     try {

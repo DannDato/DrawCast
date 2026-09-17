@@ -9,6 +9,7 @@ import LayersPanel from '../components/editor/LayersPanel';
 import Toolbar from '../components/editor/Toolbar';
 import HotkeysModal from '../components/editor/hotkeys/HotkeysModal';
 import SavedDesignsModal from '../components/editor/SavedDesignsModal';
+import { useSystemAlert } from '../components/ui/SystemAlert';
 import { makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
 import { moveSelectionOneLevel, reorderLayerUnits } from '../components/editor/layers/layerUtils';
@@ -37,6 +38,7 @@ function decodeDesignSnapshot(value) {
 
 export default function Editor() {
   const { publicKey } = useParams();
+  const { confirmDialog } = useSystemAlert();
   const [channelId, setChannelId] = useState(null);
   const [objects, setObjects] = useState({});
   const [selectedId, setSelectedId] = useState(null);
@@ -370,9 +372,15 @@ export default function Editor() {
     commitHistory('Mover capa');
   };
 
-  const requestClear = () => {
+  const requestClear = async () => {
     if (!Object.keys(objectsRef.current).length) return;
-    const confirmed = window.confirm('¿Vaciar todo el lienzo?\n\nEsto borra la escena actual para todos los clientes conectados. Puedes deshacerlo de inmediato si ningún colaborador cambia la escena.');
+    const confirmed = await confirmDialog({
+      title: '¿Vaciar todo el lienzo?',
+      message: 'Esto borra la escena actual para todos los clientes conectados. Puedes deshacerlo de inmediato si ningún colaborador cambia la escena.',
+      confirmLabel: 'Vaciar lienzo',
+      cancelLabel: 'Cancelar',
+      tone: 'danger'
+    });
     if (!confirmed) return;
     clear();
   };
@@ -518,6 +526,7 @@ export default function Editor() {
     };
 
     const onKeyDown = (event) => {
+      if (document.querySelector('.dc-system-alert-backdrop')) return;
       if (isEditableTarget(event.target)) return;
 
       const modifier = event.ctrlKey || event.metaKey;
