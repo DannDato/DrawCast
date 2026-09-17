@@ -66,8 +66,10 @@ export default function CanvasStage({
     const ctx = canvas.getContext('2d');
     let animationFrame;
     let lastFrame = 0;
+    let active = true;
 
     const render = (timestamp = 0) => {
+      if (!active || !canvas.isConnected) return;
       if (timestamp - lastFrame >= FRAME_MS || timestamp === 0) {
         renderScene(ctx, objects, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, grid: true, now: Date.now(), liveStrokes });
 
@@ -104,12 +106,15 @@ export default function CanvasStage({
         lastFrame = timestamp;
       }
 
-      animationFrame = requestAnimationFrame(render);
+      if (active && canvas.isConnected) animationFrame = requestAnimationFrame(render);
     };
 
     animationFrame = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [objects, selectedId, selectedIds, liveStrokes]);
+    return () => {
+      active = false;
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [objects, selectedId, selectedIds, liveStrokes, activeDrawLayer]);
 
   const pointFromEvent = (event) => {
     const bounds = canvasRef.current.getBoundingClientRect();

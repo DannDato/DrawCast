@@ -1,4 +1,3 @@
-import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { models } from '../../models/index.js';
@@ -18,6 +17,7 @@ import { validatePasswordPolicy } from '../../services/passwordPolicy.js';
 import { clearLoginFailures, loginAllowed, registerLoginFailure } from '../../services/loginProtectionService.js';
 import { notifySecurity } from '../../services/securityNotificationService.js';
 import { getSettingBoolean } from '../../services/settingsService.js';
+import { exchangeGoogleCode, googleCodeFlowConfigured, googleIdentityConfigured, verifyGoogleCredential } from '../../services/googleOAuthService.js';
 import logger from '../../helpers/winston.js';
 import {
   clearTrustedDeviceCookie,
@@ -29,7 +29,6 @@ import {
   verifyOtpChallenge
 } from '../../services/otpService.js';
 
-const google = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const DUMMY_PASSWORD_HASH = '$2b$12$5ZMLPKnS0ZfU.H4x6aWvVuITQekqi5N7X2ZLLwTD6.8.oqbMsS14G';
 
 const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
@@ -194,17 +193,62 @@ class AuthController {
     return res.status(204).end();
   };
 
-  googleConfig = async (req, res) => res.json({ enabled: Boolean(process.env.GOOGLE_CLIENT_ID), clientId: process.env.GOOGLE_CLIENT_ID || null });
+  googleConfig = async (req, res) => res.json({ enabled: googleCodeFlowConfigured(), clientId: process.env.GOOGLE_CLIENT_ID || null });
 
   googleAuth = async (req, res) => {
-    if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).json({ message: 'Google OAuth no configurado' });
+    if (!googleIdentityConfigured()) return res.status(503).json({ message: 'Google OAuth no configurado' });
 
-    const { credential } = req.body;
+    const credential = String(req.body.credential || '');
     if (!credential) return res.status(400).json({ message: 'Credencial de Google requerida' });
 
-    const ticket = await google.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload();
-    if (!payload?.sub || !payload.email || !payload.email_verified) return res.status(401).json({ message: 'Identidad de Google inválida' });
+    let payload;
+    try { payload = await verifyGoogleCredential(credential); }
+    catch { return res.status(401).json({ message: 'Identidad de Google inválida' }); }
+
+    const email = normalizeEmail(payload.email);
+    let account = await models.OAuthAccount.findOne({ where: { provider: 'google', providerUserId: payload.sub } });
+    if (account && !account.active) return res.status(403).json({ message: 'Esta cuenta de Google fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.' });
+    let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
+
+    if (!user) {
+      const base = (email.split('@')[0] || 'user').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 60);
+      let username = base || `user${Date.now()}`;
+      let suffix = 1;
+      while (await models.User.findOne({ where: { username } })) username = `${base}${suffix++}`;
+
+      user = await models.User.create({
+        username,
+        email,
+        displayName: payload.name || username,
+        emailVerifiedAt: new Date(),
+        roleKey: 'USER'
+      });
+      await applyRolePreset(user.id, 'USER');
+    }
+
+    if (user.statusKey !== 'ACTIVE') return res.status(403).json({ message: 'Cuenta no disponible' });
+
+    if (!account) {
+      account = await models.OAuthAccount.create({
+        userId: user.id,
+        provider: 'google',
+        providerUserId: payload.sub,
+        email,
+        avatarUrl: payload.picture || null
+      });
+    }
+
+    return requireOtp(req, res, user, 'auth.google');
+  };
+
+
+  googleCodeAuth = async (req, res) => {
+    if (!googleCodeFlowConfigured()) return res.status(503).json({ message: 'Google OAuth no configurado' });
+    if (req.get('x-requested-with') !== 'XmlHttpRequest') return res.status(400).json({ message: 'Solicitud de Google no válida' });
+
+    let payload;
+    try { payload = await exchangeGoogleCode(String(req.body.code || '')); }
+    catch { return res.status(401).json({ message: 'No se pudo validar la cuenta de Google' }); }
 
     const email = normalizeEmail(payload.email);
     let account = await models.OAuthAccount.findOne({ where: { provider: 'google', providerUserId: payload.sub } });

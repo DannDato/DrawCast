@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { LogIn } from "lucide-react";
@@ -9,18 +9,13 @@ import AuthShell from "../components/auth/AuthShell";
 import { clearPendingVerifyAccess, setPendingVerifyAccess } from "../utils/verifyAccessStorage";
 
 export default function Login() {
+    const [searchParams] = useSearchParams();
     const [login, setLogin] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
+    const [error, setError] = useState(() => searchParams.get("oauthError") || "");
     const [loading, setLoading] = useState(false);
     const { login: doLogin } = useAuth();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-
-    useEffect(() => {
-        const oauthError = searchParams.get("oauthError");
-        if (oauthError) setError(oauthError);
-    }, [searchParams]);
     const submit = async (event) => {
         event.preventDefault();
         setError("");
@@ -82,7 +77,7 @@ export default function Login() {
                 </button>
             </form>
             <div className="dc-auth-divider">
-                <span>O ENTRA CON</span>
+                <span>O continua con</span>
             </div>
             <div className="dc-oauth-stack">
                 <GoogleAuthButton mode="signin" onError={setError} />

@@ -3,7 +3,6 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcrypt';
-import { OAuth2Client } from 'google-auth-library';
 import { Op } from 'sequelize';
 import { models } from '../../models/index.js';
 import { audit } from '../../helpers/audit.js';
@@ -12,9 +11,9 @@ import { clearTrustedDeviceCookie, revokeTrustedDevices } from '../../services/o
 import { validatePasswordPolicy } from '../../services/passwordPolicy.js';
 import { sendEmailChangeCode } from '../../services/emailService.js';
 import { notifySecurity } from '../../services/securityNotificationService.js';
+import { exchangeGoogleCode, googleCodeFlowConfigured, googleIdentityConfigured, verifyGoogleCredential } from '../../services/googleOAuthService.js';
 import { env } from '../../config/env.js';
 
-const google = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, '../..');
 const uploadRoot = path.resolve(backendRoot, process.env.UPLOAD_DIR || 'uploads');
@@ -88,12 +87,25 @@ class ProfileController {
   };
 
   connectGoogle = async (req, res) => {
-    if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).json({ message: 'Google OAuth no configurado' });
+    if (!googleIdentityConfigured()) return res.status(503).json({ message: 'Google OAuth no configurado' });
     const credential = String(req.body.credential || '');
     if (!credential) return res.status(400).json({ message: 'Credencial de Google requerida' });
-    const ticket = await google.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
-    const payload = ticket.getPayload();
-    if (!payload?.sub || !payload.email || !payload.email_verified) return res.status(401).json({ message: 'Identidad de Google inválida' });
+    let payload;
+    try { payload = await verifyGoogleCredential(credential); }
+    catch { return res.status(401).json({ message: 'Identidad de Google inválida' }); }
+    return this.finishGoogleConnection(req, res, payload);
+  };
+
+  connectGoogleCode = async (req, res) => {
+    if (!googleCodeFlowConfigured()) return res.status(503).json({ message: 'Google OAuth no configurado' });
+    if (req.get('x-requested-with') !== 'XmlHttpRequest') return res.status(400).json({ message: 'Solicitud de Google no válida' });
+    let payload;
+    try { payload = await exchangeGoogleCode(String(req.body.code || '')); }
+    catch { return res.status(401).json({ message: 'No se pudo validar la cuenta de Google' }); }
+    return this.finishGoogleConnection(req, res, payload);
+  };
+
+  finishGoogleConnection = async (req, res, payload) => {
     const occupied = await models.OAuthAccount.findOne({ where: { provider: 'google', providerUserId: payload.sub, userId: { [Op.ne]: req.user.id }, active: true } });
     if (occupied) return res.status(409).json({ message: 'Esa cuenta de Google ya está conectada a otro usuario' });
     let account = await models.OAuthAccount.findOne({ where: { userId: req.user.id, provider: 'google' } });

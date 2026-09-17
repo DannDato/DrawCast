@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import api from '../api/axios';
 import { importChannelImageUrl, uploadChannelImage } from '../api/media';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
+import { getChannels } from '../api/channels';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
 import Inspector from '../components/editor/Inspector';
@@ -649,7 +649,9 @@ export default function Editor() {
   }, [snapEnabled]);
 
   useEffect(() => {
-    api.get('/channels/mine').then(({ data }) => {
+    let active = true;
+    getChannels().then((data) => {
+      if (!active) return;
       setIsOwner(data.owned?.publicKey === publicKey);
       const allChannels = [data.owned, ...(data.collaborations || [])].filter(Boolean);
       const nextChannelId = allChannels.find((channel) => channel.publicKey === publicKey)?.id || null;
@@ -659,9 +661,17 @@ export default function Editor() {
         return;
       }
       getSavedDesigns(nextChannelId)
-        .then((rows) => setRecentDesigns([...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))))
-        .catch(() => setRecentDesigns([]));
+        .then((rows) => {
+          if (active) setRecentDesigns([...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
+        })
+        .catch(() => { if (active) setRecentDesigns([]); });
+    }).catch(() => {
+      if (!active) return;
+      setIsOwner(false);
+      setChannelId(null);
+      setRecentDesigns([]);
     });
+    return () => { active = false; };
   }, [publicKey]);
 
   useEffect(() => {

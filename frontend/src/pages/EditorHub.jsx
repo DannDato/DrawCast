@@ -7,7 +7,13 @@ export default function EditorHub() {
   const [data, setData] = useState({ owned: null, collaborations: [] });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { getChannels().then(setData).finally(() => setLoading(false)); }, []);
+  useEffect(() => {
+    let active = true;
+    getChannels()
+      .then((next) => { if (active) setData(next); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const channels = [
     ...(data.owned ? [{ ...data.owned, relation: 'TU CANAL' }] : []),

@@ -45,18 +45,23 @@ export default function Overlay() {
     const ctx = canvas.getContext('2d');
     let animationFrame;
     let lastFrame = 0;
+    let active = true;
 
     const render = (timestamp) => {
+      if (!active || !canvas.isConnected) return;
       if (timestamp - lastFrame >= FRAME_MS) {
         if (overlayHidden) ctx.clearRect(0, 0, canvas.width, canvas.height);
         else renderScene(ctx, objects, { width: 1920, height: 1080, grid: false, now: Date.now(), liveStrokes });
         lastFrame = timestamp;
       }
-      animationFrame = requestAnimationFrame(render);
+      if (active && canvas.isConnected) animationFrame = requestAnimationFrame(render);
     };
 
     animationFrame = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animationFrame);
+    return () => {
+      active = false;
+      cancelAnimationFrame(animationFrame);
+    };
   }, [objects, liveStrokes, overlayHidden]);
 
   useEffect(() => {

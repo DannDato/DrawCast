@@ -10,19 +10,30 @@ export default function ChannelDashboard() {
     const [collabs, setCollabs] = useState([]);
     const [msg, setMsg] = useState('');
 
-    const load = () => getChannels().then(setData);
+    const load = async ({ force = false } = {}) => {
+        const next = await getChannels({ force });
+        setData(next);
+        return next;
+    };
 
     useEffect(() => {
-        load();
+        let active = true;
+        getChannels().then((next) => { if (active) setData(next); }).catch(() => {});
+        return () => { active = false; };
     }, []);
 
+    const ownedId = data.owned?.id || null;
+
     useEffect(() => {
-        if (data.owned) getCollaborators(data.owned.id).then(setCollabs);
-    }, [data.owned]);
+        if (!ownedId) return undefined;
+        let active = true;
+        getCollaborators(ownedId).then((rows) => { if (active) setCollabs(rows); }).catch(() => {});
+        return () => { active = false; };
+    }, [ownedId]);
 
     const handleCreateChannel = async () => {
         await createChannel({ name });
-        await load();
+        await load({ force: true });
     };
 
     const handleInvite = async () => {

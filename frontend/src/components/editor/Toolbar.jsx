@@ -27,7 +27,9 @@ import {
   Trash2,
   Type,
   Undo2,
-  X
+  X,
+  LayerArrowUp,
+  LayerArrowDown
 } from 'lucide-react';
 import { GUIDE_SHORTCUTS, TOOL_SHORTCUTS } from './hotkeys/shortcuts';
 
@@ -154,6 +156,7 @@ export default function Toolbar({
           <span>Archivo</span>
           <ChevronDown size={13} />
         </button>
+
         {openMenu === 'file' && (
           <div className="dc-toolbar-popover dc-toolbar-file-menu">
             <button type="button" onClick={() => { onSaveDesign?.(); setOpenMenu(null); }}><Save size={15} /><span>Guardar diseño...</span></button>
@@ -231,6 +234,8 @@ export default function Toolbar({
         <IconButton label="Deshacer // Ctrl+Z" icon={Undo2} onClick={onUndo} disabled={!canUndo} />
         <IconButton label="Borrar // Supr" icon={X} onClick={onClear}  />
         <IconButton label="Rehacer // Ctrl+Shift+Z / Ctrl+Y" icon={Redo2} onClick={onRedo} disabled={!canRedo} />
+        <IconButton label="Subir capa // " icon={LayerArrowUp}  />
+        <IconButton label="Bajar capa // " icon={LayerArrowDown}  />
       </div>
       <IconButton label={snapEnabled ? 'Imán activado // Alt para ignorarlo mientras arrastras' : 'Imán desactivado'} icon={Magnet} active={snapEnabled} onClick={onToggleSnap} />
 
@@ -262,39 +267,27 @@ export default function Toolbar({
         )}
       </div>
 
-      <div className="dc-toolbar-spacer" />
 
       {isOwner ? (
         <button
-          type="button"
-          className={`dc-panic-button ${overlayHidden ? 'active' : ''}`}
-          onClick={onTogglePanic}
-          disabled={controlDisabled}
-          title={overlayHidden ? 'Restaurar lo que se ve en el overlay' : 'PÁNICO: ocultar inmediatamente todo el overlay'}
-          aria-pressed={overlayHidden}
+        type="button"
+        className={`dc-panic-button ${overlayHidden ? 'active' : ''}`}
+        onClick={onTogglePanic}
+        disabled={controlDisabled}
+        title={overlayHidden ? 'Restaurar lo que se ve en el overlay' : 'PÁNICO: ocultar inmediatamente todo el overlay'}
+        aria-pressed={overlayHidden}
         >
           <Siren size={15} />
-          <span>{overlayHidden ? 'Restaurar' : 'Pánico'}</span>
+          <span>{overlayHidden ? 'Encender' : 'Apagar'}</span>
         </button>
       ) : overlayHidden ? (
         <span className="dc-overlay-hidden-badge" title="El propietario ocultó temporalmente la salida del overlay"><Siren size={13} /> OVERLAY OCULTO</span>
       ) : null}
 
+      <div className="dc-toolbar-spacer" />
       <div className="dc-toolbar-group dc-toolbar-menu-wrap">
-        <button type="button" className="dc-toolbar-menu-trigger compact" onClick={() => toggleMenu('more')} aria-expanded={openMenu === 'more'} title="Más acciones">
-          <MoreHorizontal size={17} />
-          <span>Más</span>
-          <ChevronDown size={13} />
-        </button>
-        {openMenu === 'more' && (
-          <div className="dc-toolbar-popover dc-toolbar-more-menu align-right">
-            <button type="button" disabled={!canCopy} onClick={() => { onCopy(); setOpenMenu(null); }}><ClipboardCopy size={15} /><span>Copiar</span><kbd>Ctrl+C</kbd></button>
-            <button type="button" disabled={!canCopy} onClick={() => { onCut(); setOpenMenu(null); }}><Scissors size={15} /><span>Cortar</span><kbd>Ctrl+X</kbd></button>
-            <button type="button" disabled={!canPaste} onClick={() => { onPaste(); setOpenMenu(null); }}><ClipboardPaste size={15} /><span>Pegar</span><kbd>Ctrl+V</kbd></button>
-            <span className="dc-toolbar-popover-separator" />
-            <button type="button" onClick={() => { onHotkeys(); setOpenMenu(null); }}><Keyboard size={15} /><span>Ver atajos</span><kbd>?</kbd></button>
-          </div>
-        )}
+        
+        
       </div>
 
       <span className={`dc-toolbar-live ${connected ? 'online' : ''}`} title={connected ? 'Conectado al canal' : 'Sin conexión'}>

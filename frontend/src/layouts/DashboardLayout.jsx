@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useState, useTransition } from "react";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { LayoutDashboard, LogOut, Menu, PenTool, User, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const items = [
     { name: "Inicio", path: "/app", icon: LayoutDashboard, end: true },
-    { name: "Editor", path: "/app/editor", icon: PenTool },
+    { name: "Editores", path: "/app/editor", icon: PenTool },
     { name: "Perfil", path: "/app/profile", icon: User },
 ];
 
@@ -13,6 +13,7 @@ export default function DashboardLayout() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [navigationPending, startNavigation] = useTransition();
 
     const exit = async () => {
         await logout();
@@ -26,7 +27,13 @@ export default function DashboardLayout() {
                 key={item.path}
                 to={item.path}
                 end={item.end}
-                onClick={() => setMobileOpen(false)}
+                onClick={(event) => {
+                    setMobileOpen(false);
+                    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                    event.preventDefault();
+                    startNavigation(() => navigate(item.path));
+                }}
+                aria-busy={navigationPending ? "true" : undefined}
                 className={({ isActive }) => `flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent)] bg-[var(--dc-accent-soft)] text-white" : "border-transparent text-[#9ba1ac] hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white"}`}
             >
                 <Icon size={15} />
@@ -37,9 +44,14 @@ export default function DashboardLayout() {
 
     return (
         <div className="min-h-screen bg-[#101216] text-[#ebebeb]">
-            <header className="sticky top-0 z-40 border-b border-[#2a2e37] bg-[#0d0f12]/95 backdrop-blur">
+            <header className="sticky top-0 z-40  bg-[#0d0f12]/95 backdrop-blur">
                 <div className="flex h-14 min-w-0 items-center gap-3 px-3 md:px-5">
-                    <NavLink to="/app" className="flex min-w-0 shrink-0 items-baseline gap-1.5 no-underline" onClick={() => setMobileOpen(false)}>
+                    <NavLink to="/app" className="flex min-w-0 shrink-0 items-baseline gap-1.5 no-underline" onClick={(event) => {
+                        setMobileOpen(false);
+                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
+                        startNavigation(() => navigate('/app'));
+                    }}>
                         <strong className="dc-nav-brand whitespace-nowrap">
                             {import.meta.env.VITE_APP_NAME || "DrawCast"} <b>//</b>
                         </strong>
@@ -54,11 +66,11 @@ export default function DashboardLayout() {
                         {user?.avatarUrl ? (
                             <img className="h-8 w-8 border border-[#2a2e37] bg-[#101216] object-cover rounded-full" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
                         ) : (
-                            <a href={items.find(item => item.name === "Perfil")?.path}>
+                            <Link to="/app/profile" aria-label="Abrir perfil">
                                 <div className="grid h-8 w-8 place-items-center border border-[#2a2e37] bg-[#101216] text-[11px] font-black rounded-full" title={user?.displayName || user?.username || "Tu cuenta"}>
                                     {(user?.displayName || user?.username || "U").slice(0, 1).toUpperCase()}
                                 </div>
-                            </a>
+                            </Link>
                         )}
                         <button className="inline-grid h-9 w-9 place-items-center border border-transparent text-[#7e8592] transition hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white" onClick={exit} aria-label="Cerrar sesión" title="Cerrar sesión">
                             <LogOut size={16} />

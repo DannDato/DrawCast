@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Twitch } from 'lucide-react';
+// import { Twitch } from 'lucide-react';
+
 import api from '../../api/axios';
 import { clearPendingVerifyAccess } from '../../utils/verifyAccessStorage';
 
@@ -26,7 +27,7 @@ export default function TwitchAuthButton({ onError }) {
 
   return (
     <button type="button" className="dc-oauth-button dc-oauth-twitch" onClick={start} disabled={loading}>
-      <Twitch size={18} />
+      <img src="/icons/twitch.svg" alt="Twitch" className="w-8 h-8 m-[-10px]" />
       <span>{loading ? 'PREPARANDO TWITCH...' : 'ENTRAR CON TWITCH'}</span>
     </button>
   );

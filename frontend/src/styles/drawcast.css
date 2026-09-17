@@ -689,7 +689,7 @@
     justify-content: center;
 }
 .dc-oauth-button {
-    width: min(400px, 100%);
+    width: min(100%, 100%);
     min-height: 44px;
     margin: 0 auto;
     border: 1px solid var(--dc-line);
@@ -698,16 +698,20 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 12px;
-    padding: 0 14px;
+    gap: 22px;
+    padding: 0 20px;
     font:
         800 12px Outfit,
         sans-serif;
     transition: 0.15s;
 }
-.dc-oauth-button:hover {
+.dc-oauth-twitch:hover {
     border-color: #9146ff;
     background: #15101d;
+}
+.dc-oauth-google:hover {
+    border-color: #ffffff;
+    background: #1b1b11b;
 }
 .dc-oauth-button:disabled {
     opacity: 0.55;
@@ -903,4 +907,29 @@
     .dc-system-alert-actions button {
         width: 100%;
     }
+}
+
+/* GOOGLE OAUTH // local button, popup code flow */
+.dc-oauth-google {
+    justify-content: flex-start;
+}
+.dc-oauth-google > span:last-child {
+    flex: 1;
+    text-align: center;
+    padding-right: 18px;
+}
+.dc-google-mark {
+    display: grid;
+    width: 18px;
+    height: 18px;
+    place-items: center;
+    border-radius: 50%;
+    background: #fff;
+    color: #4285f4;
+    font: 900 12px/1 Arial, sans-serif;
+}
+.dc-google-connect-button {
+    width: auto;
+    min-width: 220px;
+    margin: 0;
 }

@@ -11,6 +11,7 @@ r.patch('/profile/password', verifyToken, asyncHandler(ctrlProfile.changePasswor
 r.post('/profile/email/request', verifyToken, asyncHandler(ctrlProfile.requestEmailChange));
 r.post('/profile/email/confirm', verifyToken, asyncHandler(ctrlProfile.confirmEmailChange));
 r.post('/profile/google/connect', verifyToken, asyncHandler(ctrlProfile.connectGoogle));
+r.post('/profile/google/connect/code', verifyToken, asyncHandler(ctrlProfile.connectGoogleCode));
 r.delete('/profile/google', verifyToken, asyncHandler(ctrlProfile.disconnectGoogle));
 r.put('/profile/avatar', verifyToken, express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), asyncHandler(ctrlProfile.uploadAvatar));
 r.delete('/profile/avatar', verifyToken, asyncHandler(ctrlProfile.deleteAvatar));
