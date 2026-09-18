@@ -7,11 +7,11 @@ export const SHAPE_TYPES = [
 ];
 
 export const DEFAULT_SHAPE_CONFIG = {
-  shapeType: 'square',
-  fillColor: DEFAULT_EDITOR_PREFERENCES.colors.shapeFill,
-  strokeColor: DEFAULT_EDITOR_PREFERENCES.colors.shapeStroke,
-  strokeWidth: 0,
-  borderRadius: 0
+  shapeType: DEFAULT_EDITOR_PREFERENCES.shape.shapeType,
+  fillColor: DEFAULT_EDITOR_PREFERENCES.shape.fillColor,
+  strokeColor: DEFAULT_EDITOR_PREFERENCES.shape.strokeColor,
+  strokeWidth: DEFAULT_EDITOR_PREFERENCES.shape.strokeWidth,
+  borderRadius: DEFAULT_EDITOR_PREFERENCES.shape.borderRadius
 };
 
 export function getShapeLabel(shapeType) {

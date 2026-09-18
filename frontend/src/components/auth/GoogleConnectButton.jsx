@@ -50,7 +50,7 @@ export default function GoogleConnectButton({ onConnected, onError }) {
 
   return (
     <button type="button" className="dc-oauth-button dc-oauth-google dc-google-connect-button" onClick={start} disabled={busy}>
-      <span className="dc-google-mark" aria-hidden="true">G</span>
+      <img src="/icons/google.svg" alt="Google" className="w-8 h-8 m-[-10px]" />
       <span>{busy ? 'ABRIENDO GOOGLE...' : 'GOOGLE'}</span>
     </button>
   );

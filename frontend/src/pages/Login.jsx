@@ -39,7 +39,7 @@ export default function Login() {
         <AuthShell
             eyebrow=""
             title="INICIAR // SESIÓN"
-            description="Entra a DrawCast para administrar tu canal, abrir el editor y darle acceso a tu equipo."
+            description=" "
         >
             <Helmet>
                 <title>Iniciar Sesión — DrawCast</title>
@@ -47,7 +47,7 @@ export default function Login() {
                     name="description"
                     content="Inicia sesión en tu consola de DrawCast para administrar tu canal, tus overlays y colaboradores en tiempo real."
                 />
-                <link rel="canonical" href="https://drawcast.app/login" />
+                <link rel="canonical" href={`${import.meta.env.VITE_APP_URL}${window.location.pathname}login`} />
                 <meta name="robots" content="noindex, follow" />
             </Helmet>
             <form onSubmit={submit} className="dc-auth-form">

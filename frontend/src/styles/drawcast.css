@@ -40,7 +40,7 @@
     --dc-text-on-accent: #ffffff;
 
     /* Brand / selection */
-    --dc-accent: #293bdb;
+    --dc-accent: #ff0c2c;
     --dc-accent-soft: color-mix(in srgb, var(--dc-accent) 14%, transparent);
     --dc-accent-deep: color-mix(in srgb, var(--dc-accent) 28%, var(--dc-bg));
     --dc-accent-contrast: var(--dc-text-inverse);
@@ -853,7 +853,7 @@
 
 .dc-canvas-collaborators { margin-top: 14px; padding-top: 5px; }
 .dc-canvas-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
-.dc-canvas-section-heading h2, .dc-canvas-section-heading h3 { margin: 2px 0 0; font-size: 18px; }
+.dc-canvas-section-heading h2, .dc-canvas-section-heading h3 { margin: 2px 0 0;  }
 .dc-canvas-section-heading > span { color: var(--dc-muted); font-size: 10px; font-weight: 700; }
 .dc-canvas-invite-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 8px; }
 .dc-canvas-invite-row input { min-height: 38px; padding: 0 11px; }
@@ -919,7 +919,7 @@
 .dc-home-featured-fallback span { max-width: 320px; color: var(--dc-muted); font-size: 11px; line-height: 1.45; }
 .dc-home-featured-footer { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 17px; border-top: 1px solid var(--dc-line); }
 .dc-home-featured-footer > div { min-width: 0; }
-.dc-home-featured-footer h2 { margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 20px; }
+.dc-home-featured-footer h2 { margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dc-home-featured-footer p { margin: 2px 0 0; overflow: hidden; color: var(--dc-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .dc-home-featured-footer > a { flex: 0 0 auto; width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--dc-line); color: var(--dc-text); text-decoration: none; transition: border-color .14s ease, background .14s ease, color .14s ease; }
 .dc-home-featured-footer > a:hover { border-color: var(--dc-accent); background: var(--dc-accent-soft); color: var(--dc-accent); }

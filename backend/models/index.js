@@ -19,6 +19,7 @@ import ChannelFactory from './channel.model.js';
 import ChannelCollaboratorFactory from './channelCollaborator.model.js';
 import ChannelInvitationFactory from './channelInvitation.model.js';
 import SavedDesignFactory from './savedDesign.model.js';
+import UserSettingFactory from './userSetting.model.js';
 
 const models = {
   User: UserFactory(db),
@@ -39,6 +40,7 @@ const models = {
   ChannelCollaborator: ChannelCollaboratorFactory(db),
   ChannelInvitation: ChannelInvitationFactory(db),
   SavedDesign: SavedDesignFactory(db),
+  UserSetting: UserSettingFactory(db),
   AuditLog: AuditFactory(auditDb),
   IpCache: IpFactory(auditDb)
 };
@@ -66,6 +68,9 @@ models.User.hasMany(models.TrustedDevice, { foreignKey: 'userId', as: 'trustedDe
 models.TrustedDevice.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
 models.User.hasMany(models.EmailChange, { foreignKey: 'userId', as: 'emailChanges', onDelete: 'CASCADE' });
 models.EmailChange.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
+
+models.User.hasMany(models.UserSetting, { foreignKey: 'userId', as: 'settings', onDelete: 'CASCADE' });
+models.UserSetting.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
 
 models.User.hasMany(models.Channel, { foreignKey: 'ownerId', as: 'ownedChannels', onDelete: 'CASCADE' });
 models.Channel.belongsTo(models.User, { foreignKey: 'ownerId', as: 'owner' });

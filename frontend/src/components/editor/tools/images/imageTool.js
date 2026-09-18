@@ -1,6 +1,7 @@
+import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
-export const DEFAULT_IMAGE_CONFIG = Object.freeze({ borderRadius: 0, opacity: 1 });
+export const DEFAULT_IMAGE_CONFIG = Object.freeze({ ...DEFAULT_EDITOR_PREFERENCES.image });
 
 export function validateImageFile(file) {
   if (!file) return 'No se recibió archivo.';
@@ -42,7 +43,7 @@ export function loadImageMetadata(url) {
 
 export function clampImageConfig(config = {}) {
   return {
-    borderRadius: Math.max(0, Math.min(300, Number(config.borderRadius ?? config.radius) || 0)),
-    opacity: Math.max(0, Math.min(1, Number.isFinite(Number(config.opacity)) ? Number(config.opacity) : 1))
+    borderRadius: Math.max(0, Math.min(300, Number(config.borderRadius ?? config.radius) || DEFAULT_IMAGE_CONFIG.borderRadius)),
+    opacity: Math.max(0, Math.min(1, Number.isFinite(Number(config.opacity)) ? Number(config.opacity) : DEFAULT_IMAGE_CONFIG.opacity))
   };
 }

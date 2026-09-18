@@ -1,6 +1,6 @@
 import { useEffect, useState, useTransition } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Activity, LayoutDashboard, LogOut, Menu, PenTool, User, X } from "lucide-react";
+import { Activity, LayoutDashboard, LogOut, Menu, PenTool, Settings, User, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getPendingInvitations } from "../api/channels";
 
@@ -8,7 +8,8 @@ const items = [
     { name: "Inicio", path: "/app", icon: LayoutDashboard, end: true },
     { name: "Editores", path: "/app/editor", icon: PenTool },
     { name: "Diagnóstico", path: "/app/diagnostico", icon: Activity },
-    { name: "Cuenta", path: "/app/profile", icon: User },
+    // { name: "Perfil", path: "/app/profile", icon: User },
+    { name: "Configuración", path: "/app/settings", icon: Settings },
 ];
 
 export default function DashboardLayout() {

@@ -4,15 +4,15 @@ import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 export const MAX_TIMER_SECONDS = (99 * 3600) + (59 * 60) + 59;
 
 export const DEFAULT_TIMER_CONFIG = {
-  timerMode: 'up',
-  startSeconds: 0,
-  limitSeconds: MAX_TIMER_SECONDS,
-  color: DEFAULT_EDITOR_PREFERENCES.colors.timer,
-  strokeColor: DEFAULT_EDITOR_PREFERENCES.colors.timerStroke,
-  strokeWidth: 6,
-  fontSize: 56,
-  fontKey: 'segoe',
-  fontFamily: resolveTextFontFamily('segoe')
+  timerMode: DEFAULT_EDITOR_PREFERENCES.timer.timerMode,
+  startSeconds: DEFAULT_EDITOR_PREFERENCES.timer.startSeconds,
+  limitSeconds: DEFAULT_EDITOR_PREFERENCES.timer.limitSeconds,
+  color: DEFAULT_EDITOR_PREFERENCES.timer.color,
+  strokeColor: DEFAULT_EDITOR_PREFERENCES.timer.strokeColor,
+  strokeWidth: DEFAULT_EDITOR_PREFERENCES.timer.strokeWidth,
+  fontSize: DEFAULT_EDITOR_PREFERENCES.timer.fontSize,
+  fontKey: DEFAULT_EDITOR_PREFERENCES.timer.fontKey,
+  fontFamily: resolveTextFontFamily(DEFAULT_EDITOR_PREFERENCES.timer.fontKey)
 };
 
 export function parseHmsToSeconds(raw, fallbackSeconds = 0) {

@@ -1,15 +1,9 @@
+import { models } from '../models/index.js';
+
+const EDITOR_KEY = 'editor.defaults';
 const SOFT_WHITE = '#e7e7e7';
 const MAX_TIMER_SECONDS = (99 * 3600) + (59 * 60) + 59;
 
-const clamp = (value, min, max, fallback) => {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
-};
-const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback;
-const choice = (value, allowed, fallback) => allowed.includes(value) ? value : fallback;
-
-// Fuente única de defaults del editor. Estos valores son fallback local y también
-// representan la forma esperada de las preferencias persistidas por usuario.
 export const DEFAULT_EDITOR_PREFERENCES = Object.freeze({
   drawing: Object.freeze({ color: SOFT_WHITE, size: 10, brush: 'pencil', opacity: 1 }),
   shape: Object.freeze({ shapeType: 'square', fillColor: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 0, borderRadius: 0 }),
@@ -17,6 +11,13 @@ export const DEFAULT_EDITOR_PREFERENCES = Object.freeze({
   text: Object.freeze({ fontKey: 'segoe', color: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 6, fontSize: 56 }),
   timer: Object.freeze({ timerMode: 'up', startSeconds: 0, limitSeconds: MAX_TIMER_SECONDS, fontKey: 'segoe', color: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 6, fontSize: 56 })
 });
+
+const clamp = (value, min, max, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+};
+const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback;
+const choice = (value, allowed, fallback) => allowed.includes(value) ? value : fallback;
 
 export function normalizeEditorPreferences(preferences = {}) {
   const drawing = preferences.drawing || {};
@@ -64,4 +65,25 @@ export function normalizeEditorPreferences(preferences = {}) {
       fontSize: clamp(timer.fontSize, 5, 400, DEFAULT_EDITOR_PREFERENCES.timer.fontSize)
     }
   };
+}
+
+function parseValue(value, fallback = {}) {
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+export async function getUserSettings(userId) {
+  const rows = await models.UserSetting.findAll({ where: { userId } });
+  const byKey = new Map(rows.map((row) => [row.key, parseValue(row.value)]));
+  return { editor: normalizeEditorPreferences(byKey.get(EDITOR_KEY) || {}) };
+}
+
+export async function saveEditorPreferences(userId, preferences) {
+  const editor = normalizeEditorPreferences(preferences);
+  await models.UserSetting.upsert({ userId, key: EDITOR_KEY, value: JSON.stringify(editor) });
+  return editor;
+}
+
+export async function resetEditorPreferences(userId) {
+  await models.UserSetting.destroy({ where: { userId, key: EDITOR_KEY } });
+  return normalizeEditorPreferences({});
 }

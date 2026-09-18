@@ -231,9 +231,9 @@ export default function ConnectionDiagnostics() {
     <section className="overflow-hidden bg-[var(--dc-panel)] text-[13px] shadow-[0_8px_24px_var(--dc-shadow-soft)]">
       <div className="flex items-center justify-between gap-5 px-[22px] pb-2.5 pt-5 max-[680px]:flex-col max-[680px]:items-start">
         <div className="min-w-0">
-          <span className="dc-kicker">ESTADO DE CONEXIÓN</span>
+          {/* <span className="dc-kicker">ESTADO DE CONEXIÓN</span> */}
           <h2 className="my-1 text-[19px]">Diagnóstico en tiempo real</h2>
-          <p className="m-0 max-w-[760px] text-[13px] leading-[1.45] text-[var(--dc-muted)]">Ayuda a distinguir problemas de red, del navegador o del servidor. No sustituye una prueba de velocidad.</p>
+          {/* <p className="m-0 max-w-[760px] text-[13px] leading-[1.45] text-[var(--dc-muted)]">Ayuda a distinguir problemas de red, del navegador o del servidor. No sustituye una prueba de velocidad.</p> */}
         </div>
         <button type="button" className="inline-flex min-h-9 shrink-0 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-1)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] hover:border-[var(--dc-accent)] hover:bg-[var(--dc-accent-soft)] disabled:cursor-wait disabled:opacity-60 max-[680px]:w-full" onClick={runCheck} disabled={checking} title="Actualizar diagnóstico"><RefreshCw size={15} className={checking ? 'animate-spin' : ''} /> {checking ? 'Midiendo...' : 'Actualizar'}</button>
       </div>

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { importChannelImageUrl, uploadChannelImage } from '../api/media';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
 import { getChannels } from '../api/channels';
+import { getUserSettings } from '../api/settings';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
 import Inspector from '../components/editor/Inspector';
@@ -16,12 +17,13 @@ import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatche
 import { moveSelectionOneLevel, reorderLayerUnitToIndex } from '../components/editor/layers/layerUtils';
 import { DEFAULT_SHAPE_CONFIG } from '../components/editor/tools/shapes/shapeTool';
 import { DEFAULT_IMAGE_CONFIG, fitImageSize, getImageKind, loadImageMetadata, validateImageFile } from '../components/editor/tools/images/imageTool';
-import { DEFAULT_TEXT_CONFIG, applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
+import { DEFAULT_TEXT_CONFIG, applyTextStyle, resolveTextFontFamily, updateTextContent } from '../components/editor/tools/text/textTool';
 import { DEFAULT_TIMER_CONFIG, adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
 import { DEFAULT_DRAW_CONFIG, appendStrokeToLayer, clearDrawLayer, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { applyHistoryEntry, cloneValue, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
 import { createClipboardPayload, materializeClipboardPayload, parseClipboardText, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
 import { getCursorThemeColor } from '../utils/theme';
+import { normalizeEditorPreferences } from '../components/editor/editorDefaults';
 
 const TOOL_LABELS = { select: 'Selección', hand: 'Manita', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', text: 'Texto', timer: 'Temporizador' };
 
@@ -84,6 +86,22 @@ export default function Editor() {
   const cursorFrameRef = useRef(null);
   const pendingCursorRef = useRef(null);
   const cursorLastSentRef = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    getUserSettings()
+      .then((data) => {
+        if (!active) return;
+        const preferences = normalizeEditorPreferences(data.editor);
+        setDrawConfig({ ...DEFAULT_DRAW_CONFIG, ...preferences.drawing });
+        setShapeConfig({ ...DEFAULT_SHAPE_CONFIG, ...preferences.shape });
+        setImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...preferences.image });
+        setTextConfig({ ...DEFAULT_TEXT_CONFIG, ...preferences.text, fontFamily: resolveTextFontFamily(preferences.text.fontKey) });
+        setTimerConfig({ ...DEFAULT_TIMER_CONFIG, ...preferences.timer, fontFamily: resolveTextFontFamily(preferences.timer.fontKey) });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const setScene = (next) => {
     objectsRef.current = next;
@@ -1052,11 +1070,6 @@ export default function Editor() {
     editor: {
       tool,
       guide,
-      drawConfig: cloneValue(drawConfig),
-      shapeConfig: cloneValue(shapeConfig),
-      imageConfig: cloneValue(imageConfig),
-      textConfig: cloneValue(textConfig),
-      timerConfig: cloneValue(timerConfig),
       activeDrawLayerId
     }
   });
@@ -1087,11 +1100,6 @@ export default function Editor() {
 
     const editor = state.editor || {};
     setGuide(editor.guide || 'none');
-    setDrawConfig({ ...DEFAULT_DRAW_CONFIG, ...(editor.drawConfig || {}) });
-    setShapeConfig({ ...DEFAULT_SHAPE_CONFIG, ...(editor.shapeConfig || {}) });
-    setImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...(editor.imageConfig || {}) });
-    setTextConfig({ ...DEFAULT_TEXT_CONFIG, ...(editor.textConfig || {}) });
-    setTimerConfig({ ...DEFAULT_TIMER_CONFIG, ...(editor.timerConfig || {}) });
     setActiveDrawLayerId(editor.activeDrawLayerId && next[editor.activeDrawLayerId] ? editor.activeDrawLayerId : null);
     setTool(TOOL_LABELS[editor.tool] ? editor.tool : 'select');
     setMediaStatus(`Diseño cargado: ${design?.name || 'sin nombre'}.`);

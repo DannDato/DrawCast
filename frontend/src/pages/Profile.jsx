@@ -1,31 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Camera, Check, KeyRound, Laptop, LogOut, Monitor, RefreshCw, ShieldCheck, Smartphone, Trash2, UserRound, X } from 'lucide-react';
+import { Camera, Check, RefreshCw, Trash2, UserRound, X } from 'lucide-react';
 import api from '../api/axios';
 import { getProfile, invalidateProfileCache } from '../api/profile';
 import GoogleConnectButton from '../components/auth/GoogleConnectButton';
 import { useAuth } from '../context/AuthContext';
 
-function deviceInfo(userAgent = '') {
-  const ua = String(userAgent).toLowerCase();
-  const mobile = /android|iphone|ipad|mobile/.test(ua);
-  const os = /windows/.test(ua) ? 'Windows' : /android/.test(ua) ? 'Android' : /iphone|ipad/.test(ua) ? 'iOS/iPadOS' : /mac os|macintosh/.test(ua) ? 'macOS' : /linux/.test(ua) ? 'Linux' : 'Sistema desconocido';
-  const browser = /edg\//.test(ua) ? 'Edge' : /chrome\//.test(ua) ? 'Chrome' : /firefox\//.test(ua) ? 'Firefox' : /safari\//.test(ua) ? 'Safari' : 'Navegador desconocido';
-  return { mobile, title: `${browser} · ${os}` };
-}
-
-function formatDate(value) {
-  if (!value) return 'Sin registro';
-  return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-}
-
 export default function Profile() {
-  const { user, refresh, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user, refresh } = useAuth();
   const avatarInput = useRef(null);
 
   const [profile, setProfile] = useState(null);
-  const [sessions, setSessions] = useState([]);
   const [hasPassword, setHasPassword] = useState(false);
   const [connectedAccounts, setConnectedAccounts] = useState([]);
   const [newEmail, setNewEmail] = useState('');
@@ -33,16 +17,12 @@ export default function Profile() {
   const [emailChallengeId, setEmailChallengeId] = useState('');
   const [emailCode, setEmailCode] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState(null);
 
   const applyProfileData = useCallback((data) => {
     setProfile(data.user);
     setDisplayName(data.user?.displayName || '');
-    setSessions(data.sessions || []);
     setHasPassword(Boolean(data.hasPassword));
     setConnectedAccounts(data.connectedAccounts || []);
   }, []);
@@ -82,25 +62,6 @@ export default function Profile() {
       setNotice({ type: 'success', text: 'Perfil actualizado correctamente.' });
     } catch (error) {
       setNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo actualizar el perfil' });
-    } finally { setBusy(''); }
-  };
-
-  const changePassword = async (event) => {
-    event.preventDefault();
-    if (newPassword !== confirmPassword) return setNotice({ type: 'error', text: 'Las contraseñas nuevas no coinciden.' });
-
-    try {
-      setBusy('password');
-      setNotice(null);
-      const { data } = await api.patch('/user/profile/password', { currentPassword, newPassword });
-      invalidateProfileCache();
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setHasPassword(true);
-      setNotice({ type: 'success', text: data.message });
-    } catch (error) {
-      setNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo cambiar la contraseña' });
     } finally { setBusy(''); }
   };
 
@@ -163,55 +124,12 @@ export default function Profile() {
     } finally { setBusy(''); }
   };
 
-  const revokeSession = async (session) => {
-    try {
-      setBusy(`session:${session.id}`);
-      const { data } = await api.delete(`/user/profile/sessions/${session.id}`);
-      invalidateProfileCache();
-      if (data.current) {
-        await refresh();
-        navigate('/login');
-        return;
-      }
-      setSessions((value) => value.filter((row) => row.id !== session.id));
-      setNotice({ type: 'success', text: 'Sesión cerrada en ese dispositivo.' });
-    } catch (error) {
-      setNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo cerrar la sesión' });
-    } finally { setBusy(''); }
-  };
-
-  const revokeOthers = async () => {
-    try {
-      setBusy('others');
-      await api.delete('/user/profile/sessions/others');
-      invalidateProfileCache();
-      setSessions((value) => value.filter((session) => session.current));
-      setNotice({ type: 'success', text: 'Se cerraron las demás sesiones.' });
-    } catch (error) {
-      setNotice({ type: 'error', text: error.response?.data?.message || 'No se pudieron cerrar las demás sesiones' });
-    } finally { setBusy(''); }
-  };
-
-  const logoutCurrent = async () => {
-    setBusy('logout');
-    try { await logout(); }
-    finally { navigate('/login'); }
-  };
-
-  const logoutAll = async () => {
-    try {
-      setBusy('all');
-      await api.delete('/user/profile/sessions');
-      await refresh();
-    } finally { navigate('/login'); }
-  };
-
   const shown = profile || user;
   const initial = (shown?.displayName || shown?.username || 'U').slice(0, 1).toUpperCase();
 
   return <div className="mx-auto w-full max-w-[1440px] py-8 pt-7">
     <div className="mb-[18px] flex flex-col items-start justify-between gap-[18px] md:flex-row md:items-end [&_h1]:my-1 [&_h1]:text-[clamp(32px,5vw,48px)] [&_h1]:leading-none [&_p]:m-0">
-      <div><span className="inline-block text-[11px] font-black uppercase tracking-[.1em] text-[var(--dc-text-muted)]">Mi cuenta</span><h1>Perfil</h1><p className="text-[var(--dc-text-muted)]">Administra tu información, seguridad y sesiones activas.</p></div>
+      <div><span className="inline-block text-[11px] font-black uppercase tracking-[.1em] text-[var(--dc-text-muted)]">Mi cuenta</span><h1>Perfil</h1><p className="text-[var(--dc-text-muted)]">Administra tu información personal y métodos de acceso.</p></div>
       <button className="inline-flex items-center justify-center gap-2  border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] transition hover:bg-[var(--dc-button-secondary-hover)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => loadProfile({ force: true })}><RefreshCw size={16} /> Actualizar</button>
     </div>
 
@@ -261,38 +179,6 @@ export default function Profile() {
           </div>
         </section>
 
-        <section className=" bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-          <div className="mb-[18px] flex items-start gap-2.5 [&>svg]:mt-px [&>svg]:min-w-5 [&>div]:grid [&>div]:min-w-0 [&>div]:gap-1 [&_strong]:text-base [&_span]:text-[13px] [&_span]:text-[var(--dc-text-muted)]"><KeyRound size={20} /><div><strong>Contraseña</strong><span>{hasPassword ? 'Actualiza tu contraseña de acceso.' : 'Tu cuenta no tiene contraseña local. Puedes configurar una.'}</span></div></div>
-          <form className="grid grid-cols-1 gap-3.5 xl:grid-cols-3 [&>div:last-child]:xl:col-span-full" onSubmit={changePassword}>
-            {hasPassword && <label className="grid gap-1.5 text-sm font-bold">Contraseña actual<input className="w-full  border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none transition focus:border-[var(--dc-accent)] disabled:cursor-not-allowed disabled:bg-[var(--dc-surface-hover)] disabled:text-[var(--dc-text-disabled)]" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required /></label>}
-            <label className="grid gap-1.5 text-sm font-bold">Nueva contraseña<input className="w-full  border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none transition focus:border-[var(--dc-accent)] disabled:cursor-not-allowed disabled:bg-[var(--dc-surface-hover)] disabled:text-[var(--dc-text-disabled)]" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required /></label>
-            <label className="grid gap-1.5 text-sm font-bold">Confirmar nueva contraseña<input className="w-full  border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none transition focus:border-[var(--dc-accent)] disabled:cursor-not-allowed disabled:bg-[var(--dc-surface-hover)] disabled:text-[var(--dc-text-disabled)]" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>
-            <div className="mt-[18px] flex flex-col items-stretch justify-between gap-4 border-t border-[var(--dc-line)] pt-4 md:flex-row md:items-center"><span className="text-[var(--dc-text-muted)]">Mínimo 6 caracteres, una mayúscula y un número.</span><button className="inline-flex items-center justify-center gap-2  border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-[var(--dc-button-primary-text)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy === 'password'}><ShieldCheck size={16} /> {hasPassword ? 'Cambiar contraseña' : 'Configurar contraseña'}</button></div>
-          </form>
-        </section>
-
-        <section className=" bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-          <div className="mb-[18px] flex items-start gap-2.5 [&>svg]:mt-px [&>svg]:min-w-5 [&>div]:grid [&>div]:min-w-0 [&>div]:gap-1 [&_strong]:text-base [&_span]:text-[13px] [&_span]:text-[var(--dc-text-muted)] flex-wrap items-start md:items-center [&_.btn]:md:ml-auto [&_.btn]:whitespace-nowrap"><Monitor size={20} /><div><strong>Dispositivos y sesiones</strong><span>Revisa dónde está abierta tu cuenta y cierra accesos individualmente.</span></div>
-            <button className="inline-flex items-center justify-center gap-2  border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] transition hover:bg-[var(--dc-button-secondary-hover)] disabled:cursor-not-allowed disabled:opacity-50" onClick={revokeOthers} disabled={busy === 'others' || sessions.filter((row) => !row.current).length === 0}>Cerrar las demás</button>
-          </div>
-          <div className="grid gap-2.5">
-            {sessions.length === 0 && <div className=" bg-[var(--dc-surface-raised)] p-4 ">No hay sesiones activas para mostrar.</div>}
-            {sessions.map((session) => {
-              const device = deviceInfo(session.userAgent);
-              const DeviceIcon = device.mobile ? Smartphone : Laptop;
-              return <div className={`grid grid-cols-[42px_minmax(0,1fr)] items-center gap-3  border p-3 md:grid-cols-[42px_minmax(0,1fr)_auto] [&>button]:col-span-full md:[&>button]:col-span-1 ${session.current ? 'border-[var(--dc-accent)] bg-[var(--dc-button-secondary-hover)]' : 'border-[var(--dc-line)] bg-[var(--dc-button-secondary-bg)]'}`} key={session.id}>
-                <div className="grid h-[42px] w-[42px] place-items-center  bg-[var(--dc-panel)]"><DeviceIcon size={21} /></div>
-                <div className="grid min-w-0 gap-1 [&>div]:flex [&>div]:flex-wrap [&>div]:items-center [&>div]:gap-2 [&>span]:break-all [&>span]:text-[13px] [&>span]:text-[var(--dc-text-muted)] [&>small]:break-all [&>small]:text-[11px] [&>small]:text-[var(--dc-text-dim)]"><div><strong>{device.title}</strong>{session.current && <span className="inline-flex rounded-full bg-[var(--dc-surface-raised)] px-2 py-1 text-xs">Este dispositivo</span>}</div><span>{session.ip || 'IP no disponible'} · Inicio {formatDate(session.createdAt)}</span><small>Expira {formatDate(session.expiresAt)}</small></div>
-                <button className="inline-flex items-center justify-center gap-2 border border-[var(--dc-button-secondary-border)] bg-transparent px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] transition hover:border-[var(--dc-accent)] hover:bg-[var(--dc-button-secondary-hover)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => revokeSession(session)} disabled={busy === `session:${session.id}`}><LogOut size={16} /> Cerrar</button>
-              </div>;
-            })}
-          </div>
-        </section>
-
-        <section className=" bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)] ">
-          <div className="mb-[18px] flex items-start gap-2.5 [&>svg]:mt-px [&>svg]:min-w-5 [&>div]:grid [&>div]:min-w-0 [&>div]:gap-1 [&_strong]:text-base [&_span]:text-[13px] [&_span]:text-[var(--dc-text-muted)]"><LogOut size={20} /><div><strong>Cerrar sesión</strong><span>Finaliza esta sesión o revoca todas las sesiones de tu cuenta.</span></div></div>
-          <div className="flex flex-wrap gap-2"><button className="inline-flex items-center justify-center gap-2  border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] transition hover:bg-[var(--dc-button-secondary-hover)] disabled:cursor-not-allowed disabled:opacity-50" onClick={logoutCurrent} disabled={busy === 'logout'}>Cerrar esta sesión</button><button className="inline-flex items-center justify-center gap-2  border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-[var(--dc-button-primary-text)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" onClick={logoutAll} disabled={busy === 'all'}>Cerrar en todos los dispositivos</button></div>
-        </section>
       </div>
     </div>
   </div>;

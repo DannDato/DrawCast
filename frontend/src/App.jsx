@@ -13,6 +13,7 @@ import Overlay from './pages/Overlay';
 import AcceptInvite from './pages/AcceptInvite';
 import EditorHub from './pages/EditorHub';
 import Diagnostics from './pages/Diagnostics';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/app/editor" element={<EditorHub />} />
         <Route path="/app/editor/:publicKey" element={<Editor />} />
         <Route path="/app/profile" element={<Profile />} />
+        <Route path="/app/settings" element={<Settings />} />
         <Route path="/app/diagnostico" element={<Diagnostics />} />
       </Route>
 

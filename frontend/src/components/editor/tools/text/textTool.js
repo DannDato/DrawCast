@@ -7,12 +7,12 @@ export const TEXT_FONTS = [
 ];
 
 export const DEFAULT_TEXT_CONFIG = {
-  fontKey: 'segoe',
+  fontKey: DEFAULT_EDITOR_PREFERENCES.text.fontKey,
   fontFamily: "'Segoe UI', sans-serif",
-  color: DEFAULT_EDITOR_PREFERENCES.colors.text,
-  strokeColor: DEFAULT_EDITOR_PREFERENCES.colors.textStroke,
-  strokeWidth: 6,
-  fontSize: 56
+  color: DEFAULT_EDITOR_PREFERENCES.text.color,
+  strokeColor: DEFAULT_EDITOR_PREFERENCES.text.strokeColor,
+  strokeWidth: DEFAULT_EDITOR_PREFERENCES.text.strokeWidth,
+  fontSize: DEFAULT_EDITOR_PREFERENCES.text.fontSize
 };
 
 export function resolveTextFontFamily(fontKey) {

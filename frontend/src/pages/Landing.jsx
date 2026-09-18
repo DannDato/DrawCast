@@ -70,13 +70,13 @@ export default function Landing() {
                         name="description"
                         content="Crea y controla overlays dinámicos para tu transmisión en vivo. Conecta DrawCast a OBS Studio como Browser Source y opera tu stream en tiempo real, en equipo."
                     />
-                    <link rel="canonical" href="https://drawcast.app/" />
+                    <link rel="canonical" href={`${import.meta.env.VITE_APP_URL}${window.location.pathname}`} />
                     <meta property="og:title" content="DrawCast — Overlays para OBS en Tiempo Real" />
                     <meta
                         property="og:description"
                         content="Dibuja tu escena, comparte el control con tu equipo y transmite cada cambio al instante en OBS."
                     />
-                    <meta property="og:url" content="https://drawcast.app/" />
+                    <meta property="og:url" content={`${import.meta.env.VITE_APP_URL}${window.location.pathname}`} />
                 </Helmet>
 
                 {/* HERO */}
@@ -84,7 +84,7 @@ export default function Landing() {
 
                     <nav className="flex flex-col gap-5 border-b border-[var(--dc-text)]/15 py-5 sm:flex-row sm:items-center sm:justify-between">
                         <strong className="font-['Bebas_Neue'] text-2xl font-normal tracking-[0.06em] md:text-[28px]">
-                            DRAWCAST <span className="text-[var(--dc-accent)]">// OVERLAY</span>
+                            DRAWCAST <span className="text-[var(--dc-accent)]"><span className="text-[var(--dc-line)]">//</span> OVERLAY</span>
                         </strong>
 
                         <div className="flex items-center gap-2">
@@ -98,26 +98,32 @@ export default function Landing() {
                         </div>
                     </nav>
 
-                    <div className="flex flex-1 flex-col justify-center py-16 lg:justify-start lg:pt-20">
-                        
-                        <h1 className="max-w-[800px] font-['Bebas_Neue'] text-[clamp(4rem,17vw,9rem)] font-normal uppercase leading-[0.74] tracking-[-0.025em] md:text-[clamp(5rem,10vw,9rem)]">
-                            DIBUJA.
-                            <br />
-                            COLABORA.
-                            <br />
-                            <span className="text-[var(--dc-accent)]">TRANSMITE.</span>
-                        </h1>
+                    <div className="flex flex-col pt-10 md:pt-40 justify-between gap-10">
+                        <div>
+                            <h2 className="max-w-[800px] font-['Bebas_Neue'] text-[clamp(4rem,17vw,9rem)] font-normal uppercase leading-[0.74] tracking-[-0.025em] md:text-[clamp(5rem,10vw,12rem)]">
+                                DRAWCAST.
+                            </h2>
+                            
+                            <h2 className="max-w-[800px] font-['Bebas_Neue'] text-[clamp(3rem,17vw,9rem)] font-normal uppercase leading-[0.74] tracking-[-0.025em] md:text-[clamp(3rem,10vw,5.5rem)] mt-3">
+                                DIBUJA.
+                                <br />
+                                COLABORA.
+                                <br />
+                                <span className="text-[var(--dc-accent)]">TRANSMITE.</span>
+                            </h2>
+                        </div>
 
-                        <p className="mt-10 text-base leading-7 text-[var(--dc-text)]/85 md:text-lg md:leading-8">
-                            DrawCast es la plataforma para crear y controlar overlays dinámicos durante tus transmisiones en vivo.
-                            <br />
-                            Tus moderadores ahora pueden diseñar sobre tu escena, compartir el control con tu equipo de producción y mostrar cada cambio al instante en OBS Studio, sin reiniciar tu stream ni tu Browser Source.
-                        </p>
+                        <div className="flex flex-col justify-between text-right items-center">
+                            <p className=" text-base leading-7 text-[var(--dc-text)]/85 md:text-lg md:leading-8 text-right ">
+                                DrawCast es la plataforma para crear y controlar overlays dinámicos durante tus transmisiones en vivo.
+                                Tus moderadores ahora pueden diseñar sobre tu escena, compartir el control con tu equipo de producción y mostrar cada cambio al instante en OBS Studio, sin reiniciar tu stream ni tu Browser Source.
+                            </p>
 
-                        <div className="mt-10 flex flex-wrap items-center gap-3">
-                            <Link className="border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-7 py-4 font-mono text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
-                                CREA TU CUENTA YA!
-                            </Link>
+                            <div className="mt-10 flex flex-wrap items-center gap-3">
+                                <Link className="border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-white transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
+                                    CREA TU CUENTA YA!
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
@@ -140,17 +146,20 @@ export default function Landing() {
 
                 </section>
 
+                <section>
+                    <img src="img/Editor.png" alt="Description of image" className="w-[80%] h-auto mx-auto rounded-3xl overflow-hidden hover:scale-105 transition-transform duration-300"/>
+                </section>
+
                 {/* CONTROL -> OUTPUT */}
-                <section className="border-t border-[var(--dc-text)]/15">
+                <section className="">
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
                         <h2 className="mt-5 font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
-                            TÚ CONTROLAS AQUÍ.
-                            <br />
-                            <span className="text-[var(--dc-accent)]">SALE ALLÁ.</span>
+                            TÚ CONTROLAS AQUÍ <span className="text-[var(--dc-line)]">//</span>
+                            <span className="text-[var(--dc-accent)]"> SALE ALLÁ.</span>
                         </h2>
 
-                        <p className="mt-8 max-w-[640px] text-base leading-7 text-[var(--dc-text)]/85 md:text-lg md:leading-8">
+                        <p className="mt-8  text-base leading-7 text-[var(--dc-text)]/85 md:text-lg md:leading-8">
                             Permite que tus moderadores operen tu transmisión en vivo directamente desde DrawCast. Modifica textos, activa temporizadores y actualiza elementos gráficos sin reconstruir tu escena en OBS ni tocar el software de streaming a mitad de directo.
                         </p>
 
@@ -277,7 +286,7 @@ export default function Landing() {
 
         
                 {/* COLLABORATION */}
-                <section className="border-t border-[var(--dc-text)]/15">
+                <section className="border-t border-[var(--dc-text)]/15 hidden">
                     <div className="mx-auto grid w-full max-w-[1240px] gap-16 px-6 py-24 md:px-10 md:py-28 lg:grid-cols-2 lg:items-center xl:px-0">
 
                         <div>
@@ -354,22 +363,20 @@ export default function Landing() {
                 <section className="border-t border-[var(--dc-text)]/15">
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
-                        <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,8rem)]">
-                            UNA URL.
-                            <br />
-                            UNA FUENTE.
-                            <br />
-                            <span className="text-[var(--dc-accent)]">CONTROL TOTAL.</span>
+                        <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,6rem)]">
+                            <span className="text-[var(--dc-accent)]"> UNA URL > </span>
+                            <span className="text-[var(--dc-text-muted)]"> UNA FUENTE > </span> 
+                            <span className="text-[var(--dc-text)]"> CONTROL TOTAL</span>
                         </h2>
 
-                        <div className="mt-14 grid gap-10 lg:grid-cols-[1fr_420px] lg:items-center">
+                        <div className="mt-14 flex flex-col  gap-10 ">
 
                             <div className="min-w-0 border border-[var(--dc-text)]/15 bg-black p-3">
                                 <div className="flex min-w-0 items-center gap-3 overflow-hidden border border-[var(--dc-text)]/10 bg-white/[0.03] px-4 py-3">
                                     <div className="h-2 w-2 shrink-0 bg-[var(--dc-accent)]"></div>
 
                                     <span className="min-w-0 truncate font-mono text-[9px] text-[var(--dc-text)]/35 sm:text-[10px]">
-                                        https://drawcast.app/overlay/canal_xxxxxxxxx
+                                        {`${import.meta.env.VITE_APP_URL}${window.location.pathname}overlay/canal_xxxxxxxxx`}
                                     </span>
                                 </div>
                             </div>
@@ -410,16 +417,11 @@ export default function Landing() {
                 <section className="border-t border-[var(--dc-text)]/15">
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
-                        <div className="mt-5 flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
-                            <h2 className="font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
+                        <div className="mt-5 gap-8 lg:flex-row lg:items-end">
+                            <h2 className="font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,5rem)]">
                                 EMPIEZA GRATIS.
-                                <br />
                                 <span className="text-[var(--dc-accent)]">CRECE CUANDO ESTÉS LISTO.</span>
                             </h2>
-
-                            <p className="max-w-[430px] pb-2 text-base leading-7 text-[var(--dc-text)]/50 md:text-lg md:leading-8">
-                                Empieza a construir tu transmisión sin costo y desbloquea más capacidades de DrawCast conforme crece tu producción y tu comunidad.
-                            </p>
                         </div>
 
                         <div className="mt-16 grid border-t border-l border-[var(--dc-text)]/15 bg-[var(--dc-panel)] lg:grid-cols-3">
@@ -645,7 +647,7 @@ export default function Landing() {
                             <span className="text-[var(--dc-accent)]">TRANSMITIR?</span>
                         </h2>
 
-                        <p className="mx-auto mt-10 max-w-[520px] text-base leading-7 text-[var(--dc-text)]/45 md:text-lg md:leading-8">
+                        <p className="mx-auto mt-10 ] text-base leading-7 text-[var(--dc-text)]/45 md:text-lg md:leading-8">
                             Construye tu primer overlay, invita a tu equipo y conecta DrawCast a OBS en minutos. Sin tarjeta de crédito, sin complicaciones.
                         </p>
 

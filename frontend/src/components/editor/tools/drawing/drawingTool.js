@@ -13,10 +13,10 @@ export const BRUSH_PRESETS = [
 ];
 
 export const DEFAULT_DRAW_CONFIG = {
-  color: DEFAULT_EDITOR_PREFERENCES.colors.drawing,
-  size: 10,
-  brush: 'pencil',
-  opacity: 1
+  color: DEFAULT_EDITOR_PREFERENCES.drawing.color,
+  size: DEFAULT_EDITOR_PREFERENCES.drawing.size,
+  brush: DEFAULT_EDITOR_PREFERENCES.drawing.brush,
+  opacity: DEFAULT_EDITOR_PREFERENCES.drawing.opacity
 };
 
 export function isDrawLayer(object) {
@@ -24,7 +24,7 @@ export function isDrawLayer(object) {
 }
 
 export function normalizeDrawConfig(config = {}) {
-  const brush = BRUSH_PRESETS.some((item) => item.value === config.brush) ? config.brush : 'pencil';
+  const brush = BRUSH_PRESETS.some((item) => item.value === config.brush) ? config.brush : DEFAULT_DRAW_CONFIG.brush;
   const preset = BRUSH_PRESETS.find((item) => item.value === brush) || BRUSH_PRESETS[0];
   const size = Math.max(2, Math.min(100, Number(config.size ?? config.grosor) || DEFAULT_DRAW_CONFIG.size));
   const opacity = Math.max(0.05, Math.min(1, Number(config.opacity ?? preset.opacity) || preset.opacity));
@@ -208,7 +208,7 @@ export function reduceLiveStrokeMap(current, payload) {
       id: payload.strokeId,
       layerId: payload.layerId,
       mode: payload.mode === 'erase' ? 'erase' : 'paint',
-      color: payload.color || DEFAULT_EDITOR_PREFERENCES.colors.drawing,
+      color: payload.color || DEFAULT_EDITOR_PREFERENCES.drawing.color,
       size: Math.max(2, Math.min(100, Number(payload.size) || 10)),
       brush: payload.brush || 'pencil',
       opacity: Math.max(0.05, Math.min(1, Number(payload.opacity) || 1)),

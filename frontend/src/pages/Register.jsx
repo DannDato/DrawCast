@@ -35,7 +35,7 @@ export default function Register() {
         <AuthShell
             eyebrow=""
             title="CREAR // CUENTA"
-            description="Crea tu cuenta de DrawCast. Después podrás abrir tu canal e invitar a tu equipo para ayudarte durante el stream."
+            description=""
         >
             <Helmet>
                 <title>Crear Cuenta Gratis — DrawCast</title>
@@ -43,7 +43,7 @@ export default function Register() {
                     name="description"
                     content="Regístrate gratis en DrawCast y empieza a crear overlays para tu transmisión en vivo. Conecta con OBS en minutos, sin tarjeta de crédito."
                 />
-                <link rel="canonical" href="https://drawcast.app/register" />
+                <link rel="canonical" href={`${import.meta.env.VITE_APP_URL}${window.location.pathname}register`} />
                 <meta name="robots" content="noindex, follow" />
             </Helmet>
             <form onSubmit={submit} className="dc-auth-form dc-auth-form-grid">
