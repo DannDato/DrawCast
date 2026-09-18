@@ -1,9 +1,11 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { Op } from 'sequelize';
-import { models } from '../../models/index.js';
-import { createInvitation, acceptInvitation } from '../../services/channelInvitationService.js';
+import { db, models } from '../../models/index.js';
+import { createInvitation, acceptInvitation, acceptInvitationById, listPendingInvitations, rejectInvitationById } from '../../services/channelInvitationService.js';
 import { getCanvasLimitForUser } from '../../services/channelLimitService.js';
-import { getChannelControl, getChannelPresence } from '../../services/channelRuntimeService.js';
+import { destroyChannelRuntime, getChannelControl, getChannelPresence } from '../../services/channelRuntimeService.js';
 import logger from '../../helpers/winston.js';
 
 function normalizeChannelUrl(value) {
@@ -59,7 +61,7 @@ export class ChannelController {
   static async mine(req, res) {
     const ownedChannels = await ownedChannelsFor(req.user.id);
     const collaborations = await models.ChannelCollaborator.findAll({
-      where: { userId: req.user.id, canEdit: true },
+      where: { userId: req.user.id },
       include: [{ model: models.Channel, as: 'channel' }],
       order: [['createdAt', 'ASC']]
     });
@@ -67,7 +69,7 @@ export class ChannelController {
     res.json({
       owned: ownedChannels[0] || null,
       ownedChannels,
-      collaborations: collaborations.map((row) => row.channel),
+      collaborations: collaborations.map((row) => ({ ...row.channel.toJSON(), collaboration: { canEdit: Boolean(row.canEdit) } })),
       limits: { canvases: limit, used: ownedChannels.length, remaining: Math.max(0, limit - ownedChannels.length) }
     });
   }
@@ -124,8 +126,44 @@ export class ChannelController {
   }
 
   static async accept(req, res) {
-    const invitation = await acceptInvitation(req.body.token, req.user);
-    res.json({ message: 'Invitación aceptada', channelId: invitation.channelId });
+    const result = await acceptInvitation(req.body.token, req.user);
+    res.json({ status: result.status, message: result.message, channelId: result.invitation.channelId, publicKey: result.invitation.channel?.publicKey || null });
+  }
+
+  static async pendingInvitations(req, res) {
+    const invitations = await listPendingInvitations(req.user);
+    res.json({
+      count: invitations.length,
+      invitations: invitations.map((row) => ({
+        id: row.id,
+        email: row.email,
+        expiresAt: row.expiresAt,
+        createdAt: row.createdAt,
+        channel: row.channel ? {
+          id: row.channel.id,
+          name: row.channel.name,
+          platform: row.channel.platform,
+          channelUrl: row.channel.channelUrl,
+          publicKey: row.channel.publicKey
+        } : null,
+        inviter: row.inviter ? {
+          id: row.inviter.id,
+          username: row.inviter.username,
+          displayName: row.inviter.displayName,
+          avatarUrl: row.inviter.avatarUrl
+        } : null
+      }))
+    });
+  }
+
+  static async acceptPendingInvitation(req, res) {
+    const result = await acceptInvitationById(Number(req.params.invitationId), req.user);
+    res.json({ status: result.status, message: result.message, channelId: result.invitation.channelId, publicKey: result.invitation.channel?.publicKey || null });
+  }
+
+  static async rejectPendingInvitation(req, res) {
+    const result = await rejectInvitationById(Number(req.params.invitationId), req.user);
+    res.json({ status: result.status, message: result.message, channelId: result.invitation.channelId });
   }
 
   static async collaborators(req, res) {
@@ -160,6 +198,71 @@ export class ChannelController {
     res.json(row);
   }
 
+
+  static async remove(req, res) {
+    if (Number(req.channel.ownerId) !== Number(req.user.id)) return res.status(403).json({ message: 'Sólo el propietario puede eliminar este lienzo' });
+
+    const confirmation = String(req.body?.confirmation || '');
+    const expected = `${req.channel.name} BORRAR`;
+    if (confirmation !== expected) return res.status(400).json({ message: `Escribe exactamente: ${expected}` });
+
+    const channelId = Number(req.channel.id);
+    const publicKey = req.channel.publicKey;
+    const io = req.app.get('io');
+
+    await db.transaction(async (transaction) => {
+      await models.ChannelInvitation.destroy({ where: { channelId }, transaction });
+      await models.ChannelCollaborator.destroy({ where: { channelId }, transaction });
+      await models.SavedDesign.destroy({ where: { channelId }, transaction });
+      await models.Channel.destroy({ where: { id: channelId, ownerId: req.user.id }, transaction });
+    });
+
+    if (io) {
+      const sockets = await io.in(`channel:${channelId}`).fetchSockets();
+      for (const channelSocket of sockets) {
+        channelSocket.data.channelDeleted = true;
+        channelSocket.emit('channel-deleted', { channelId, publicKey, message: 'Este lienzo fue eliminado por su propietario.' });
+        if (channelSocket.data?.role === 'editor') channelSocket.emit('access-revoked', { channelId, publicKey, reason: 'channel-deleted' });
+        channelSocket.disconnect(true);
+      }
+    }
+
+    destroyChannelRuntime(channelId);
+
+    const uploadRoot = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads', 'channels');
+    try {
+      await fs.rm(path.join(uploadRoot, String(channelId)), { recursive: true, force: true });
+    } catch (error) {
+      logger.warn('Lienzo eliminado, pero no fue posible limpiar todos sus uploads', { channelId, error: error.message });
+    }
+
+    logger.warn('Lienzo eliminado permanentemente', { channelId, ownerId: req.user.id, name: req.channel.name });
+    res.status(204).end();
+  }
+
+  static async leave(req, res) {
+    const channelId = Number(req.params.channelId);
+    const channel = await models.Channel.findByPk(channelId);
+    if (!channel) return res.status(404).json({ message: 'Lienzo no encontrado' });
+    if (Number(channel.ownerId) === Number(req.user.id)) return res.status(400).json({ message: 'El propietario no puede abandonar su propio lienzo' });
+
+    const collaboration = await models.ChannelCollaborator.findOne({ where: { channelId, userId: req.user.id } });
+    if (!collaboration) return res.status(404).json({ message: 'No eres colaborador de este lienzo' });
+    await collaboration.destroy();
+
+    const io = req.app.get('io');
+    if (io) {
+      const sockets = await io.in(`user:${req.user.id}`).fetchSockets();
+      for (const editorSocket of sockets) {
+        if (editorSocket.data?.role !== 'editor' || Number(editorSocket.data?.channelId) !== channelId) continue;
+        editorSocket.emit('access-revoked', { channelId, publicKey: channel.publicKey, reason: 'collaboration-left' });
+        editorSocket.disconnect(true);
+      }
+    }
+
+    logger.info('Colaborador abandonó un lienzo', { channelId, userId: req.user.id });
+    res.status(204).end();
+  }
   static async removeCollaborator(req, res) {
     if (Number(req.channel.ownerId) !== Number(req.user.id)) return res.status(403).json({ message: 'Sólo el propietario puede administrar colaboradores' });
     await models.ChannelCollaborator.destroy({ where: { channelId: req.channel.id, userId: Number(req.params.userId) } });

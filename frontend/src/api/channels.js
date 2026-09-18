@@ -3,6 +3,7 @@ import { cachedRequest, invalidateRequestCache } from './requestCache';
 
 const CHANNELS_KEY = 'channels:mine';
 const FEATURED_KEY = 'channels:featured';
+const INVITATIONS_KEY = 'channels:invitations:pending';
 const collaboratorsKey = (id) => `channels:${id}:collaborators`;
 
 export const getChannels = ({ force = false } = {}) => cachedRequest(
@@ -38,7 +39,32 @@ export const inviteCollaborator = async (id, email) => {
 export const acceptInvitation = async (token) => {
   const result = await api.post('/channels/invitations/accept', { token }).then((response) => response.data);
   invalidateRequestCache('channels:');
+  invalidateRequestCache(INVITATIONS_KEY);
   return result;
+};
+
+
+export const getPendingInvitations = ({ force = false } = {}) => cachedRequest(
+  INVITATIONS_KEY,
+  () => api.get('/channels/invitations/pending').then((response) => response.data),
+  { ttl: 15000, force }
+);
+
+export const acceptPendingInvitation = async (invitationId) => {
+  const result = await api.post(`/channels/invitations/${invitationId}/accept`).then((response) => response.data);
+  invalidateRequestCache(INVITATIONS_KEY);
+  invalidateRequestCache(CHANNELS_KEY);
+  return result;
+};
+
+export const rejectPendingInvitation = async (invitationId) => {
+  const result = await api.post(`/channels/invitations/${invitationId}/reject`).then((response) => response.data);
+  invalidateRequestCache(INVITATIONS_KEY);
+  return result;
+};
+
+export const notifyInvitationsChanged = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('drawcast:invitations-changed'));
 };
 
 export const getCollaborators = (id, { force = false } = {}) => cachedRequest(
@@ -62,3 +88,16 @@ export const removeCollaborator = async (id, userId) => {
 };
 
 export const invalidateChannelCache = () => invalidateRequestCache('channels:');
+
+
+export const deleteChannel = async (id, confirmation) => {
+  const result = await api.delete(`/channels/${id}`, { data: { confirmation } });
+  invalidateRequestCache('channels:');
+  return result;
+};
+
+export const leaveChannel = async (id) => {
+  const result = await api.delete(`/channels/${id}/collaboration`);
+  invalidateRequestCache('channels:');
+  return result;
+};

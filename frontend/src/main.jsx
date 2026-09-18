@@ -6,8 +6,6 @@ import App from './App';
 import { SystemAlertProvider } from './components/ui/SystemAlert';
 import './index.css';
 
-const accentColor = import.meta.env.VITE_ACCENT_COLOR || '#439a9f';
-document.documentElement.style.setProperty('--dc-accent', accentColor);
     
 createRoot(document.getElementById('root')).render(
     <HelmetProvider>

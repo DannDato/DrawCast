@@ -7,10 +7,7 @@ const runtimes = new Map();
 const sleepMs = Math.max(60_000, Number(process.env.CHANNEL_SLEEP_MINUTES || 10) * 60_000);
 const uploadRoot = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads', 'channels');
 
-const EDITOR_COLORS = [
-  '#ff5c8a', '#4cc9f0', '#ffd166', '#7bd88f', '#b794f4', '#ff9f68',
-  '#5eead4', '#f472b6', '#60a5fa', '#a3e635', '#f59e0b', '#c084fc'
-];
+const EDITOR_COLOR_SLOTS = 12;
 
 function runtime(channelId) {
   if (!runtimes.has(channelId)) {
@@ -37,16 +34,24 @@ function copyMap(source) {
   return new Map(source.entries());
 }
 
-function editorColor(r) {
-  const used = new Set(Array.from(r.editors.values()).map((editor) => editor.color));
-  const available = EDITOR_COLORS.filter((color) => !used.has(color));
-  const pool = available.length ? available : EDITOR_COLORS;
+function editorColorSlot(r) {
+  const used = new Set(Array.from(r.editors.values()).map((editor) => editor.colorSlot));
+  const available = Array.from({ length: EDITOR_COLOR_SLOTS }, (_, index) => index + 1).filter((slot) => !used.has(slot));
+  const pool = available.length ? available : Array.from({ length: EDITOR_COLOR_SLOTS }, (_, index) => index + 1);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function editorCanEdit(r, socketId) {
   if (r.liveEnabled) return true;
   return Boolean(r.studioEditorSocketId && r.studioEditorSocketId === socketId);
+}
+
+
+export function destroyChannelRuntime(channelId) {
+  const r = runtimes.get(channelId);
+  if (!r) return;
+  if (r.sleepTimer) clearTimeout(r.sleepTimer);
+  runtimes.delete(channelId);
 }
 
 export function getChannelState(channelId) {
@@ -76,7 +81,7 @@ export function getChannelPresence(channelId) {
     username: editor.username,
     displayName: editor.displayName,
     avatarUrl: editor.avatarUrl || null,
-    color: editor.color,
+    colorSlot: editor.colorSlot,
     isOwner: Boolean(editor.isOwner),
     canEdit: editorCanEdit(r, socketId)
   }));
@@ -194,7 +199,7 @@ export function connectRole(channelId, socketId, role, metadata = {}) {
       displayName: String(metadata.displayName || metadata.username || 'Editor').slice(0, 120),
       avatarUrl: metadata.avatarUrl ? String(metadata.avatarUrl).slice(0, 500) : null,
       isOwner: Boolean(metadata.isOwner),
-      color: editorColor(r)
+      colorSlot: editorColorSlot(r)
     });
 
     // Si el único editor de Estudio se reconecta antes de que el canal duerma,

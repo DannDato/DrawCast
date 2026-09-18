@@ -21,8 +21,9 @@ import { DEFAULT_TIMER_CONFIG, adjustTimerSeconds, applyTimerConfig, toggleTimer
 import { DEFAULT_DRAW_CONFIG, appendStrokeToLayer, clearDrawLayer, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { applyHistoryEntry, cloneValue, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
 import { createClipboardPayload, materializeClipboardPayload, parseClipboardText, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
+import { getCursorThemeColor } from '../utils/theme';
 
-const TOOL_LABELS = { select: 'Selección', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', text: 'Texto', timer: 'Temporizador' };
+const TOOL_LABELS = { select: 'Selección', hand: 'Manita', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', text: 'Texto', timer: 'Temporizador' };
 
 function decodeDesignSnapshot(value) {
   let current = value;
@@ -74,6 +75,7 @@ export default function Editor() {
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [propertiesAnchor, setPropertiesAnchor] = useState(null);
   const [remoteCursors, setRemoteCursors] = useState({});
+  const [fitViewRequest, setFitViewRequest] = useState(0);
   const [editorAccess, setEditorAccess] = useState({ canEdit: true, liveEnabled: true, liveRequired: false, editorCount: 1, isStudioEditor: false });
   const objectsRef = useRef({});
   const historyStartRef = useRef(null);
@@ -102,6 +104,7 @@ export default function Editor() {
       setObjects(next);
       setHistory({ past: [], future: [] });
       historyStartRef.current = null;
+      setFitViewRequest((current) => current + 1);
     },
     'obj-upsert': (object) => {
       if (historyStartRef.current) historyStartRef.current.before[object.id] = cloneValue(object);
@@ -182,7 +185,7 @@ export default function Editor() {
     const username = String(editor?.username || '').trim();
     return {
       ...cursor,
-      color: editor?.color,
+      color: getCursorThemeColor(editor?.colorSlot),
       cursorLabel: username ? `@${username}` : 'Editor'
     };
   }), [remoteCursors, presence.editorList]);
@@ -807,6 +810,7 @@ export default function Editor() {
     };
     const toolByKey = {
       v: 'select',
+      h: 'hand',
       p: 'draw',
       e: 'eraser',
       i: 'image',
@@ -972,10 +976,8 @@ export default function Editor() {
   const addMediaObject = async ({ url, name, mimeType, point }) => {
     const metadata = await loadImageMetadata(url);
     const size = fitImageSize(metadata.naturalWidth, metadata.naturalHeight);
-    const rawX = point && Number.isFinite(point.x) ? point.x : 200;
-    const rawY = point && Number.isFinite(point.y) ? point.y : 200;
-    const x = Math.max(0, Math.min(1920 - size.w, rawX));
-    const y = Math.max(0, Math.min(1080 - size.h, rawY));
+    const x = point && Number.isFinite(point.x) ? point.x : 200;
+    const y = point && Number.isFinite(point.y) ? point.y : 200;
     const object = makeImage(x, y, url, name, {
       ...imageConfig,
       ...size,
@@ -1156,7 +1158,7 @@ export default function Editor() {
     commitHistory('Ajustar temporizador');
   };
 
-  if (denied) return <div className="dc-denied">NO TIENES ACCESO A ESTE CANAL // <Link to="/app">VOLVER AL INICIO</Link></div>;
+  if (denied) return <div className="fixed inset-0 grid place-content-center bg-[var(--dc-bg)] text-center text-[var(--dc-text)]">NO TIENES ACCESO A ESTE CANAL // <Link className="text-[var(--dc-accent)]" to="/app">VOLVER AL INICIO</Link></div>;
 
   return (
     <div className={`dc-editor ${editingLocked ? 'is-collab-locked' : ''}`}>
@@ -1235,6 +1237,7 @@ export default function Editor() {
           onCursorMove={broadcastCursor}
           onCursorLeave={broadcastCursorLeave}
           interactionDisabled={editingLocked}
+          fitViewRequest={fitViewRequest}
         />
 
         {propertiesOpen && !editingLocked && <Inspector

@@ -56,6 +56,15 @@ export function SystemAlertProvider({ children }) {
     ...normalizeOptions(options, 'Confirmar acción')
   }), [enqueue]);
 
+  const confirmTextDialog = useCallback((options) => enqueue({
+    type: 'confirm-text',
+    tone: 'danger',
+    confirmLabel: 'Confirmar',
+    cancelLabel: 'Cancelar',
+    inputLabel: 'Confirmación',
+    ...normalizeOptions(options, 'Confirmar acción')
+  }), [enqueue]);
+
   useEffect(() => () => {
     if (activeRef.current) activeRef.current.resolve(false);
     queueRef.current.forEach((item) => item.resolve(false));
@@ -64,7 +73,7 @@ export function SystemAlertProvider({ children }) {
   }, []);
 
   return (
-    <SystemAlertContext.Provider value={{ showAlert, confirmDialog }}>
+    <SystemAlertContext.Provider value={{ showAlert, confirmDialog, confirmTextDialog }}>
       {children}
       {dialog && <SystemAlertDialog dialog={dialog} onClose={close} />}
     </SystemAlertContext.Provider>
@@ -73,15 +82,21 @@ export function SystemAlertProvider({ children }) {
 
 function SystemAlertDialog({ dialog, onClose }) {
   const primaryRef = useRef(null);
-  const isConfirm = dialog.type === 'confirm';
+  const inputRef = useRef(null);
+  const [inputValue, setInputValue] = useState('');
+  const isTextConfirm = dialog.type === 'confirm-text';
+  const isConfirm = dialog.type === 'confirm' || isTextConfirm;
   const tone = ['danger', 'success', 'info'].includes(dialog.tone) ? dialog.tone : 'info';
   const Icon = TONE_ICONS[tone];
+  const requiredText = String(dialog.requiredText || '');
+  const canConfirm = !isTextConfirm || inputValue === requiredText;
 
   useEffect(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    primaryRef.current?.focus();
+    if (isTextConfirm) inputRef.current?.focus();
+    else primaryRef.current?.focus();
 
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
@@ -96,7 +111,7 @@ function SystemAlertDialog({ dialog, onClose }) {
       document.body.style.overflow = previousOverflow;
       if (previousFocus instanceof HTMLElement) requestAnimationFrame(() => previousFocus.focus());
     };
-  }, [onClose]);
+  }, [dialog, isTextConfirm, onClose]);
 
   const content = (
     <div className="dc-system-alert-backdrop" role="presentation" onMouseDown={() => onClose(false)}>
@@ -111,9 +126,15 @@ function SystemAlertDialog({ dialog, onClose }) {
           {dialog.message && <p id="dc-system-alert-message">{dialog.message}</p>}
         </div>
 
+        {isTextConfirm && <div className="dc-system-alert-confirm-text">
+          <label htmlFor="dc-system-alert-confirm-input">{dialog.inputLabel}</label>
+          {requiredText && <p>Escribe exactamente <code>{requiredText}</code></p>}
+          <input ref={inputRef} id="dc-system-alert-confirm-input" value={inputValue} onChange={(event) => setInputValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && canConfirm) { event.preventDefault(); onClose(inputValue); } }} autoComplete="off" spellCheck="false" />
+        </div>}
+
         <footer className="dc-system-alert-actions">
           {isConfirm && <button type="button" className="dc-system-alert-secondary" onClick={() => onClose(false)}>{dialog.cancelLabel}</button>}
-          <button ref={primaryRef} type="button" className={`dc-system-alert-primary ${tone === 'danger' ? 'danger' : ''}`} onClick={() => onClose(true)}>{isConfirm ? dialog.confirmLabel : dialog.buttonLabel}</button>
+          <button ref={primaryRef} type="button" className={`dc-system-alert-primary ${tone === 'danger' ? 'danger' : ''}`} disabled={!canConfirm} onClick={() => onClose(isTextConfirm ? inputValue : true)}>{isConfirm ? dialog.confirmLabel : dialog.buttonLabel}</button>
         </footer>
       </section>
     </div>

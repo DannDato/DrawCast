@@ -37,7 +37,7 @@
 
   ::selection {
     background: var(--dc-accent);
-    color: #fff;
+    color: var(--dc-text-on-accent);
   }
 }
 

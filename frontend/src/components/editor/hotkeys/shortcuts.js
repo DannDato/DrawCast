@@ -1,5 +1,6 @@
 export const TOOL_SHORTCUTS = {
   select: 'V',
+  hand: 'H',
   draw: 'P',
   eraser: 'E',
   image: 'I',
@@ -20,6 +21,7 @@ export const HOTKEY_SECTIONS = [
     title: 'HERRAMIENTAS',
     items: [
       ['V', 'Seleccionar / mover'],
+      ['H', 'Manita / mover lienzo'],
       ['P', 'Pincel'],
       ['E', 'Borrador'],
       ['I', 'Imagen / GIF'],
@@ -33,6 +35,7 @@ export const HOTKEY_SECTIONS = [
     items: [
       ['0', 'Quitar guía'],
       ['1 / 2 / 3', 'Guía 1 / 2 / 3'],
+      ['RUEDA', 'Acercar / alejar vista'],
       ['FLECHAS', 'Mover selección 1 px'],
       ['SHIFT + FLECHAS', 'Mover selección 10 px'],
       ['ESC', 'Volver a Selección / limpiar selección'],

@@ -1,19 +1,47 @@
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, LogOut, Menu, PenTool, User, X } from "lucide-react";
+import { Activity, LayoutDashboard, LogOut, Menu, PenTool, User, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { getPendingInvitations } from "../api/channels";
 
 const items = [
     { name: "Inicio", path: "/app", icon: LayoutDashboard, end: true },
     { name: "Editores", path: "/app/editor", icon: PenTool },
-    { name: "Perfil", path: "/app/profile", icon: User },
+    { name: "Diagnóstico", path: "/app/diagnostico", icon: Activity },
+    { name: "Cuenta", path: "/app/profile", icon: User },
 ];
 
 export default function DashboardLayout() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [invitationCount, setInvitationCount] = useState(0);
     const [navigationPending, startNavigation] = useTransition();
+
+    useEffect(() => {
+        let active = true;
+        let timer = 0;
+
+        const refreshInvitations = async ({ force = false } = {}) => {
+            try {
+                const result = await getPendingInvitations({ force });
+                if (active) setInvitationCount(Number(result?.count || 0));
+            } catch {
+                if (active) setInvitationCount(0);
+            }
+        };
+
+        const handleChanged = () => refreshInvitations({ force: true });
+        refreshInvitations();
+        timer = window.setInterval(() => refreshInvitations({ force: true }), 30000);
+        window.addEventListener('drawcast:invitations-changed', handleChanged);
+
+        return () => {
+            active = false;
+            if (timer) window.clearInterval(timer);
+            window.removeEventListener('drawcast:invitations-changed', handleChanged);
+        };
+    }, []);
 
     const exit = async () => {
         await logout();
@@ -22,6 +50,7 @@ export default function DashboardLayout() {
 
     const navItem = (item, mobile = false) => {
         const Icon = item.icon;
+        const showBadge = item.path === '/app/editor' && invitationCount > 0;
         return (
             <NavLink
                 key={item.path}
@@ -34,17 +63,18 @@ export default function DashboardLayout() {
                     startNavigation(() => navigate(item.path));
                 }}
                 aria-busy={navigationPending ? "true" : undefined}
-                className={({ isActive }) => `flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent)] bg-[var(--dc-accent-soft)] text-white" : "border-transparent text-[#9ba1ac] hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white"}`}
+                className={({ isActive }) => `relative flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent)] bg-[var(--dc-accent-soft)] text-[var(--dc-text-strong)]" : "border-transparent text-[var(--dc-nav-text)] hover:border-[var(--dc-line)] hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"}`}
             >
                 <Icon size={20} />
                 <span className="text-[11px] font-bold">{item.name}</span>
+                {showBadge && <span className={`${mobile ? 'ml-auto' : '-mr-1'} grid min-w-[18px] h-[18px] place-items-center rounded-full bg-[var(--dc-danger)] px-[5px] text-[10px] font-black leading-none text-[var(--dc-text-strong)] shadow-[0_0_0_2px_var(--dc-nav-bg)]`}>{invitationCount > 99 ? '99+' : invitationCount}</span>}
             </NavLink>
         );
     };
 
     return (
-        <div className="min-h-screen bg-[#101216] text-[#ebebeb]">
-            <header className="sticky top-0 z-40  bg-[#0d0f12]/95 backdrop-blur">
+        <div className="min-h-screen bg-[var(--dc-bg)] text-[var(--dc-text)]">
+            <header className="sticky top-0 z-40 bg-[var(--dc-nav-bg)] backdrop-blur">
                 <div className="flex h-14 min-w-0 items-center gap-3 px-3 md:px-5">
                     <NavLink to="/app" className="flex min-w-0 shrink-0 items-baseline gap-1.5 no-underline" onClick={(event) => {
                         setMobileOpen(false);
@@ -55,44 +85,44 @@ export default function DashboardLayout() {
                         <strong className="dc-nav-brand whitespace-nowrap">
                             {import.meta.env.VITE_APP_NAME || "DrawCast"} <b>//</b>
                         </strong>
-                        <span className="max-w-[130px] truncate text-[11px] font-semibold text-[#7e8592] sm:max-w-[180px]">{user?.username}</span>
+                        <span className="max-w-[130px] truncate text-[11px] font-semibold text-[var(--dc-text-muted)] sm:max-w-[180px]">{user?.username}</span>
                     </NavLink>
 
-                    <nav className="hidden items-center gap-1 md:flex w-full justify-center px-10">
+                    <nav className="hidden w-full items-center justify-center gap-1 px-10 md:flex">
                         {items.map((item) => navItem(item))}
                     </nav>
 
                     <div className="ml-auto hidden items-center gap-2 md:flex">
                         {user?.avatarUrl ? (
                             <Link to="/app/profile" aria-label="Abrir perfil">
-                                <img className="h-8 w-8 border border-[#2a2e37] bg-[#101216] object-cover rounded-full" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
+                                <img className="h-8 w-8 rounded-full border border-[var(--dc-line)] bg-[var(--dc-panel)] object-cover" src={user.avatarUrl} alt="" title={user?.displayName || user?.username || "Tu cuenta"} />
                             </Link>
                         ) : (
                             <Link to="/app/profile" aria-label="Abrir perfil">
-                                <div className="grid h-8 w-8 place-items-center border border-[#2a2e37] bg-[#101216] text-[11px] font-black rounded-full" title={user?.displayName || user?.username || "Tu cuenta"}>
+                                <div className="grid h-8 w-8 place-items-center rounded-full border border-[var(--dc-line)] bg-[var(--dc-panel)] text-[11px] font-black" title={user?.displayName || user?.username || "Tu cuenta"}>
                                     {(user?.displayName || user?.username || "U").slice(0, 1).toUpperCase()}
                                 </div>
                             </Link>
                         )}
-                        <button className="inline-grid h-9 w-9 place-items-center border border-transparent text-[#7e8592] transition hover:border-[#2a2e37] hover:bg-[#171a20] hover:text-white" onClick={exit} aria-label="Cerrar sesión" title="Cerrar sesión">
+                        <button className="inline-grid h-9 w-9 place-items-center border border-transparent text-[var(--dc-text-muted)] transition hover:border-[var(--dc-line)] hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]" onClick={exit} aria-label="Cerrar sesión" title="Cerrar sesión">
                             <LogOut size={16} />
                         </button>
                     </div>
 
-                    <button className="ml-auto inline-grid h-9 w-9 place-items-center border border-[#2a2e37] bg-[#101216] text-[#ebebeb] md:hidden" onClick={() => setMobileOpen((value) => !value)} aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}>
+                    <button className="ml-auto inline-grid h-9 w-9 place-items-center border border-[var(--dc-line)] bg-[var(--dc-panel)] text-[var(--dc-text)] md:hidden" onClick={() => setMobileOpen((value) => !value)} aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}>
                         {mobileOpen ? <X size={18} /> : <Menu size={18} />}
                     </button>
                 </div>
 
                 {mobileOpen && (
-                    <div className="border-t border-[#2a2e37] bg-[#0d0f12] p-2 md:hidden">
+                    <div className="border-t border-[var(--dc-line)] bg-[var(--dc-surface)] p-2 md:hidden">
                         <nav className="grid gap-1">{items.map((item) => navItem(item, true))}</nav>
-                        <div className="mt-2 flex items-center gap-2 border-t border-[#2a2e37] px-2 pt-2">
+                        <div className="mt-2 flex items-center gap-2 border-t border-[var(--dc-line)] px-2 pt-2">
                             <div className="min-w-0 flex-1">
                                 <strong className="block truncate text-xs">{user?.displayName || user?.username}</strong>
-                                <span className="block truncate text-[10px] text-[#7e8592]">{user?.email}</span>
+                                <span className="block truncate text-[10px] text-[var(--dc-text-muted)]">{user?.email}</span>
                             </div>
-                            <button className="flex h-9 items-center gap-2 border border-[#2a2e37] px-3 text-[10px] font-bold text-[#ebebeb]" onClick={exit}>
+                            <button className="flex h-9 items-center gap-2 border border-[var(--dc-line)] px-3 text-[10px] font-bold text-[var(--dc-text)]" onClick={exit}>
                                 <LogOut size={14} /> Cerrar sesión
                             </button>
                         </div>
@@ -100,7 +130,7 @@ export default function DashboardLayout() {
                 )}
             </header>
 
-            <main className="min-w-0">
+            <main className="dc-dashboard-stage min-w-0">
                 <Outlet />
             </main>
         </div>

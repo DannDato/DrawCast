@@ -6,6 +6,19 @@ const MAX_NETWORK_SAMPLES = 18;
 const REFRESH_MS = 10000;
 const LONG_TASK_WINDOW_MS = 30000;
 
+const TONE_DOT = {
+  idle: 'bg-[var(--dc-text-disabled)] text-[var(--dc-text-disabled)]',
+  good: 'bg-[var(--dc-success)] text-[var(--dc-success)]',
+  warn: 'bg-[var(--dc-warning)] text-[var(--dc-warning)]',
+  bad: 'bg-[var(--dc-danger)] text-[var(--dc-danger)]'
+};
+
+const VERDICT_TONE = {
+  good: 'border-[var(--dc-success-border)] bg-[var(--dc-success-bg)] text-[var(--dc-success)]',
+  warn: 'border-[var(--dc-warning-border)] bg-[var(--dc-warning-bg)] text-[var(--dc-warning)]',
+  bad: 'border-[var(--dc-danger-border)] bg-[var(--dc-danger-bg)] text-[var(--dc-danger)]'
+};
+
 function average(values) {
   if (!values.length) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -80,7 +93,7 @@ function measureFps(duration = 850) {
 }
 
 function Sparkline({ values }) {
-  if (values.length < 2) return <div className="dc-connection-sparkline-empty">Esperando muestras...</div>;
+  if (values.length < 2) return <div className="mt-2.5 grid h-12 place-items-center border-b border-dashed border-[var(--dc-line-soft)] text-[13px] text-[var(--dc-text-dim)]">Esperando muestras...</div>;
   const width = 260;
   const height = 54;
   const min = Math.min(...values);
@@ -92,8 +105,8 @@ function Sparkline({ values }) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   return (
-    <svg className="dc-connection-sparkline" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Historial reciente de latencia">
-      <polyline points={points} fill="none" vectorEffect="non-scaling-stroke" />
+    <svg className="mt-2.5 h-12 w-full overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Historial reciente de latencia">
+      <polyline className="stroke-[var(--dc-accent)] [stroke-width:1.5]" points={points} fill="none" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -118,6 +131,15 @@ function diagnose({ online, failedChecks, latency, jitterMs, server, fps, longTa
   }
 
   return { tone: 'good', title: 'Conexión estable', message: 'Red, navegador y servidor están dentro de rangos normales en esta muestra.' };
+}
+
+function DiagnosticCard({ icon, title, tone, primary, primaryLabel, stats, children }) {
+  return <article className="flex min-h-[205px] min-w-0 flex-col bg-[var(--dc-surface-1)] p-3.5 max-[980px]:min-h-0">
+    <div className="flex items-center justify-between gap-2.5 text-[var(--dc-muted)]"><span className="inline-flex items-center gap-[7px] font-extrabold text-[var(--dc-text)]">{icon} {title}</span><i className={`h-2 w-2 rounded-full shadow-[0_0_9px_currentColor] ${TONE_DOT[tone] || TONE_DOT.idle}`} /></div>
+    <div className="mt-[18px] grid gap-[3px]"><strong className="text-[27px] leading-none">{primary}</strong><span className="text-[13px] text-[var(--dc-muted)]">{primaryLabel}</span></div>
+    <div className="mt-3.5 grid grid-cols-2 gap-[7px] max-[680px]:grid-cols-1">{stats.map(([value, label]) => <span className="grid min-w-0 gap-0.5 border border-[var(--dc-line-soft)] p-2 text-[13px] text-[var(--dc-muted)]" key={label}><b className="truncate text-[13px] text-[var(--dc-text)]">{value}</b>{label}</span>)}</div>
+    {children}
+  </article>;
 }
 
 export default function ConnectionDiagnostics() {
@@ -199,7 +221,6 @@ export default function ConnectionDiagnostics() {
   }, []);
 
   const recentLongTasks = longTasks;
-
   const latency = samples.length ? average(samples.slice(-6)) : null;
   const jitterMs = samples.length ? jitter(samples.slice(-8)) : 0;
   const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
@@ -207,46 +228,37 @@ export default function ConnectionDiagnostics() {
   const worstLongTask = recentLongTasks.reduce((max, item) => Math.max(max, item.duration), 0);
 
   return (
-    <section className="dc-connection-panel">
-      <div className="dc-connection-head">
-        <div>
+    <section className="overflow-hidden bg-[var(--dc-panel)] text-[13px] shadow-[0_8px_24px_var(--dc-shadow-soft)]">
+      <div className="flex items-center justify-between gap-5 px-[22px] pb-2.5 pt-5 max-[680px]:flex-col max-[680px]:items-start">
+        <div className="min-w-0">
           <span className="dc-kicker">ESTADO DE CONEXIÓN</span>
-          <h2>Diagnóstico en tiempo real</h2>
-          <p>Ayuda a distinguir problemas de red, del navegador o del servidor. No sustituye una prueba de velocidad.</p>
+          <h2 className="my-1 text-[19px]">Diagnóstico en tiempo real</h2>
+          <p className="m-0 max-w-[760px] text-[13px] leading-[1.45] text-[var(--dc-muted)]">Ayuda a distinguir problemas de red, del navegador o del servidor. No sustituye una prueba de velocidad.</p>
         </div>
-        <button type="button" onClick={runCheck} disabled={checking} title="Actualizar diagnóstico"><RefreshCw size={15} className={checking ? 'spinning' : ''} /> {checking ? 'Midiendo...' : 'Actualizar'}</button>
+        <button type="button" className="inline-flex min-h-9 shrink-0 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-1)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] hover:border-[var(--dc-accent)] hover:bg-[var(--dc-accent-soft)] disabled:cursor-wait disabled:opacity-60 max-[680px]:w-full" onClick={runCheck} disabled={checking} title="Actualizar diagnóstico"><RefreshCw size={15} className={checking ? 'animate-spin' : ''} /> {checking ? 'Midiendo...' : 'Actualizar'}</button>
       </div>
 
-      <div className={`dc-connection-verdict ${diagnosis.tone}`}>
-        <span className="dc-connection-verdict-icon">{diagnosis.tone === 'bad' && !online ? <WifiOff size={18} /> : <Activity size={18} />}</span>
-        <div><strong>{diagnosis.title}</strong><span>{diagnosis.message}</span></div>
+      <div className={`mx-5 mt-3.5 flex items-center gap-[11px] border p-3 px-3.5 max-[680px]:items-start ${VERDICT_TONE[diagnosis.tone] || VERDICT_TONE.good}`}>
+        <span className="grid h-8 w-8 shrink-0 place-items-center border border-current">{diagnosis.tone === 'bad' && !online ? <WifiOff size={18} /> : <Activity size={18} />}</span>
+        <div className="grid min-w-0 gap-0.5"><strong className="text-[13px]">{diagnosis.title}</strong><span className="text-[13px] leading-[1.4] text-current opacity-80">{diagnosis.message}</span></div>
       </div>
 
-      <div className="dc-connection-grid">
-        <article className="dc-connection-card">
-          <div className="dc-connection-card-head"><span><Wifi size={17} /> Red</span><i className={toneForLatency(latency)} /></div>
-          <div className="dc-connection-primary"><strong>{formatMs(latency)}</strong><span>latencia a DrawCast</span></div>
-          <div className="dc-connection-stats"><span><b>{formatMs(jitterMs)}</b> jitter</span><span><b>{online ? 'En línea' : 'Sin red'}</b> navegador</span></div>
+      <div className="grid grid-cols-3 gap-2.5 px-5 pb-5 pt-3.5 max-[980px]:grid-cols-1">
+        <DiagnosticCard icon={<Wifi size={17} />} title="Red" tone={toneForLatency(latency)} primary={formatMs(latency)} primaryLabel="latencia a DrawCast" stats={[[formatMs(jitterMs), 'jitter'], [online ? 'En línea' : 'Sin red', 'navegador']]}>
           <Sparkline values={samples} />
-          <p>{connectionLabel(connection)}</p>
-        </article>
+          <p className="mb-0 mt-auto pt-[11px] text-[13px] leading-[1.35] text-[var(--dc-muted)]">{connectionLabel(connection)}</p>
+        </DiagnosticCard>
 
-        <article className="dc-connection-card">
-          <div className="dc-connection-card-head"><span><Cpu size={17} /> Este equipo</span><i className={toneForFps(fps)} /></div>
-          <div className="dc-connection-primary"><strong>{Number.isFinite(fps) ? `${fps} FPS` : '—'}</strong><span>fluidez del navegador</span></div>
-          <div className="dc-connection-stats"><span><b>{recentLongTasks.length}</b> bloqueos &gt;50 ms</span><span><b>{worstLongTask ? `${Math.round(worstLongTask)} ms` : '0 ms'}</b> peor bloqueo</span></div>
-          <p>{navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} hilos lógicos` : 'CPU no reportada'}{navigator.deviceMemory ? ` · ~${navigator.deviceMemory} GB RAM` : ''}</p>
-        </article>
+        <DiagnosticCard icon={<Cpu size={17} />} title="Este equipo" tone={toneForFps(fps)} primary={Number.isFinite(fps) ? `${fps} FPS` : '—'} primaryLabel="fluidez del navegador" stats={[[recentLongTasks.length, 'bloqueos >50 ms'], [worstLongTask ? `${Math.round(worstLongTask)} ms` : '0 ms', 'peor bloqueo']]}>
+          <p className="mb-0 mt-auto pt-[11px] text-[13px] leading-[1.35] text-[var(--dc-muted)]">{navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} hilos lógicos` : 'CPU no reportada'}{navigator.deviceMemory ? ` · ~${navigator.deviceMemory} GB RAM` : ''}</p>
+        </DiagnosticCard>
 
-        <article className="dc-connection-card">
-          <div className="dc-connection-card-head"><span><Server size={17} /> Servidor</span><i className={toneForEventLoop(server?.eventLoop?.p95Ms)} /></div>
-          <div className="dc-connection-primary"><strong>{formatMs(server?.eventLoop?.p95Ms)}</strong><span>espera interna p95</span></div>
-          <div className="dc-connection-stats"><span><b>{Number.isFinite(server?.cpu?.loadPercent) ? `${Math.round(server.cpu.loadPercent)}%` : '—'}</b> carga CPU</span><span><b>{Number.isFinite(server?.memory?.heapPercent) ? `${Math.round(server.memory.heapPercent)}%` : '—'}</b> heap Node</span></div>
-          <p>{server ? `Activo hace ${Math.max(1, Math.round(server.uptimeSeconds / 60))} min · ${server.cpu?.cores || '—'} cores` : 'Esperando respuesta del servidor...'}</p>
-        </article>
+        <DiagnosticCard icon={<Server size={17} />} title="Servidor" tone={toneForEventLoop(server?.eventLoop?.p95Ms)} primary={formatMs(server?.eventLoop?.p95Ms)} primaryLabel="espera interna p95" stats={[[Number.isFinite(server?.cpu?.loadPercent) ? `${Math.round(server.cpu.loadPercent)}%` : '—', 'carga CPU'], [Number.isFinite(server?.memory?.heapPercent) ? `${Math.round(server.memory.heapPercent)}%` : '—', 'heap Node']]}>
+          <p className="mb-0 mt-auto pt-[11px] text-[13px] leading-[1.35] text-[var(--dc-muted)]">{server ? `Activo hace ${Math.max(1, Math.round(server.uptimeSeconds / 60))} min · ${server.cpu?.cores || '—'} cores` : 'Esperando respuesta del servidor...'}</p>
+        </DiagnosticCard>
       </div>
 
-      <div className="dc-connection-foot"><Gauge size={14} /><span>Las cifras son muestras recientes de este navegador y pueden cambiar con Wi‑Fi, VPN, carga del equipo o distancia al servidor.</span></div>
+      <div className="flex min-h-[42px] items-center gap-[7px] px-[22px] pb-[18px] text-[13px] text-[var(--dc-muted)] max-[680px]:items-start max-[680px]:py-[11px]"><Gauge size={14} className="shrink-0 text-[var(--dc-accent)]" /><span>Las cifras son muestras recientes de este navegador y pueden cambiar con Wi‑Fi, VPN, carga del equipo o distancia al servidor.</span></div>
     </section>
   );
 }

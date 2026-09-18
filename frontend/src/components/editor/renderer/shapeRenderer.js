@@ -1,3 +1,4 @@
+import { getThemeColor } from '../../../utils/theme';
 function clampRadius(radius, max) {
   return Math.max(0, Math.min(Number(radius) || 0, max));
 }
@@ -118,8 +119,8 @@ export function traceShapePath(ctx, shape) {
 export function drawShape(ctx, shape) {
   traceShapePath(ctx, shape);
 
-  const fillColor = shape.fillColor ?? shape.fill ?? '#e9e9e9';
-  const strokeColor = shape.strokeColor ?? shape.stroke ?? '#000000';
+  const fillColor = shape.fillColor ?? shape.fill ?? getThemeColor('--dc-object-fill', '--dc-text');
+  const strokeColor = shape.strokeColor ?? shape.stroke ?? getThemeColor('--dc-object-stroke', '--dc-bg');
   const strokeWidth = Math.max(0, Number(shape.strokeWidth ?? shape.strokeSize) || 0);
 
   if (fillColor) {

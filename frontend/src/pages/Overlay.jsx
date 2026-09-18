@@ -69,5 +69,5 @@ export default function Overlay() {
     return () => window.clearInterval(timer);
   }, []);
 
-  return <canvas ref={canvasRef} width="1920" height="1080" className="dc-overlay-canvas" />;
+  return <canvas ref={canvasRef} width="1920" height="1080" className="fixed inset-0 h-screen w-screen bg-transparent" />;
 }

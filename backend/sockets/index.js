@@ -25,6 +25,7 @@ import logger from '../helpers/winston.js';
 const room = (channelId) => `channel:${channelId}`;
 const editorRoom = (channelId) => `channel:${channelId}:editors`;
 const overlayRoom = (channelId) => `channel:${channelId}:overlays`;
+const EDITOR_CURSOR_LIMIT = 100000;
 
 async function socketUser(socket) {
   try {
@@ -202,11 +203,11 @@ export function configureSockets(io) {
     edit('cursor-move', (context, payload) => {
       const x = Number(payload?.x);
       const y = Number(payload?.y);
-      if (!Number.isFinite(x) || !Number.isFinite(y) || x < -100 || y < -100 || x > 2020 || y > 1180) return;
+      if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > EDITOR_CURSOR_LIMIT || Math.abs(y) > EDITOR_CURSOR_LIMIT) return;
       socket.to(editorRoom(context.channelId)).volatile.emit('cursor-move', {
         socketId: socket.id,
-        x: Math.max(0, Math.min(1920, x)),
-        y: Math.max(0, Math.min(1080, y)),
+        x,
+        y,
         at: Date.now()
       });
     });
@@ -261,7 +262,7 @@ export function configureSockets(io) {
     }, { allowWhenBlocked: true });
 
     socket.on('disconnect', () => {
-      if (!joined) return;
+      if (!joined || socket.data?.channelDeleted) return;
       const result = disconnectRole(joined.channelId, socket.id, io);
       if (joined.role === 'editor') {
         socket.to(editorRoom(joined.channelId)).emit('cursor-leave', { socketId: socket.id });

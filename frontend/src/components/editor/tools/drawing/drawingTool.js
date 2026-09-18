@@ -1,4 +1,5 @@
 import { boundsCenter, unrotatePointAround } from '../../renderer/transformUtils';
+import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
@@ -12,7 +13,7 @@ export const BRUSH_PRESETS = [
 ];
 
 export const DEFAULT_DRAW_CONFIG = {
-  color: '#ebebeb',
+  color: DEFAULT_EDITOR_PREFERENCES.colors.drawing,
   size: 10,
   brush: 'pencil',
   opacity: 1
@@ -207,7 +208,7 @@ export function reduceLiveStrokeMap(current, payload) {
       id: payload.strokeId,
       layerId: payload.layerId,
       mode: payload.mode === 'erase' ? 'erase' : 'paint',
-      color: payload.color || '#ebebeb',
+      color: payload.color || DEFAULT_EDITOR_PREFERENCES.colors.drawing,
       size: Math.max(2, Math.min(100, Number(payload.size) || 10)),
       brush: payload.brush || 'pencil',
       opacity: Math.max(0.05, Math.min(1, Number(payload.opacity) || 1)),

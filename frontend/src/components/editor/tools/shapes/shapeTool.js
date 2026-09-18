@@ -1,3 +1,4 @@
+import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 export const SHAPE_TYPES = [
   { value: 'square', label: 'Cuadrado' },
   { value: 'circle', label: 'Círculo' },
@@ -7,8 +8,8 @@ export const SHAPE_TYPES = [
 
 export const DEFAULT_SHAPE_CONFIG = {
   shapeType: 'square',
-  fillColor: '#e9e9e9',
-  strokeColor: '#000000',
+  fillColor: DEFAULT_EDITOR_PREFERENCES.colors.shapeFill,
+  strokeColor: DEFAULT_EDITOR_PREFERENCES.colors.shapeStroke,
   strokeWidth: 0,
   borderRadius: 0
 };

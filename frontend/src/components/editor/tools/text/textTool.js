@@ -1,3 +1,4 @@
+import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 export const TEXT_FONTS = [
   { key: 'segoe', label: 'Segoe UI (Predeterminada)', family: "'Segoe UI', sans-serif" },
   { key: 'bebas', label: 'Bebas Neue', family: "'Bebas Neue', sans-serif" },
@@ -8,8 +9,8 @@ export const TEXT_FONTS = [
 export const DEFAULT_TEXT_CONFIG = {
   fontKey: 'segoe',
   fontFamily: "'Segoe UI', sans-serif",
-  color: '#ffffff',
-  strokeColor: '#000000',
+  color: DEFAULT_EDITOR_PREFERENCES.colors.text,
+  strokeColor: DEFAULT_EDITOR_PREFERENCES.colors.textStroke,
   strokeWidth: 6,
   fontSize: 56
 };
@@ -53,15 +54,29 @@ export function textLayerName(value, fallback = 'TEXTO') {
   return clean || fallback;
 }
 
+let measureContext = null;
+
+function getMeasureContext() {
+  if (measureContext || typeof document === 'undefined') return measureContext;
+  measureContext = document.createElement('canvas').getContext('2d');
+  return measureContext;
+}
+
 export function measureTextBounds(value, config = DEFAULT_TEXT_CONFIG) {
   const normalized = normalizeTextConfig(config);
   const lines = String(value || '').split(/\r?\n/);
-  const longest = Math.max(1, ...lines.map((line) => line.length));
   const lineHeight = normalized.fontSize * 1.18;
+  const context = getMeasureContext();
+
+  let width = Math.max(1, ...lines.map((line) => Math.max(1, line.length) * normalized.fontSize * 0.6));
+  if (context) {
+    context.font = `900 ${normalized.fontSize}px ${normalized.fontFamily}`;
+    width = Math.max(1, ...lines.map((line) => context.measureText(line || ' ').width));
+  }
 
   return {
-    w: Math.max(200, longest * normalized.fontSize * 0.6),
-    h: Math.max(normalized.fontSize * 1.5, lines.length * lineHeight)
+    w: Math.max(8, Math.ceil(width + normalized.strokeWidth)),
+    h: Math.max(8, Math.ceil(lines.length * lineHeight + (normalized.strokeWidth / 2)))
   };
 }
 

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowRight, Copy, ExternalLink, FileStack, Link2, MonitorPlay, Pause, Play, Plus, Radio, Search, Trash2, UserPlus, Users, Video, X } from 'lucide-react';
-import { createChannel, getChannels, getCollaborators, getFeaturedChannel, inviteCollaborator, removeCollaborator, setCollaboratorAccess } from '../api/channels';
+import { Activity, ArrowRight, Copy, ExternalLink, FileStack, Link2, LogOut, MonitorPlay, Pause, Play, Plus, Radio, Search, Trash2, UserPlus, Users, Video, X } from 'lucide-react';
+import { createChannel, deleteChannel, getChannels, getCollaborators, getFeaturedChannel, inviteCollaborator, leaveChannel, removeCollaborator, setCollaboratorAccess } from '../api/channels';
 import { useAuth } from '../context/AuthContext';
 import { useSystemAlert } from '../components/ui/SystemAlert';
-import ConnectionDiagnostics from '../components/dashboard/ConnectionDiagnostics';
 
 function initials(user) {
   const source = String(user?.username || user?.displayName || 'U').replace(/^@/, '').trim();
@@ -78,7 +77,7 @@ function FeaturedStreamer({ channel }) {
       <div className="dc-home-featured-media">
         {embed ? <iframe src={embed} title={`Streamer del día: ${channel.name}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen /> : <a className="dc-home-featured-fallback" href={channel.channelUrl} target="_blank" rel="noreferrer"><MonitorPlay size={38} /><strong>Ver el canal</strong><span>Esta plataforma no ofrece un embed compatible aquí.</span></a>}
       </div>
-      <div className="dc-home-featured-footer">
+      <div className="dc-home-featured-footer bg-[var(--dc-panel)]">
         <div><span className="dc-kicker">STREAMER DEL DÍA</span><h2>{channel.name}</h2><p>{handle ? `@${handle}` : (channel.platform?.toUpperCase() || 'CANAL DE LA COMUNIDAD')}</p></div>
         <a href={channel.channelUrl} target="_blank" rel="noreferrer" title="Visitar canal"><ExternalLink size={17} /></a>
       </div>
@@ -126,7 +125,7 @@ function CollaboratorAvatar({ user }) {
     : <span className="dc-collab-avatar dc-collab-initials">{initials(user)}</span>;
 }
 
-function CanvasDetails({ channel, collaborators, loadingCollaborators, inviteState, onInviteChange, onInvite, onToggleCollaborator, onRemoveCollaborator, onClose }) {
+function CanvasDetails({ channel, collaborators, loadingCollaborators, inviteState, onInviteChange, onInvite, onToggleCollaborator, onRemoveCollaborator, onDeleteChannel }) {
   const origin = window.location.origin;
   const editorUrl = `${origin}/app/editor/${channel.publicKey}`;
   const overlayUrl = `${origin}/overlay/${channel.publicKey}`;
@@ -136,7 +135,7 @@ function CanvasDetails({ channel, collaborators, loadingCollaborators, inviteSta
     <section className="dc-home-canvas-details">
       <div className="dc-home-canvas-details-head">
         <div><span className="dc-kicker">LIENZO SELECCIONADO</span><div className="dc-home-detail-title"><h2>{channel.name}</h2><span className={`dc-home-canvas-status ${status.tone}`}><i />{status.label}</span></div></div>
-        <div className="dc-home-detail-actions"><Link className="dc-action" to={`/app/editor/${channel.publicKey}`}><MonitorPlay size={15} /> Abrir editor</Link><button type="button" className="dc-canvas-mini-action" onClick={onClose} title="Cerrar detalle"><X size={15} /></button></div>
+        <div className="dc-home-detail-actions"><Link className="inline-flex min-h-[34px] items-center justify-center gap-[7px] border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-[11px] text-[13px] font-extrabold text-[var(--dc-button-primary-text)] transition hover:brightness-110" to={`/app/editor/${channel.publicKey}`}><MonitorPlay size={15} /> Abrir editor</Link></div>
       </div>
 
       <div className="dc-canvas-links-grid">
@@ -148,7 +147,7 @@ function CanvasDetails({ channel, collaborators, loadingCollaborators, inviteSta
       <section className="dc-canvas-collaborators">
         <div className="dc-canvas-section-heading"><div><span className="dc-kicker">EQUIPO</span><h3>Colaboradores</h3></div><span>{collaborators?.length || 0} registrados</span></div>
         <div className="dc-canvas-invite-row">
-          <input type="email" value={inviteState.email} onChange={(event) => onInviteChange({ ...inviteState, email: event.target.value, message: '' })} placeholder="correo@ejemplo.com" />
+          <input type="email" className="w-full border border-[var(--dc-line)] bg-[var(--dc-input-bg)] p-2.5 text-[var(--dc-text-strong)]" value={inviteState.email} onChange={(event) => onInviteChange({ ...inviteState, email: event.target.value, message: '' })} placeholder="correo@ejemplo.com" />
           <button type="button" onClick={onInvite} disabled={!inviteState.email.trim() || inviteState.sending}><UserPlus size={15} /> {inviteState.sending ? 'Enviando...' : 'Invitar'}</button>
         </div>
         {inviteState.message && <p className="dc-canvas-inline-message">{inviteState.message}</p>}
@@ -162,6 +161,11 @@ function CanvasDetails({ channel, collaborators, loadingCollaborators, inviteSta
           <button type="button" className="dc-collab-control" title={row.canEdit ? 'Suspender colaborador' : 'Reactivar colaborador'} onClick={() => onToggleCollaborator(row)}>{row.canEdit ? <Pause size={15} /> : <Play size={15} />}</button>
           <button type="button" className="dc-collab-control danger" title="Eliminar colaborador" onClick={() => onRemoveCollaborator(row)}><Trash2 size={15} /></button>
         </div>)}</div>
+      </section>
+
+      <section className="mt-[18px] flex items-center justify-between gap-5 pt-4 max-[680px]:flex-col max-[680px]:items-stretch">
+        <div className="min-w-0"><h3 className="mb-1 mt-[3px] text-[17px] text-[var(--dc-danger-text)]">Eliminar lienzo</h3><p className="m-0 max-w-[720px] text-[13px] leading-[1.45] text-[var(--dc-muted)]">Elimina permanentemente colaboradores, invitaciones, diseños guardados, archivos subidos y el acceso al editor/overlay.</p></div>
+        <button type="button" className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-[7px] border border-[var(--dc-button-danger-border)] bg-[var(--dc-button-danger-bg)] px-[13px] text-[13px] font-bold text-[var(--dc-button-danger-text)] hover:brightness-110 max-[680px]:w-full" onClick={onDeleteChannel}><Trash2 size={15} /> Eliminar lienzo</button>
       </section>
     </section>
   );
@@ -216,7 +220,7 @@ function DashboardSummary({ user, channels, used, limit }) {
 
 export default function ChannelDashboard() {
   const { user } = useAuth();
-  const { showAlert, confirmDialog } = useSystemAlert();
+  const { showAlert, confirmDialog, confirmTextDialog } = useSystemAlert();
   const [data, setData] = useState({ ownedChannels: [], collaborations: [], limits: { canvases: 3, used: 0, remaining: 3 } });
   const [featured, setFeatured] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -255,6 +259,17 @@ export default function ChannelDashboard() {
       if (!active) return;
       setData(channels);
       setFeatured(featuredResult.channel || null);
+
+      const firstChannel = (channels.ownedChannels || (channels.owned ? [channels.owned] : []))[0] || null;
+      if (!firstChannel) return;
+
+      setExpandedId(firstChannel.id);
+      setCollabLoading((current) => ({ ...current, [firstChannel.id]: true }));
+      getCollaborators(firstChannel.id).then((rows) => {
+        if (active) setCollaboratorsByCanvas((current) => ({ ...current, [firstChannel.id]: rows }));
+      }).catch(() => {}).finally(() => {
+        if (active) setCollabLoading((current) => ({ ...current, [firstChannel.id]: false }));
+      });
     }).catch(() => {}).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -271,10 +286,11 @@ export default function ChannelDashboard() {
     }
   };
 
-  const toggleCanvas = (channel) => {
-    const opening = expandedId !== channel.id;
-    setExpandedId(opening ? channel.id : null);
-    if (opening) ensureCollaborators(channel.id).catch(() => {});
+
+  const selectCanvas = (channel) => {
+    if (expandedId === channel.id) return;
+    setExpandedId(channel.id);
+    ensureCollaborators(channel.id).catch(() => {});
   };
 
   const handleCreate = async () => {
@@ -334,8 +350,64 @@ export default function ChannelDashboard() {
     }
   };
 
+
+  const handleDeleteChannel = async (channel) => {
+    const firstConfirm = await confirmDialog({
+      title: `¿Eliminar “${channel.name}”?`,
+      message: 'Esta acción es permanente. Se eliminarán sus colaboradores, invitaciones, diseños guardados, archivos subidos y sus URLs de editor/overlay.',
+      confirmLabel: 'Continuar',
+      cancelLabel: 'Cancelar',
+      tone: 'danger'
+    });
+    if (!firstConfirm) return;
+
+    const requiredText = `${channel.name} BORRAR`;
+    const typed = await confirmTextDialog({
+      title: 'Confirmación de seguridad',
+      message: 'Para evitar eliminaciones accidentales, confirma escribiendo el nombre del lienzo seguido de BORRAR.',
+      requiredText,
+      inputLabel: 'Nombre del lienzo + BORRAR',
+      confirmLabel: 'Eliminar definitivamente',
+      cancelLabel: 'Cancelar',
+      tone: 'danger'
+    });
+    if (typed !== requiredText) return;
+
+    try {
+      await deleteChannel(channel.id, typed);
+      setCollaboratorsByCanvas((current) => { const next = { ...current }; delete next[channel.id]; return next; });
+      const [next, featuredResult] = await Promise.all([load({ force: true }), getFeaturedChannel({ force: true })]);
+      setFeatured(featuredResult.channel || null);
+      const remaining = next.ownedChannels || (next.owned ? [next.owned] : []);
+      const nextSelected = remaining[0] || null;
+      setExpandedId(nextSelected?.id ?? null);
+      if (nextSelected) ensureCollaborators(nextSelected.id, { force: true }).catch(() => {});
+      await showAlert({ title: 'Lienzo eliminado', message: `“${channel.name}” se eliminó permanentemente.`, tone: 'success' });
+    } catch (error) {
+      await showAlert({ title: 'No se pudo eliminar el lienzo', message: error.response?.data?.message || 'Inténtalo nuevamente.', tone: 'danger' });
+    }
+  };
+
+  const handleLeaveChannel = async (channel) => {
+    const accepted = await confirmDialog({
+      title: `¿Abandonar “${channel.name}”?`,
+      message: 'Dejarás de tener acceso a este lienzo. Para volver, el propietario tendrá que invitarte nuevamente.',
+      confirmLabel: 'Abandonar lienzo',
+      cancelLabel: 'Cancelar',
+      tone: 'danger'
+    });
+    if (!accepted) return;
+    try {
+      await leaveChannel(channel.id);
+      setData((current) => ({ ...current, collaborations: (current.collaborations || []).filter((item) => item.id !== channel.id) }));
+      await showAlert({ title: 'Lienzo abandonado', message: `Ya no colaboras en “${channel.name}”.`, tone: 'success' });
+    } catch (error) {
+      await showAlert({ title: 'No se pudo abandonar el lienzo', message: error.response?.data?.message || 'Inténtalo nuevamente.', tone: 'danger' });
+    }
+  };
+
   return (
-    <div className="dc-dashboard dc-canvases-home mx-auto w-[min(1240px,calc(100%-32px))] py-8 pt-7">
+    <div className="mx-auto w-full max-w-[1440px] py-8 pt-7 text-[13px]">
       <div className="dc-home-main-grid">
         <FeaturedStreamer channel={featured} />
 
@@ -355,7 +427,7 @@ export default function ChannelDashboard() {
             {loading ? <div className="dc-home-canvas-placeholder">Cargando tus lienzos...</div> : null}
             {!loading && ownedChannels.length === 0 ? <button type="button" className="dc-home-canvas-empty" onClick={() => setCreating(true)} disabled={atLimit}><Plus size={22} /><strong>Crea tu primer lienzo</strong><span>Obtendrás un editor y un overlay para OBS.</span></button> : null}
             {!loading && ownedChannels.length > 0 && filteredOwnedChannels.length === 0 ? <div className="dc-home-canvas-placeholder">No encontramos lienzos con “{canvasQuery}”.</div> : null}
-            {filteredOwnedChannels.map((channel) => <CanvasSummaryCard key={channel.id} channel={channel} selected={expandedId === channel.id} onClick={() => toggleCanvas(channel)} />)}
+            {filteredOwnedChannels.map((channel) => <CanvasSummaryCard key={channel.id} channel={channel} selected={expandedId === channel.id} onClick={() => selectCanvas(channel)} />)}
           </div>
 
           <div className="dc-home-canvases-foot"><span>{used} de {limit} usados</span><span>{Math.max(0, limit - used)} disponible{Math.max(0, limit - used) === 1 ? '' : 's'}</span></div>
@@ -364,19 +436,18 @@ export default function ChannelDashboard() {
 
       {creating && !atLimit && <section className="dc-new-canvas-card dc-home-new-canvas-form">
         <div><span className="dc-kicker">NUEVO LIENZO</span><h2>Prepara otro espacio</h2><p>El nombre es obligatorio. El link del canal es opcional; si lo agregas, podrá aparecer en Streamer del día.</p></div>
-        <label><span>Nombre</span><input value={newCanvas.name} onChange={(event) => setNewCanvas((current) => ({ ...current, name: event.target.value }))} placeholder="Ej. Stream principal" maxLength={120} /></label>
-        <label><span>Link del canal · opcional</span><div className="dc-input-with-icon"><Link2 size={15} /><input value={newCanvas.channelUrl} onChange={(event) => setNewCanvas((current) => ({ ...current, channelUrl: event.target.value }))} placeholder="https://twitch.tv/tu_canal" /></div></label>
+        <label><span>Nombre</span><input className="w-full border border-[var(--dc-line)] bg-[var(--dc-input-bg)] text-[var(--dc-text-strong)]" value={newCanvas.name} onChange={(event) => setNewCanvas((current) => ({ ...current, name: event.target.value }))} placeholder="Ej. Stream principal" maxLength={120} /></label>
+        <label><span>Link del canal · opcional</span><div className="dc-input-with-icon"><Link2 size={15} /><input className="w-full border border-[var(--dc-line)] bg-[var(--dc-input-bg)] text-[var(--dc-text-strong)]" value={newCanvas.channelUrl} onChange={(event) => setNewCanvas((current) => ({ ...current, channelUrl: event.target.value }))} placeholder="https://twitch.tv/tu_canal" /></div></label>
         <div className="dc-new-canvas-actions"><button type="button" className="secondary" onClick={() => setCreating(false)}>Cancelar</button><button type="button" onClick={handleCreate} disabled={!newCanvas.name.trim() || creatingCanvas}>{creatingCanvas ? 'Creando...' : 'Crear lienzo'}</button></div>
       </section>}
 
-      {atLimit && <div className="dc-canvas-limit-note">Llegaste al límite de {limit} lienzo{limit === 1 ? '' : 's'} de tu plan. Puedes seguir administrando los que ya tienes.</div>}
+      {atLimit && <div className="my-3 border border-[var(--dc-warning-border)] bg-[var(--dc-warning-bg-soft)] px-[13px] py-[11px] text-[13px] text-[var(--dc-warning)]">Llegaste al límite de {limit} lienzo{limit === 1 ? '' : 's'} de tu plan. Puedes seguir administrando los que ya tienes.</div>}
 
-      {selectedChannel && <CanvasDetails channel={selectedChannel} collaborators={collaboratorsByCanvas[selectedChannel.id]} loadingCollaborators={Boolean(collabLoading[selectedChannel.id])} inviteState={inviteState(selectedChannel.id)} onInviteChange={(next) => setInviteState(selectedChannel.id, next)} onInvite={() => handleInvite(selectedChannel.id)} onToggleCollaborator={(row) => handleToggleCollaborator(selectedChannel.id, row)} onRemoveCollaborator={(row) => handleRemoveCollaborator(selectedChannel.id, row)} onClose={() => setExpandedId(null)} />}
+      {selectedChannel && <CanvasDetails channel={selectedChannel} collaborators={collaboratorsByCanvas[selectedChannel.id]} loadingCollaborators={Boolean(collabLoading[selectedChannel.id])} inviteState={inviteState(selectedChannel.id)} onInviteChange={(next) => setInviteState(selectedChannel.id, next)} onInvite={() => handleInvite(selectedChannel.id)} onToggleCollaborator={(row) => handleToggleCollaborator(selectedChannel.id, row)} onRemoveCollaborator={(row) => handleRemoveCollaborator(selectedChannel.id, row)} onDeleteChannel={() => handleDeleteChannel(selectedChannel)} />}
 
       <DashboardSummary user={user} channels={ownedChannels} used={used} limit={limit} />
-      <ConnectionDiagnostics />
 
-      {(data.collaborations || []).length > 0 && <section className="dc-shared-canvases"><div className="dc-canvas-section-heading"><div><span className="dc-kicker">COLABORACIÓN</span><h2>Compartidos contigo</h2></div><span>{data.collaborations.length} lienzo{data.collaborations.length === 1 ? '' : 's'}</span></div><div className="dc-shared-grid">{data.collaborations.map((channel) => <Link key={channel.id} to={`/app/editor/${channel.publicKey}`} className="dc-shared-card"><div><strong>{channel.name}</strong><span>{channel.platform ? channel.platform.toUpperCase() : 'LIENZO COMPARTIDO'}</span></div><ExternalLink size={16} /></Link>)}</div></section>}
+      {(data.collaborations || []).length > 0 && <section className="dc-shared-canvases"><div className="dc-canvas-section-heading"><div><span className="dc-kicker">COLABORACIÓN</span><h2>Compartidos contigo</h2></div><span>{data.collaborations.length} lienzo{data.collaborations.length === 1 ? '' : 's'}</span></div><div className="dc-shared-grid">{data.collaborations.map((channel) => <div className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] max-[680px]:grid-cols-1 ${channel.collaboration?.canEdit === false ? 'opacity-80' : ''}`} key={channel.id}>{channel.collaboration?.canEdit === false ? <div className="dc-shared-card border-[var(--dc-warning-border)] bg-[var(--dc-warning-bg)]"><div><strong>{channel.name}</strong><span className="!text-[var(--dc-warning)]">SUSPENDIDO · SIN ACCESO DE EDICIÓN</span></div><Pause size={16} /></div> : <Link to={`/app/editor/${channel.publicKey}`} className="dc-shared-card"><div><strong>{channel.name}</strong><span>{channel.platform ? channel.platform.toUpperCase() : 'LIENZO COMPARTIDO'}</span></div><ExternalLink size={16} /></Link>}<button type="button" className="inline-flex min-w-[108px] items-center justify-center gap-[7px] border border-l-0 border-[var(--dc-button-danger-border)] bg-[var(--dc-button-danger-bg)] px-2.5 text-[13px] font-bold text-[var(--dc-button-danger-text)] hover:brightness-110 max-[680px]:min-h-9 max-[680px]:border-l max-[680px]:border-t-0" onClick={() => handleLeaveChannel(channel)} title="Abandonar lienzo"><LogOut size={15} /> Abandonar</button></div>)}</div></section>}
     </div>
   );
 }

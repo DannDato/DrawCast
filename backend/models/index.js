@@ -74,6 +74,7 @@ models.ChannelCollaborator.belongsTo(models.Channel, { foreignKey: 'channelId', 
 models.ChannelCollaborator.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
 models.Channel.hasMany(models.ChannelInvitation, { foreignKey: 'channelId', as: 'invitations', onDelete: 'CASCADE' });
 models.ChannelInvitation.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
+models.ChannelInvitation.belongsTo(models.User, { foreignKey: 'invitedBy', as: 'inviter' });
 models.Channel.hasMany(models.SavedDesign, { foreignKey: 'channelId', as: 'savedDesigns', onDelete: 'CASCADE' });
 models.SavedDesign.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
 models.User.hasMany(models.SavedDesign, { foreignKey: 'createdBy', as: 'savedDesigns', onDelete: 'CASCADE' });

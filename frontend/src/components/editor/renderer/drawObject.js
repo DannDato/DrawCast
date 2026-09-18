@@ -3,6 +3,7 @@ import { drawTextLayer } from './textRenderer';
 import { getTimerText } from '../tools/timer/timerTool';
 import { getDrawLayerBounds, isDrawLayer } from '../tools/drawing/drawingTool';
 import { boundsCenter, unrotatePointAround } from './transformUtils';
+import { getThemeColor } from '../../../utils/theme';
 
 const images = new Map();
 
@@ -70,7 +71,7 @@ export function drawStrokeLayer(ctx, object) {
     ctx.save();
     ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
     ctx.globalAlpha = erase ? 1 : Math.max(0.05, Math.min(1, Number(line.opacity) || 1));
-    ctx.strokeStyle = line.color || '#ffffff';
+    ctx.strokeStyle = line.color || getThemeColor('--dc-object-text', '--dc-text');
     ctx.lineWidth = (Number(line.size ?? line.grosor) || 8) * ((scaleX + scaleY) / 2);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';

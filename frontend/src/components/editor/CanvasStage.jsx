@@ -4,14 +4,19 @@ import { orderedObjects, renderScene } from './renderer/sceneRenderer';
 import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getObjectFrame, getSelectionBounds, hitResizeHandle, hitRotateHandle, resizeCursorForHandle, resizeSelectionFromHandle, rotateSelection } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
 import InlineTextEditor from './tools/text/InlineTextEditor';
-import { textConfigFromObject } from './tools/text/textTool';
+import { normalizeTextConfig, textConfigFromObject } from './tools/text/textTool';
 import { appendStrokePoint, hitDrawLayer, isDrawLayer, makeStroke } from './tools/drawing/drawingTool';
 import { boundsCenter, unrotatePointAround } from './renderer/transformUtils';
 import { buildSnapTargets, drawSnapGuides, SNAP_THRESHOLD_PX, snapMove, snapResizePointer } from './renderer/snapUtils';
+import { getThemeColor } from '../../utils/theme';
 
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
 const FRAME_MS = 1000 / 30;
+const MIN_ZOOM = 0.01;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.1;
+const VIEWPORT_GUTTER = 24;
 
 export default function CanvasStage({
   objects,
@@ -41,8 +46,10 @@ export default function CanvasStage({
   remoteCursors = [],
   onCursorMove,
   onCursorLeave,
-  interactionDisabled = false
+  interactionDisabled = false,
+  fitViewRequest = 0
 }) {
+  const viewportRef = useRef(null);
   const canvasRef = useRef(null);
   const interaction = useRef(null);
   const drawing = useRef(null);
@@ -51,11 +58,155 @@ export default function CanvasStage({
   const snapGuides = useRef(null);
   const guideImage = useRef(null);
   const remoteCursorsRef = useRef(remoteCursors);
+  const panInteraction = useRef(null);
+  const lastFitViewRequest = useRef(-1);
+  const fitScaleRef = useRef(1);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
   const [mediaDragging, setMediaDragging] = useState(false);
   const [textEditor, setTextEditor] = useState(null);
   const [pointerCursor, setPointerCursor] = useState('');
+  const [fitScale, setFitScale] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
 
   useEffect(() => { remoteCursorsRef.current = remoteCursors; }, [remoteCursors]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!viewport || !canvas) return undefined;
+
+    const syncViewport = () => {
+      const cssWidth = Math.max(1, viewport.clientWidth);
+      const cssHeight = Math.max(1, viewport.clientHeight);
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const pixelWidth = Math.max(1, Math.round(cssWidth * dpr));
+      const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
+      if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+      if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+
+      const usableWidth = Math.max(1, cssWidth - VIEWPORT_GUTTER * 2);
+      const usableHeight = Math.max(1, cssHeight - VIEWPORT_GUTTER * 2);
+      const nextFitScale = Math.min(usableWidth / CANVAS_WIDTH, usableHeight / CANVAS_HEIGHT);
+      fitScaleRef.current = nextFitScale;
+      setFitScale(nextFitScale);
+    };
+
+    syncViewport();
+    const observer = new ResizeObserver(syncViewport);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+
+  const setView = (nextZoom, nextPan = panRef.current) => {
+    const safeZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+    zoomRef.current = safeZoom;
+    panRef.current = nextPan;
+    setZoom(safeZoom);
+    setPan(nextPan);
+  };
+
+  const changeZoom = (delta, anchor = null) => {
+    const currentZoom = zoomRef.current;
+    const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number((currentZoom + delta).toFixed(2))));
+    if (nextZoom === currentZoom) return;
+
+    let nextPan = panRef.current;
+    const viewport = viewportRef.current;
+    if (anchor && viewport) {
+      const bounds = viewport.getBoundingClientRect();
+      const centerX = bounds.left + bounds.width / 2 + panRef.current.x;
+      const centerY = bounds.top + bounds.height / 2 + panRef.current.y;
+      const ratio = nextZoom / currentZoom;
+      nextPan = {
+        x: panRef.current.x + (anchor.clientX - centerX) * (1 - ratio),
+        y: panRef.current.y + (anchor.clientY - centerY) * (1 - ratio)
+      };
+    }
+
+    setView(nextZoom, nextPan);
+  };
+
+  const resetView = () => setView(1, { x: 0, y: 0 });
+
+  useEffect(() => {
+    if (fitViewRequest === lastFitViewRequest.current) return undefined;
+
+    const frame = requestAnimationFrame(() => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      const cssWidth = Math.max(1, viewport.clientWidth);
+      const cssHeight = Math.max(1, viewport.clientHeight);
+      const usableWidth = Math.max(1, cssWidth - VIEWPORT_GUTTER * 2);
+      const usableHeight = Math.max(1, cssHeight - VIEWPORT_GUTTER * 2);
+      const nextFitScale = Math.min(usableWidth / CANVAS_WIDTH, usableHeight / CANVAS_HEIGHT);
+      const objectBounds = Object.values(objects).map(getObjectBounds).filter(Boolean);
+      const minX = Math.min(0, ...objectBounds.map((bounds) => bounds.x));
+      const minY = Math.min(0, ...objectBounds.map((bounds) => bounds.y));
+      const maxX = Math.max(CANVAS_WIDTH, ...objectBounds.map((bounds) => bounds.x + bounds.w));
+      const maxY = Math.max(CANVAS_HEIGHT, ...objectBounds.map((bounds) => bounds.y + bounds.h));
+      const contentWidth = Math.max(1, maxX - minX);
+      const contentHeight = Math.max(1, maxY - minY);
+      const contentScale = Math.min(usableWidth / contentWidth, usableHeight / contentHeight);
+      const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, contentScale / nextFitScale));
+      const cssScale = nextFitScale * nextZoom;
+      const contentCenterX = minX + contentWidth / 2;
+      const contentCenterY = minY + contentHeight / 2;
+      const nextPan = {
+        x: -(contentCenterX - CANVAS_WIDTH / 2) * cssScale,
+        y: -(contentCenterY - CANVAS_HEIGHT / 2) * cssScale
+      };
+
+      fitScaleRef.current = nextFitScale;
+      zoomRef.current = nextZoom;
+      panRef.current = nextPan;
+      setFitScale(nextFitScale);
+      setZoom(nextZoom);
+      setPan(nextPan);
+      lastFitViewRequest.current = fitViewRequest;
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [fitViewRequest, objects]);
+
+  const onViewportWheel = (event) => {
+    event.preventDefault();
+    changeZoom(event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP, event);
+  };
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return undefined;
+    viewport.addEventListener('wheel', onViewportWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', onViewportWheel);
+  });
+
+  const onViewportPointerDown = (event) => {
+    if (tool !== 'hand' || event.button !== 0 || event.target.closest?.('.dc-canvas-zoom, .dc-inline-text-editor')) return;
+    event.preventDefault();
+    viewportRef.current?.setPointerCapture?.(event.pointerId);
+    panInteraction.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, pan: { ...panRef.current } };
+    setPanning(true);
+  };
+
+  const onViewportPointerMove = (event) => {
+    const active = panInteraction.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    const nextPan = { x: active.pan.x + event.clientX - active.startX, y: active.pan.y + event.clientY - active.startY };
+    panRef.current = nextPan;
+    setPan(nextPan);
+  };
+
+  const finishPan = (event) => {
+    const active = panInteraction.current;
+    if (!active || (event?.pointerId != null && active.pointerId !== event.pointerId)) return;
+    panInteraction.current = null;
+    setPanning(false);
+    if (event?.pointerId != null && viewportRef.current?.hasPointerCapture?.(event.pointerId)) viewportRef.current.releasePointerCapture?.(event.pointerId);
+  };
 
   useEffect(() => {
     if (!guide || guide === 'none') {
@@ -78,7 +229,22 @@ export default function CanvasStage({
     const render = (timestamp = 0) => {
       if (!active || !canvas.isConnected) return;
       if (timestamp - lastFrame >= FRAME_MS || timestamp === 0) {
-        renderScene(ctx, objects, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, grid: true, now: Date.now(), liveStrokes });
+        const cssWidth = Math.max(1, canvas.clientWidth);
+        const cssHeight = Math.max(1, canvas.clientHeight);
+        const dprX = canvas.width / cssWidth;
+        const dprY = canvas.height / cssHeight;
+        const cssScale = Math.max(0.0001, fitScaleRef.current * zoomRef.current);
+        const originX = cssWidth / 2 + panRef.current.x - (CANVAS_WIDTH * cssScale) / 2;
+        const originY = cssHeight / 2 + panRef.current.y - (CANVAS_HEIGHT * cssScale) / 2;
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.setTransform(cssScale * dprX, 0, 0, cssScale * dprY, originX * dprX, originY * dprY);
+        const editingTextId = textEditor?.objectId || null;
+        const sceneObjects = editingTextId
+          ? Object.fromEntries(Object.entries(objects).filter(([id]) => id !== editingTextId))
+          : objects;
+        renderScene(ctx, sceneObjects, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, grid: true, clear: false, now: Date.now(), liveStrokes });
 
         const activeGuide = guideImage.current;
         if (activeGuide?.complete && activeGuide.naturalWidth) {
@@ -96,17 +262,23 @@ export default function CanvasStage({
           ctx.save();
           ctx.globalAlpha = 0.72;
           drawObject(ctx, shapePreview.current);
-          ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--dc-accent').trim() || '#ff315c';
+          ctx.strokeStyle = getThemeColor('--dc-accent');
           ctx.lineWidth = 2;
           ctx.setLineDash([10, 8]);
           ctx.strokeRect(shapePreview.current.x - 4, shapePreview.current.y - 4, shapePreview.current.w + 8, shapePreview.current.h + 8);
           ctx.restore();
         }
 
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--dc-accent').trim() || '#ff315c';
+        ctx.save();
+        ctx.strokeStyle = getThemeColor('--dc-editor-output-border', '--dc-line-strong');
+        ctx.lineWidth = 1.5 / cssScale;
+        ctx.setLineDash([]);
+        ctx.strokeRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.restore();
+
+        const accent = getThemeColor('--dc-accent');
         const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
-        const cssScale = Math.max(0.01, canvas.getBoundingClientRect().width / CANVAS_WIDTH);
-        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter(Boolean), accent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
+        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter((object) => object && object.id !== editingTextId), accent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
         drawSnapGuides(ctx, snapGuides.current, accent, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
 
         const cursorScale = 1 / cssScale;
@@ -116,7 +288,7 @@ export default function CanvasStage({
           const age = Math.max(0, now - Number(cursor.at || now));
           if (age > 12000) return;
           const alpha = age > 7000 ? Math.max(0, 1 - ((age - 7000) / 5000)) : 1;
-          const color = cursor.color || '#4cc9f0';
+          const color = cursor.color || getThemeColor('--dc-remote-cursor-fallback', '--dc-info');
           const name = String(cursor.cursorLabel || 'Editor').slice(0, 32);
 
           ctx.save();
@@ -133,7 +305,7 @@ export default function CanvasStage({
           ctx.lineTo(20, 12);
           ctx.closePath();
           ctx.fillStyle = color;
-          ctx.strokeStyle = '#090a0c';
+          ctx.strokeStyle = getThemeColor('--dc-cursor-label-bg', '--dc-bg');
           ctx.lineWidth = 2;
           ctx.fill();
           ctx.stroke();
@@ -142,7 +314,7 @@ export default function CanvasStage({
           const textWidth = Math.ceil(ctx.measureText(name).width);
           const labelX = 17;
           const labelY = 18;
-          ctx.fillStyle = '#090a0c';
+          ctx.fillStyle = getThemeColor('--dc-cursor-label-bg', '--dc-bg');
           ctx.fillRect(labelX, labelY - 13, textWidth + 14, 22);
           ctx.strokeStyle = color;
           ctx.lineWidth = 1.5;
@@ -164,13 +336,16 @@ export default function CanvasStage({
       active = false;
       cancelAnimationFrame(animationFrame);
     };
-  }, [objects, selectedId, selectedIds, liveStrokes, activeDrawLayer]);
+  }, [objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, textEditor]);
 
   const pointFromEvent = (event) => {
     const bounds = canvasRef.current.getBoundingClientRect();
+    const scale = Math.max(0.0001, fitScaleRef.current * zoomRef.current);
+    const centerX = bounds.left + bounds.width / 2 + panRef.current.x;
+    const centerY = bounds.top + bounds.height / 2 + panRef.current.y;
     return {
-      x: (event.clientX - bounds.left) * CANVAS_WIDTH / bounds.width,
-      y: (event.clientY - bounds.top) * CANVAS_HEIGHT / bounds.height
+      x: CANVAS_WIDTH / 2 + (event.clientX - centerX) / scale,
+      y: CANVAS_HEIGHT / 2 + (event.clientY - centerY) / scale
     };
   };
 
@@ -194,7 +369,9 @@ export default function CanvasStage({
 
   const openTextEditor = (point, object = null) => {
     const bounds = canvasRef.current.getBoundingClientRect();
-    const scale = bounds.width / CANVAS_WIDTH;
+    const scale = Math.max(0.0001, fitScaleRef.current * zoomRef.current);
+    const centerX = bounds.left + bounds.width / 2 + panRef.current.x;
+    const centerY = bounds.top + bounds.height / 2 + panRef.current.y;
     const x = object ? Number(object.x) || point.x : point.x;
     const y = object ? Number(object.y) || point.y : point.y;
 
@@ -203,8 +380,8 @@ export default function CanvasStage({
       objectId: object?.id || null,
       x,
       y,
-      screenX: bounds.left + (x * scale),
-      screenY: bounds.top + (y * scale),
+      screenX: centerX + (x - CANVAS_WIDTH / 2) * scale,
+      screenY: centerY + (y - CANVAS_HEIGHT / 2) * scale,
       scale,
       initialText: object?.text ?? object?.texto ?? '',
       config: object ? textConfigFromObject(object) : textConfig
@@ -212,10 +389,20 @@ export default function CanvasStage({
   };
 
   const onPointerDown = (event) => {
-    if (interactionDisabled || event.button !== 0) return;
+    if (interactionDisabled || event.button !== 0 || tool === 'hand') return;
 
     const canvas = canvasRef.current;
     const point = pointFromEvent(event);
+
+    if (tool === 'text') {
+      // Texto es una interacción de click, no de arrastre. No capturamos el
+      // pointer para que el textarea inline pueda tomar el foco limpiamente.
+      event.preventDefault();
+      setTextEditor(null);
+      openTextEditor(point);
+      return;
+    }
+
     canvas.setPointerCapture?.(event.pointerId);
 
     if (tool === 'draw' || tool === 'eraser') {
@@ -237,12 +424,6 @@ export default function CanvasStage({
       return;
     }
 
-    if (tool === 'text') {
-      setTextEditor(null);
-      openTextEditor(point);
-      return;
-    }
-
     if (tool === 'timer') {
       onTimerCreate?.(point);
       return;
@@ -254,8 +435,7 @@ export default function CanvasStage({
     const selectionObjects = selection.map((id) => objects[id]).filter(Boolean);
     const selectionBounds = getSelectionBounds(selectionObjects);
     const selectionTarget = selectionObjects.length === 1 ? selectionObjects[0] : selectionBounds;
-    const canvasBounds = canvas.getBoundingClientRect();
-    const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+    const cssScale = Math.max(0.01, fitScaleRef.current * zoomRef.current);
     const rotateDistance = 34 / cssScale;
     const rotateHandle = selectionTarget ? hitRotateHandle(selectionTarget, point.x, point.y, 14 / cssScale, rotateDistance) : false;
     const resizeHandle = selectionTarget ? hitResizeHandle(selectionTarget, point.x, point.y, 12 / cssScale) : null;
@@ -387,8 +567,7 @@ export default function CanvasStage({
         return;
       }
 
-      const canvasBounds = canvasRef.current.getBoundingClientRect();
-      const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+      const cssScale = Math.max(0.01, fitScaleRef.current * zoomRef.current);
       if (hitRotateHandle(selectionTarget, point.x, point.y, 14 / cssScale, 34 / cssScale)) {
         if (pointerCursor !== 'grab') setPointerCursor('grab');
         return;
@@ -424,8 +603,7 @@ export default function CanvasStage({
       }
 
       if (snapEnabled && !event.altKey && active.bounds && active.snapTargets) {
-        const canvasBounds = canvasRef.current.getBoundingClientRect();
-        const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+        const cssScale = Math.max(0.01, fitScaleRef.current * zoomRef.current);
         const snapped = snapMove(active.bounds, dx, dy, active.snapTargets, SNAP_THRESHOLD_PX / cssScale);
         dx = snapped.dx;
         dy = snapped.dy;
@@ -443,8 +621,7 @@ export default function CanvasStage({
     if (active.type === 'resize') {
       let resizePoint = point;
       if (snapEnabled && !event.altKey && active.snapAllowed && active.snapTargets) {
-        const canvasBounds = canvasRef.current.getBoundingClientRect();
-        const cssScale = Math.max(0.01, canvasBounds.width / CANVAS_WIDTH);
+        const cssScale = Math.max(0.01, fitScaleRef.current * zoomRef.current);
         const snapped = snapResizePointer(active.bounds, active.handle, point, active.start, active.snapTargets, SNAP_THRESHOLD_PX / cssScale);
         resizePoint = snapped.point;
         snapGuides.current = snapped.guides;
@@ -452,11 +629,24 @@ export default function CanvasStage({
         snapGuides.current = null;
       }
 
-      const updates = resizeSelectionFromHandle(active.items, active.bounds, active.handle, resizePoint, active.start, event.shiftKey);
+      const singleText = active.items.length === 1 && (active.items[0]?.tipo === 'text' || active.items[0]?.tipo === 'texto');
+      const updates = resizeSelectionFromHandle(active.items, active.bounds, active.handle, resizePoint, active.start, event.shiftKey || singleText);
       if (!updates.length) return;
+
+      const resizedUpdates = singleText
+        ? updates.map((update) => {
+            const original = active.items[0];
+            const originalWidth = Math.max(1, Number(original.w) || 1);
+            const nextWidth = Math.max(1, Number(update.patch?.w) || originalWidth);
+            const scale = nextWidth / originalWidth;
+            const fontSize = Math.max(5, Math.min(400, Math.round(normalizeTextConfig(original).fontSize * scale)));
+            return { ...update, patch: { ...update.patch, fontSize } };
+          })
+        : updates;
+
       active.changed = true;
       setPointerCursor(resizeCursorForHandle(active.handle, active.items.length === 1 ? active.items[0] : null));
-      onPatchObjects?.(updates);
+      onPatchObjects?.(resizedUpdates);
       return;
     }
 
@@ -593,11 +783,27 @@ export default function CanvasStage({
   };
 
   return (
-    <>
+    <div
+      ref={viewportRef}
+      className={`dc-canvas-viewport ${tool === 'hand' ? 'is-hand' : ''} ${panning ? 'is-panning' : ''}`}
+      onPointerDown={onViewportPointerDown}
+      onPointerMove={onViewportPointerMove}
+      onPointerUp={finishPan}
+      onPointerCancel={finishPan}
+    >
+      <div
+        className="dc-canvas-frame"
+        aria-hidden="true"
+        style={{
+          width: `${CANVAS_WIDTH * fitScale * zoom}px`,
+          height: `${CANVAS_HEIGHT * fitScale * zoom}px`,
+          left: `calc(50% + ${pan.x}px)`,
+          top: `calc(50% + ${pan.y}px)`
+        }}
+      />
+
       <canvas
         ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
         className={`dc-canvas tool-${tool} ${mediaDragging ? 'is-media-dragging' : ''}`}
         style={pointerCursor ? { cursor: pointerCursor } : undefined}
         onPointerDown={onPointerDown}
@@ -628,7 +834,13 @@ export default function CanvasStage({
         }}
       />
 
+      <div className="dc-canvas-zoom" aria-label="Controles de zoom">
+        <button type="button" onClick={() => changeZoom(-ZOOM_STEP)} disabled={zoom <= MIN_ZOOM} title="Alejar" aria-label="Alejar">−</button>
+        <button type="button" className="dc-canvas-zoom-value" onClick={resetView} title="Restablecer vista al 100%">{Math.round(zoom * 100)}%</button>
+        <button type="button" onClick={() => changeZoom(ZOOM_STEP)} disabled={zoom >= MAX_ZOOM} title="Acercar" aria-label="Acercar">+</button>
+      </div>
+
       <div className={`dc-drop-overlay ${mediaDragging ? 'show' : ''}`}>SUELTA LA IMAGEN AQUÍ 🖼️</div>
-    </>
+    </div>
   );
 }

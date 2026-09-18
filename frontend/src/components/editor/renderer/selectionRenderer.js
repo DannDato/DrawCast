@@ -1,5 +1,6 @@
 import { getDrawLayerBounds, isDrawLayer } from '../tools/drawing/drawingTool';
 import { boundsCenter, normalizeRotation, rotatePointAround, rotatedRectBounds, rotatedRectCorners, unrotatePointAround } from './transformUtils';
+import { getThemeColor } from '../../../utils/theme';
 
 export const RESIZE_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 export const RESIZE_CURSORS = {
@@ -137,7 +138,7 @@ function strokeFrame(ctx, target, accent, options = {}) {
       ctx.lineTo(rotateHandle.x, rotateHandle.y);
       ctx.stroke();
       ctx.globalAlpha = 1;
-      ctx.fillStyle = '#f4f5f7';
+      ctx.fillStyle = getThemeColor('--dc-selection-handle', '--dc-text-strong');
       ctx.beginPath();
       ctx.arc(rotateHandle.x, rotateHandle.y, Math.max(6, boxSize * 0.65), 0, Math.PI * 2);
       ctx.fill();
@@ -146,7 +147,7 @@ function strokeFrame(ctx, target, accent, options = {}) {
 
     for (const handle of getResizeHandles(target)) {
       ctx.globalAlpha = 1;
-      ctx.fillStyle = '#f4f5f7';
+      ctx.fillStyle = getThemeColor('--dc-selection-handle', '--dc-text-strong');
       ctx.strokeStyle = accent;
       ctx.lineWidth = Math.max(2, boxSize * 0.18);
       ctx.fillRect(handle.x - half, handle.y - half, boxSize, boxSize);
@@ -157,12 +158,12 @@ function strokeFrame(ctx, target, accent, options = {}) {
   ctx.restore();
 }
 
-export function drawSelection(ctx, object, accent = '#ff315c', options = {}) {
+export function drawSelection(ctx, object, accent = getThemeColor('--dc-accent'), options = {}) {
   if (!getObjectFrame(object)) return;
   strokeFrame(ctx, object, accent, { handles: options.handles !== false, handleSize: options.handleSize, rotateHandleDistance: options.rotateHandleDistance });
 }
 
-export function drawMultiSelection(ctx, objects, accent = '#ff315c', options = {}) {
+export function drawMultiSelection(ctx, objects, accent = getThemeColor('--dc-accent'), options = {}) {
   const visible = (objects || []).filter((object) => getObjectFrame(object));
   if (!visible.length) return;
 
@@ -176,7 +177,7 @@ export function drawMultiSelection(ctx, objects, accent = '#ff315c', options = {
   if (bounds) strokeFrame(ctx, bounds, accent, { outer: true, handles: true, handleSize: options.handleSize, rotateHandleDistance: options.rotateHandleDistance });
 }
 
-export function drawMarquee(ctx, start, end, accent = '#ff315c') {
+export function drawMarquee(ctx, start, end, accent = getThemeColor('--dc-accent')) {
   if (!start || !end) return;
   const bounds = {
     x: Math.min(start.x, end.x),
@@ -206,44 +207,82 @@ export function resizeFromHandle(object, handle, pointer, startPointer, keepAspe
   };
   const dx = pointer.x - startPointer.x;
   const dy = pointer.y - startPointer.y;
-  let { x, y, w, h } = original;
+  const minSize = 8;
+  const left = original.x;
+  const top = original.y;
+  const right = original.x + original.w;
+  const bottom = original.y + original.h;
 
-  if (handle.includes('e')) w = Math.max(8, original.w + dx);
-  if (handle.includes('s')) h = Math.max(8, original.h + dy);
-  if (handle.includes('w')) {
-    w = Math.max(8, original.w - dx);
-    x = original.x + (original.w - w);
-  }
-  if (handle.includes('n')) {
-    h = Math.max(8, original.h - dy);
-    y = original.y + (original.h - h);
-  }
+  let nextLeft = left;
+  let nextTop = top;
+  let nextRight = right;
+  let nextBottom = bottom;
 
-  if (keepAspect && original.h > 0) {
-    const aspect = original.w / original.h;
-    if (handle === 'n' || handle === 's') {
-      w = Math.max(8, h * aspect);
-      x = original.x + (original.w - w) / 2;
-    } else if (handle === 'e' || handle === 'w') {
-      h = Math.max(8, w / aspect);
-      y = original.y + (original.h - h) / 2;
-    } else {
-      const widthFromPointer = Math.max(8, w);
-      const heightFromPointer = Math.max(8, h);
-      if (Math.abs(widthFromPointer - original.w) >= Math.abs(heightFromPointer - original.h) * aspect) h = Math.max(8, widthFromPointer / aspect);
-      else w = Math.max(8, heightFromPointer * aspect);
-      if (handle.includes('n')) y = original.y + original.h - h;
-      if (handle.includes('w')) x = original.x + original.w - w;
-    }
+  // El borde contrario al handle es el ancla del resize. Nunca se mueve.
+  if (handle.includes('e')) nextRight = Math.max(left + minSize, right + dx);
+  if (handle.includes('w')) nextLeft = Math.min(right - minSize, left + dx);
+  if (handle.includes('s')) nextBottom = Math.max(top + minSize, bottom + dy);
+  if (handle.includes('n')) nextTop = Math.min(bottom - minSize, top + dy);
+
+  if (!keepAspect || original.h <= 0) {
+    return {
+      x: nextLeft,
+      y: nextTop,
+      w: Math.max(minSize, nextRight - nextLeft),
+      h: Math.max(minSize, nextBottom - nextTop)
+    };
   }
 
-  return { x, y, w, h };
+  const aspect = original.w / original.h;
+  const horizontalHandle = handle === 'e' || handle === 'w';
+  const verticalHandle = handle === 'n' || handle === 's';
+
+  if (horizontalHandle) {
+    const width = Math.max(minSize, nextRight - nextLeft);
+    const height = Math.max(minSize, width / aspect);
+    const centerY = top + original.h / 2;
+    return {
+      x: nextLeft,
+      y: centerY - height / 2,
+      w: width,
+      h: height
+    };
+  }
+
+  if (verticalHandle) {
+    const height = Math.max(minSize, nextBottom - nextTop);
+    const width = Math.max(minSize, height * aspect);
+    const centerX = left + original.w / 2;
+    return {
+      x: centerX - width / 2,
+      y: nextTop,
+      w: width,
+      h: height
+    };
+  }
+
+  // En esquinas se conserva la esquina diagonal como ancla absoluta.
+  const anchorX = handle.includes('w') ? right : left;
+  const anchorY = handle.includes('n') ? bottom : top;
+  const desiredWidth = Math.max(minSize, Math.abs((handle.includes('w') ? nextLeft : nextRight) - anchorX));
+  const desiredHeight = Math.max(minSize, Math.abs((handle.includes('n') ? nextTop : nextBottom) - anchorY));
+  const widthScale = desiredWidth / original.w;
+  const heightScale = desiredHeight / original.h;
+  const scale = Math.abs(widthScale - 1) >= Math.abs(heightScale - 1) ? widthScale : heightScale;
+  const width = Math.max(minSize, original.w * scale);
+  const height = Math.max(minSize, original.h * scale);
+
+  return {
+    x: handle.includes('w') ? anchorX - width : anchorX,
+    y: handle.includes('n') ? anchorY - height : anchorY,
+    w: width,
+    h: height
+  };
 }
 
-function resizeRotatedObject(object, handle, pointer, startPointer, keepAspect = false) {
-  const frame = getObjectFrame(object);
-  const rotation = Number(object.rotation) || 0;
-  if (!frame || !rotation || isDrawLayer(object)) return null;
+function resizeRotatedFrame(frame, rotation, handle, pointer, startPointer, keepAspect = false) {
+  if (!frame) return null;
+  if (!rotation) return resizeFromHandle(frame, handle, pointer, startPointer, keepAspect);
 
   const center = boundsCenter(frame);
   const localStart = unrotatePointAround(startPointer, center, rotation);
@@ -257,21 +296,58 @@ function resizeRotatedObject(object, handle, pointer, startPointer, keepAspect =
   const nextCenter = { x: center.x + globalCenterOffset.x, y: center.y + globalCenterOffset.y };
 
   return {
+    x: nextCenter.x - resized.w / 2,
+    y: nextCenter.y - resized.h / 2,
+    w: Math.max(8, resized.w),
+    h: Math.max(8, resized.h)
+  };
+}
+
+function patchObjectToFrame(object, originalFrame, nextFrame) {
+  if (!object?.id || !originalFrame || !nextFrame) return null;
+
+  if (isDrawLayer(object)) {
+    const objectX = Number(object.x) || 0;
+    const objectY = Number(object.y) || 0;
+    const objectW = Math.max(8, Number(object.w) || 8);
+    const objectH = Math.max(8, Number(object.h) || 8);
+    const scaleX = nextFrame.w / Math.max(1, originalFrame.w);
+    const scaleY = nextFrame.h / Math.max(1, originalFrame.h);
+    const visibleOffsetX = originalFrame.x - objectX;
+    const visibleOffsetY = originalFrame.y - objectY;
+
+    return {
+      id: object.id,
+      patch: {
+        x: nextFrame.x - visibleOffsetX * scaleX,
+        y: nextFrame.y - visibleOffsetY * scaleY,
+        w: Math.max(8, objectW * scaleX),
+        h: Math.max(8, objectH * scaleY)
+      }
+    };
+  }
+
+  return {
     id: object.id,
     patch: {
-      x: nextCenter.x - resized.w / 2,
-      y: nextCenter.y - resized.h / 2,
-      w: Math.max(8, resized.w),
-      h: Math.max(8, resized.h)
+      x: nextFrame.x,
+      y: nextFrame.y,
+      w: Math.max(8, nextFrame.w),
+      h: Math.max(8, nextFrame.h)
     }
   };
 }
 
 export function resizeSelectionFromHandle(objects, selectionBounds, handle, pointer, startPointer, keepAspect = false) {
   if (!selectionBounds || !(objects || []).length) return [];
+
   if (objects.length === 1) {
-    const rotated = resizeRotatedObject(objects[0], handle, pointer, startPointer, keepAspect);
-    if (rotated) return [rotated];
+    const object = objects[0];
+    const frame = getObjectFrame(object);
+    if (!frame) return [];
+    const targetFrame = resizeRotatedFrame(frame, Number(object.rotation) || 0, handle, pointer, startPointer, keepAspect);
+    const update = patchObjectToFrame(object, frame, targetFrame);
+    return update ? [update] : [];
   }
 
   const target = resizeFromHandle(selectionBounds, handle, pointer, startPointer, keepAspect);
@@ -279,27 +355,22 @@ export function resizeSelectionFromHandle(objects, selectionBounds, handle, poin
   const scaleY = target.h / Math.max(1, selectionBounds.h);
 
   return objects.map((object) => {
-    const x = Number(object.x);
-    const y = Number(object.y);
-    const w = Number(object.w);
-    const h = Number(object.h);
+    const frame = getObjectFrame(object);
     const center = getObjectTransformCenter(object);
-    if (![x, y, w, h].every(Number.isFinite) || !center) return null;
+    if (!frame || !center) return null;
+
     const nextCenter = {
       x: target.x + (center.x - selectionBounds.x) * scaleX,
       y: target.y + (center.y - selectionBounds.y) * scaleY
     };
-    const dx = nextCenter.x - center.x;
-    const dy = nextCenter.y - center.y;
-    return {
-      id: object.id,
-      patch: {
-        x: x + dx,
-        y: y + dy,
-        w: Math.max(8, w * scaleX),
-        h: Math.max(8, h * scaleY)
-      }
+    const nextFrame = {
+      x: nextCenter.x - (frame.w * scaleX) / 2,
+      y: nextCenter.y - (frame.h * scaleY) / 2,
+      w: Math.max(8, frame.w * scaleX),
+      h: Math.max(8, frame.h * scaleY)
     };
+
+    return patchObjectToFrame(object, frame, nextFrame);
   }).filter(Boolean);
 }
 

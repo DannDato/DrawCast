@@ -1,3 +1,4 @@
+import { getThemeColor } from '../../../utils/theme';
 import { getObjectBounds } from './selectionRenderer';
 
 export const SNAP_THRESHOLD_PX = 8;
@@ -118,7 +119,7 @@ export function snapResizePointer(selectionBounds, handle, pointer, startPointer
   return { point: nextPoint, guides: { vertical, horizontal } };
 }
 
-export function drawSnapGuides(ctx, guides, accent = '#ff315c', canvas = { width: 1920, height: 1080 }) {
+export function drawSnapGuides(ctx, guides, accent = getThemeColor('--dc-accent'), canvas = { width: 1920, height: 1080 }) {
   if (!ctx || !guides) return;
   const vertical = guides.vertical || [];
   const horizontal = guides.horizontal || [];

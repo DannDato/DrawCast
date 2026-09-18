@@ -6,6 +6,7 @@ import {
   EyeOff,
   File,
   FolderOpen,
+  Hand,
   Image,
   Magnet,
   MousePointer2,
@@ -30,6 +31,7 @@ import { GUIDE_SHORTCUTS, TOOL_SHORTCUTS } from './hotkeys/shortcuts';
 
 const directTools = [
   { id: 'select', label: 'Seleccionar / mover', icon: MousePointer2 },
+  { id: 'hand', label: 'Manita / mover lienzo', icon: Hand },
   { id: 'draw', label: 'Lápiz / pincel', icon: Pencil },
   { id: 'eraser', label: 'Borrador', icon: Eraser },
   { id: 'text', label: 'Texto', icon: Type }
@@ -73,7 +75,7 @@ function PresenceAvatar({ editor }) {
   const hasImage = Boolean(editor.avatarUrl && !imageFailed);
 
   return (
-    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor.color || 'var(--dc-accent)' }} title={title}>
+    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor.colorSlot ? `var(--dc-cursor-${editor.colorSlot})` : 'var(--dc-accent)' }} title={title}>
       <span className="dc-presence-avatar-media">
         {hasImage
           ? <img src={editor.avatarUrl} alt="" onError={() => setImageFailed(true)} />
@@ -319,7 +321,7 @@ export default function Toolbar({
           </div>
         )}
         <span className={`dc-toolbar-live ${connected ? 'online' : ''}`} title={connected ? 'Conectado al canal' : 'Sin conexión'}>
-          <i className="pulse"/>
+          <i />
           <span>{connected ? 'En línea' : 'Sin conexión'}</span>
         </span>
       </div>

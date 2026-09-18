@@ -334,7 +334,7 @@ export default function Inspector({
           </section>
         )}
 
-        {!selected && !isMulti && !showShapePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && tool !== 'eraser' && <p className="muted dc-inspector-empty">Selecciona una capa para ver sus propiedades.</p>}
+        {!selected && !isMulti && !showShapePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && tool !== 'eraser' && <p className="dc-inspector-empty text-[var(--dc-muted)]">Selecciona una capa para ver sus propiedades.</p>}
 
         {selected && (
           <section>
@@ -359,7 +359,7 @@ export default function Inspector({
             {isImage && <p className="dc-help">{selected.mediaKind === 'gif' ? 'GIF animado, se reproduce directo en OBS.' : 'Capa de imagen.'}{selected.naturalWidth && selected.naturalHeight ? ` Tamaño original: ${selected.naturalWidth}×${selected.naturalHeight}.` : ''}</p>}
 
             <label>POSICIÓN X / Y</label>
-            <div className="dc-grid">
+            <div className="grid grid-cols-2 gap-1.5">
               <NumberField value={selected.x} onChange={(x) => onPatch({ x })} />
               <NumberField value={selected.y} onChange={(y) => onPatch({ y })} />
             </div>
@@ -367,7 +367,7 @@ export default function Inspector({
             {selected.w != null && (
               <>
                 <label>ANCHO / ALTO</label>
-                <div className="dc-grid">
+                <div className="grid grid-cols-2 gap-1.5">
                   <NumberField min="8" value={selected.w} onChange={(w) => onPatch({ w: Math.max(8, w) })} />
                   <NumberField min="8" value={selected.h} onChange={(h) => onPatch({ h: Math.max(8, h) })} />
                 </div>

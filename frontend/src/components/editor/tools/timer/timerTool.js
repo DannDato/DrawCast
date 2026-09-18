@@ -1,4 +1,5 @@
 import { normalizeTextConfig, resolveTextFontFamily } from '../text/textTool';
+import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 
 export const MAX_TIMER_SECONDS = (99 * 3600) + (59 * 60) + 59;
 
@@ -6,8 +7,8 @@ export const DEFAULT_TIMER_CONFIG = {
   timerMode: 'up',
   startSeconds: 0,
   limitSeconds: MAX_TIMER_SECONDS,
-  color: '#ffffff',
-  strokeColor: '#000000',
+  color: DEFAULT_EDITOR_PREFERENCES.colors.timer,
+  strokeColor: DEFAULT_EDITOR_PREFERENCES.colors.timerStroke,
   strokeWidth: 6,
   fontSize: 56,
   fontKey: 'segoe',
