@@ -68,7 +68,7 @@ export default function DashboardLayout() {
             >
                 <Icon size={20} />
                 <span className="text-[11px] font-bold">{item.name}</span>
-                {showBadge && <span className={`${mobile ? 'ml-auto' : '-mr-1'} grid min-w-[18px] h-[18px] place-items-center rounded-full bg-[var(--dc-danger)] px-[5px] text-[10px] font-black leading-none text-[var(--dc-text-strong)] shadow-[0_0_0_2px_var(--dc-nav-bg)]`}>{invitationCount > 99 ? '99+' : invitationCount}</span>}
+                {showBadge && <span className={`${mobile ? 'ml-auto' : '-mr-1'} grid min-w-[18px] h-[18px] place-items-center rounded-full bg-[var(--dc-danger-strong)] px-[5px] text-[10px] font-black leading-none text-[var(--dc-text-strong)] shadow-[0_0_0_2px_var(--dc-nav-bg)]`}>{invitationCount > 99 ? '99+' : invitationCount}</span>}
             </NavLink>
         );
     };

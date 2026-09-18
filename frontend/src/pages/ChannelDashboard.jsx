@@ -761,7 +761,7 @@ export default function ChannelDashboard() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-[1440px] py-8 pt-7 text-[13px]">
+        <div className="mx-auto w-full max-w-[1440px] py-8 pt-1 text-[13px]">
           <DashboardSummary user={user} channels={ownedChannels} used={used} limit={limit}  />
             <div className="dc-home-main-grid items-start max-[980px]:grid-cols-1">
                 <div className="mt-3 max-[980px]:hidden">
@@ -898,19 +898,21 @@ export default function ChannelDashboard() {
                     los que ya tienes.
                 </div>
             )}
-            <div className="dc-home-main-grid items-start max-[980px]:grid-cols-1 my-[-20px] p-0">
-              <div className="mt-3 max-[980px]:hidden">
-                  <div className=""></div>
-              </div>
+             {!loading && ownedChannels.length > 0 ? (
+              <div className="dc-home-main-grid items-start max-[980px]:grid-cols-1 my-[-20px] p-0">
+                <div className="mt-3 max-[980px]:hidden">
+                    <div className=""></div>
+                </div>
 
-              <div className="relative bg-[var(--dc-panel)] h-5 my-[-8px]">
-                  <ArrowDown
-                      size={28}
-                      strokeWidth={1.35}
-                      className="absolute left-1/2 top-[-11px] -translate-x-1/2 text-[var(--dc-accent)]"
-                  />
+                <div className="relative bg-[var(--dc-panel)] h-5 my-[-8px]">
+                    <ArrowDown
+                        size={28}
+                        strokeWidth={1.35}
+                        className="absolute left-1/2 top-[-11px] -translate-x-1/2 text-[var(--dc-accent)]"
+                    />
+                </div>
               </div>
-            </div>
+            ) : null}
 
           <div className="mt-3"></div>
 
