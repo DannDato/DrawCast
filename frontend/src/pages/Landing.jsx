@@ -364,8 +364,8 @@ export default function Landing() {
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,6rem)]">
-                            <span className="text-[var(--dc-accent)]"> UNA URL > </span>
-                            <span className="text-[var(--dc-text-muted)]"> UNA FUENTE > </span> 
+                            <span className="text-[var(--dc-accent)]"> UNA URL  </span>
+                            <span className="text-[var(--dc-text-muted)]"> UNA FUENTE  </span> 
                             <span className="text-[var(--dc-text)]"> CONTROL TOTAL</span>
                         </h2>
 

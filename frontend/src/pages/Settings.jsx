@@ -52,7 +52,7 @@ export default function Settings() {
   };
 
   return <div className="mx-auto w-full max-w-[1440px] py-8 pt-7">
-    <div className="mb-[18px] [&_h1]:my-1 [&_h1]:text-[clamp(32px,5vw,48px)] [&_h1]:leading-none [&_p]:m-0"><span className="inline-block text-[11px] font-black uppercase tracking-[.1em] text-[var(--dc-text-muted)]">Mi cuenta</span><h1>Configuración</h1><p className="text-[var(--dc-text-muted)]">Personaliza DrawCast para tu cuenta. Estas opciones te siguen a ti, no al lienzo ni a los diseños.</p></div>
+    <div className="mb-[18px] [&_p]:m-0"><h1 className="dc-page-title">TU <span className="dc-page-title-accent">CONFIGURACIÓN</span></h1><p className="mt-2 text-[var(--dc-text-muted)]">Personaliza DrawCast para tu cuenta. Estas opciones te siguen a ti, no al lienzo ni a los diseños.</p></div>
 
     {notice && <div className={`mb-4 flex items-center gap-2 border px-3.5 py-3 font-semibold ${notice.type === 'error' ? 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]' : 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]'}`}>{notice.type === 'success' ? <Check size={17} /> : <X size={17} />}{notice.text}</div>}
 

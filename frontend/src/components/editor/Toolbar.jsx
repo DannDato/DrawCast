@@ -102,6 +102,7 @@ export default function Toolbar({
   onProperties,
   onInsertTool,
   onImageFile,
+  imagePickerRequest = 0,
   propertiesOpen = false,
   snapEnabled = true,
   onToggleSnap,
@@ -129,6 +130,11 @@ export default function Toolbar({
   const controlDisabled = !connected || Boolean(controlBusy);
   const workspaceDisabled = controlDisabled || editorLocked;
   const liveSwitchDisabled = controlDisabled || editorLocked || (liveEnabled && liveRequired);
+
+  useEffect(() => {
+    if (!imagePickerRequest || workspaceDisabled) return;
+    imageInputRef.current?.click();
+  }, [imagePickerRequest, workspaceDisabled]);
 
   useEffect(() => {
     const closeOutside = (event) => {

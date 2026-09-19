@@ -40,6 +40,20 @@ function decodeDesignSnapshot(value) {
   throw new Error('La copia guardada no contiene una escena válida.');
 }
 
+function ensureSceneDrawLayer(scene = {}) {
+  const drawLayer = Object.values(scene)
+    .filter(isDrawLayer)
+    .sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0];
+  if (drawLayer) return { scene, drawLayer, created: false };
+
+  const fallback = makeDrawLayer(scene);
+  return {
+    scene: { ...scene, [fallback.id]: fallback },
+    drawLayer: fallback,
+    created: true
+  };
+}
+
 export default function Editor() {
   const { publicKey } = useParams();
   const { confirmDialog, showAlert } = useSystemAlert();
@@ -48,6 +62,7 @@ export default function Editor() {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [tool, setTool] = useState('select');
+  const [imagePickerRequest, setImagePickerRequest] = useState(0);
   const [guide, setGuide] = useState(() => {
     try { return localStorage.getItem('drawcast.editor.guide') || 'none'; } catch { return 'none'; }
   });
@@ -86,6 +101,7 @@ export default function Editor() {
   const cursorFrameRef = useRef(null);
   const pendingCursorRef = useRef(null);
   const cursorLastSentRef = useRef(0);
+  const pendingDrawFallbackSelectionRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -117,9 +133,18 @@ export default function Editor() {
   const handlers = useMemo(() => ({
     'sync-state': ({ objects: list } = {}) => {
       if (!Array.isArray(list)) return;
-      const next = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
-      objectsRef.current = next;
-      setObjects(next);
+      const rawScene = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
+      const ensured = ensureSceneDrawLayer(rawScene);
+      objectsRef.current = ensured.scene;
+      setObjects(ensured.scene);
+      pendingDrawFallbackSelectionRef.current = false;
+      setActiveDrawLayerId((current) => current && isDrawLayer(ensured.scene[current]) ? current : ensured.drawLayer.id);
+      setSelectedIds((current) => {
+        const valid = current.filter((id) => ensured.scene[id]);
+        const next = valid.length ? valid : [ensured.drawLayer.id];
+        setSelectedId((primary) => primary && next.includes(primary) ? primary : next.at(-1) || null);
+        return next;
+      });
       setHistory({ past: [], future: [] });
       historyStartRef.current = null;
       setFitViewRequest((current) => current + 1);
@@ -129,6 +154,12 @@ export default function Editor() {
       const next = { ...objectsRef.current, [object.id]: object };
       objectsRef.current = next;
       setObjects(next);
+      if (pendingDrawFallbackSelectionRef.current && isDrawLayer(object)) {
+        pendingDrawFallbackSelectionRef.current = false;
+        setActiveDrawLayerId(object.id);
+        setSelectedIds([object.id]);
+        setSelectedId(object.id);
+      }
     },
     'obj-remove': ({ id }) => {
       if (historyStartRef.current) delete historyStartRef.current.before[id];
@@ -136,10 +167,25 @@ export default function Editor() {
       delete next[id];
       objectsRef.current = next;
       setObjects(next);
+      const remainingDrawLayer = Object.values(next)
+        .filter(isDrawLayer)
+        .sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0] || null;
+      if (!remainingDrawLayer) pendingDrawFallbackSelectionRef.current = true;
+      setActiveDrawLayerId((current) => current === id ? remainingDrawLayer?.id || null : current);
       setSelectedIds((current) => {
+        if (!current.includes(id)) return current;
+
         const selected = current.filter((item) => item !== id);
-        setSelectedId((primary) => primary === id ? selected.at(-1) || null : primary);
-        return selected;
+        if (selected.length) {
+          setSelectedId((primary) => primary === id ? selected.at(-1) || null : primary);
+          return selected;
+        }
+
+        const fallback = Object.values(next)
+          .sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))
+          .find((object) => !object.hidden) || Object.values(next)[0];
+        setSelectedId(fallback?.id || null);
+        return fallback?.id ? [fallback.id] : [];
       });
     },
     'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
@@ -190,6 +236,8 @@ export default function Editor() {
       setObjects({});
       setSelectedIds([]);
       setSelectedId(null);
+      setActiveDrawLayerId(null);
+      pendingDrawFallbackSelectionRef.current = true;
       setLiveStrokes({});
     }
   }), [showAlert]);
@@ -370,6 +418,14 @@ export default function Editor() {
     setSelectedId(primary);
   };
 
+  const fallbackSelectionId = (scene = objectsRef.current, preferredIds = []) => {
+    const preferred = preferredIds.find((id) => scene[id]);
+    if (preferred) return preferred;
+
+    const ordered = Object.values(scene).sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0));
+    return ordered.find((object) => !object.hidden)?.id || ordered[0]?.id || null;
+  };
+
   const openPropertiesAt = ({ clientX, clientY, hasSelectionTarget = false } = {}) => {
     if (hasSelectionTarget) setTool('select');
     const hasAnchor = Number.isFinite(clientX) && Number.isFinite(clientY);
@@ -481,23 +537,38 @@ export default function Editor() {
 
     beginHistory('Vaciar lienzo');
     const fallbackLayer = makeDrawLayer({});
-    setScene({ [fallbackLayer.id]: fallbackLayer });
+    const nextScene = { [fallbackLayer.id]: fallbackLayer };
+    setScene(nextScene);
     setSelectedIds([fallbackLayer.id]);
     setSelectedId(fallbackLayer.id);
     setActiveDrawLayerId(fallbackLayer.id);
     setLiveStrokes({});
-    socket.emit('clear-all');
-    socket.emit('obj-upsert', fallbackLayer);
+    socket.emit('scene-replace', { objects: [fallbackLayer] });
     commitHistory('Vaciar lienzo');
   };
 
   const syncHistoryResult = (result) => {
-    setScene(result.next);
+    const ensured = ensureSceneDrawLayer(result.next);
+    const nextScene = ensured.scene;
+    const previousSelection = selectedIds.filter((id) => nextScene[id]);
+    const nextSelectionId = ensured.created
+      ? ensured.drawLayer.id
+      : fallbackSelectionId(nextScene, [...previousSelection, ...result.applied].reverse());
+
+    setScene(nextScene);
+    if (ensured.created) socket.emit('obj-upsert', ensured.drawLayer);
     result.removals.forEach((id) => socket.emit('obj-remove', { id }));
     result.upserts.forEach((object) => socket.emit('obj-upsert', object));
-    setSelectedIds([]);
-    setSelectedId(null);
-    setActiveDrawLayerId(null);
+
+    if (ensured.created) setSelection([ensured.drawLayer.id], ensured.drawLayer.id);
+    else if (previousSelection.length) setSelection(previousSelection, previousSelection.at(-1));
+    else if (nextSelectionId) setSelection([nextSelectionId], nextSelectionId);
+    else setSelection([]);
+
+    const activeDraw = nextSelectionId && isDrawLayer(nextScene[nextSelectionId])
+      ? nextScene[nextSelectionId]
+      : Object.values(nextScene).filter(isDrawLayer).sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0] || null;
+    setActiveDrawLayerId(activeDraw?.id || null);
     setLiveStrokes({});
     return result;
   };
@@ -534,27 +605,29 @@ export default function Editor() {
     if (!targets.length) return;
 
     const survivors = Object.values(objectsRef.current).filter((object) => !targets.includes(object.id));
-    const fallbackLayer = survivors.length === 0 ? makeDrawLayer({}) : null;
+    const survivorScene = Object.fromEntries(survivors.map((object) => [object.id, object]));
+    const ensured = ensureSceneDrawLayer(survivorScene);
 
     if (options.history !== false) beginHistory(options.label || 'Eliminar capas');
+    if (ensured.created) socket.emit('obj-upsert', ensured.drawLayer);
     targets.forEach((id) => socket.emit('obj-remove', { id }));
-    updateScene((current) => {
-      const next = { ...current };
-      targets.forEach((id) => delete next[id]);
-      if (fallbackLayer) next[fallbackLayer.id] = fallbackLayer;
-      return next;
-    });
-    if (fallbackLayer) socket.emit('obj-upsert', fallbackLayer);
+    setScene(ensured.scene);
 
     const remainingSelection = selectedIds.filter((id) => !targets.includes(id));
-    if (fallbackLayer) {
-      setActiveDrawLayerId(fallbackLayer.id);
-      setSelectedIds([fallbackLayer.id]);
-      setSelectedId(fallbackLayer.id);
+    if (ensured.created) {
+      setActiveDrawLayerId(ensured.drawLayer.id);
+      setSelection([ensured.drawLayer.id], ensured.drawLayer.id);
     } else {
-      if (activeDrawLayerId && targets.includes(activeDrawLayerId)) setActiveDrawLayerId(null);
-      setSelectedIds(remainingSelection);
-      setSelectedId(remainingSelection.at(-1) || null);
+      const nextSelectionId = fallbackSelectionId(ensured.scene, remainingSelection);
+      if (activeDrawLayerId && targets.includes(activeDrawLayerId)) {
+        const nextDrawLayer = Object.values(ensured.scene)
+          .filter(isDrawLayer)
+          .sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0] || null;
+        setActiveDrawLayerId(nextDrawLayer?.id || null);
+      }
+      if (remainingSelection.length) setSelection(remainingSelection, remainingSelection.at(-1));
+      else if (nextSelectionId) setSelection([nextSelectionId], nextSelectionId);
+      else setSelection([]);
     }
     if (options.history !== false) commitHistory(options.label || 'Eliminar capas');
   };
@@ -702,7 +775,7 @@ export default function Editor() {
   };
 
 
-  const activeDrawLayer = activeDrawLayerId && isDrawLayer(objects[activeDrawLayerId]) ? objects[activeDrawLayerId] : null;
+  const activeDrawLayer = activeDrawLayerId && isDrawLayer(objects[activeDrawLayerId]) && !objects[activeDrawLayerId].hidden ? objects[activeDrawLayerId] : null;
 
   const createDrawLayer = () => {
     if (editingLocked) return null;
@@ -717,7 +790,7 @@ export default function Editor() {
 
   const ensureDrawLayer = () => {
     if (activeDrawLayer) return activeDrawLayer;
-    const existing = Object.values(objectsRef.current).filter(isDrawLayer).sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0];
+    const existing = Object.values(objectsRef.current).filter((object) => isDrawLayer(object) && !object.hidden).sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0];
     if (existing) {
       setActiveDrawLayerId(existing.id);
       return existing;
@@ -831,7 +904,6 @@ export default function Editor() {
       h: 'hand',
       p: 'draw',
       e: 'eraser',
-      i: 'image',
       s: 'shape',
       g: 'shape',
       t: 'text',
@@ -911,6 +983,13 @@ export default function Editor() {
         event.preventDefault();
         setGuide(guideByKey[event.key]);
         setMediaStatus(guideByKey[event.key] === 'none' ? 'Guías desactivadas.' : `Guía ${event.key} activada.`);
+        return;
+      }
+
+      if (!modifier && !event.altKey && !event.shiftKey && key === 'i') {
+        event.preventDefault();
+        setImagePickerRequest((current) => current + 1);
+        setMediaStatus('Selecciona una imagen o GIF para agregar.');
         return;
       }
 
@@ -1078,8 +1157,10 @@ export default function Editor() {
     if (editingLocked) throw new Error('Espera a que el canal vuelva a Live antes de cargar un diseño.');
     const state = decodeDesignSnapshot(rawState);
     const list = state.scene.objects;
-    const next = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
-    if (Object.keys(next).length !== list.length) throw new Error('La copia guardada contiene una capa inválida y no se cargó.');
+    const rawScene = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
+    if (Object.keys(rawScene).length !== list.length) throw new Error('La copia guardada contiene una capa inválida y no se cargó.');
+    const ensured = ensureSceneDrawLayer(rawScene);
+    const next = ensured.scene;
     if (!socket.connected) throw new Error('DrawCast perdió conexión con el canal. Vuelve a intentarlo en un momento.');
 
     await new Promise((resolve, reject) => {
@@ -1092,16 +1173,20 @@ export default function Editor() {
 
     cancelHistory();
     setScene(next);
-    setSelection([]);
     setLiveStrokes({});
     setHistory({ past: [], future: [] });
     setClipboardPayload(null);
     setPasteSerial(1);
 
     const editor = state.editor || {};
+    const savedActiveDraw = editor.activeDrawLayerId && isDrawLayer(next[editor.activeDrawLayerId]) ? next[editor.activeDrawLayerId] : null;
+    const activeDraw = ensured.created ? ensured.drawLayer : savedActiveDraw || ensured.drawLayer;
+    const selectionId = ensured.created ? ensured.drawLayer.id : fallbackSelectionId(next, [savedActiveDraw?.id].filter(Boolean));
+    if (selectionId) setSelection([selectionId], selectionId);
+    else setSelection([]);
     setGuide(editor.guide || 'none');
-    setActiveDrawLayerId(editor.activeDrawLayerId && next[editor.activeDrawLayerId] ? editor.activeDrawLayerId : null);
-    setTool(TOOL_LABELS[editor.tool] ? editor.tool : 'select');
+    setActiveDrawLayerId(activeDraw?.id || null);
+    setTool(editor.tool && editor.tool !== 'image' && TOOL_LABELS[editor.tool] ? editor.tool : 'select');
     setMediaStatus(`Diseño cargado: ${design?.name || 'sin nombre'}.`);
   };
 
@@ -1188,6 +1273,7 @@ export default function Editor() {
           onProperties={toggleProperties}
           onInsertTool={openInsertProperties}
           onImageFile={uploadFile}
+          imagePickerRequest={imagePickerRequest}
           propertiesOpen={propertiesOpen}
           snapEnabled={snapEnabled}
           onToggleSnap={() => setSnapEnabled((value) => !value)}

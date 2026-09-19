@@ -168,15 +168,23 @@ export function configureSockets(io) {
     edit('obj-remove', (context, payload) => {
       if (!payload?.id) return;
       const before = getChannelControl(context.channelId);
-      removeObject(context.channelId, payload.id);
+      const { fallback } = removeObject(context.channelId, payload.id);
       emitWorkspaceChange(io, socket, context.channelId, 'obj-remove', { id: payload.id }, before);
+      if (fallback) {
+        io.to(editorRoom(context.channelId)).emit('obj-upsert', fallback);
+        if (getChannelControl(context.channelId).liveEnabled) io.to(overlayRoom(context.channelId)).emit('obj-upsert', fallback);
+      }
     });
 
     edit('clear-all', (context) => {
       const before = getChannelControl(context.channelId);
-      clearObjects(context.channelId);
+      const { fallback } = clearObjects(context.channelId);
       io.to(editorRoom(context.channelId)).emit('clear-all');
-      if (getChannelControl(context.channelId).liveEnabled) io.to(overlayRoom(context.channelId)).emit('clear-all');
+      if (fallback) io.to(editorRoom(context.channelId)).emit('obj-upsert', fallback);
+      if (getChannelControl(context.channelId).liveEnabled) {
+        io.to(overlayRoom(context.channelId)).emit('clear-all');
+        if (fallback) io.to(overlayRoom(context.channelId)).emit('obj-upsert', fallback);
+      }
       if (before.hasDraftChanges !== getChannelControl(context.channelId).hasDraftChanges) emitControl(io, context.channelId);
     });
 

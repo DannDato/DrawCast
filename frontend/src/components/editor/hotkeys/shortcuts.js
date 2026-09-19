@@ -1,6 +1,6 @@
 export const TOOL_SHORTCUTS = {
   select: 'V',
-  hand: 'H',
+  hand: 'H / CLICK RUEDA',
   draw: 'P',
   eraser: 'E',
   image: 'I',
@@ -22,6 +22,7 @@ export const HOTKEY_SECTIONS = [
     items: [
       ['V', 'Seleccionar / mover'],
       ['H', 'Manita / mover lienzo'],
+      ['CLICK RUEDA (MANTENER)', 'Manita temporal; al soltar vuelve a la herramienta anterior'],
       ['P', 'Pincel'],
       ['E', 'Borrador'],
       ['I', 'Imagen / GIF'],
@@ -39,7 +40,18 @@ export const HOTKEY_SECTIONS = [
       ['FLECHAS', 'Mover selección 1 px'],
       ['SHIFT + FLECHAS', 'Mover selección 10 px'],
       ['ESC', 'Volver a Selección / limpiar selección'],
-      ['SUPR', 'Eliminar selección']
+      ['SUPR / BACKSPACE', 'Eliminar selección']
+    ]
+  },
+  {
+    title: 'MODIFICADORES',
+    items: [
+      ['CTRL/CMD / SHIFT + CLICK', 'Añadir o quitar una capa de la selección'],
+      ['SHIFT + REDIMENSIONAR', 'Mantener proporciones'],
+      ['SHIFT + ROTAR', 'Ajustar rotación en pasos de 15°'],
+      ['ALT + MOVER / REDIM.', 'Ignorar snap temporalmente'],
+      ['SHIFT + ARRASTRAR FORMA', 'Crear forma con proporciones iguales'],
+      ['ALT + ARRASTRAR FORMA', 'Crear forma desde el centro']
     ]
   },
   {
@@ -50,7 +62,7 @@ export const HOTKEY_SECTIONS = [
       ['CTRL/CMD + SHIFT + G', 'Desagrupar selección'],
       ['CTRL/CMD + D', 'Duplicar selección'],
       ['CTRL/CMD + ↑ / ↓', 'Subir o bajar una capa'],
-      ['CTRL/CMD + SHIFT + SUPR', 'Vaciar el lienzo (pide confirmación)']
+      ['CTRL/CMD + SHIFT + SUPR / BACKSPACE', 'Vaciar el lienzo (pide confirmación)']
     ]
   },
   {

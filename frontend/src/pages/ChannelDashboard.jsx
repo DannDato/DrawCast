@@ -111,8 +111,8 @@ function PrivateLinkValue({ value }) {
     const [visible, setVisible] = useState(false);
 
     return (
-        <div className="flex min-w-0 items-center gap-2">
-            <code className="min-w-0 flex-1 truncate">{visible ? value : "********************"}</code>
+        <div className="dc-private-link-value">
+            <code>{visible ? value : "********************"}</code>
             <button
                 type="button"
                 className="dc-canvas-mini-action shrink-0"
@@ -176,18 +176,7 @@ function FeaturedStreamer({ channel }) {
     );
 }
 
-function canvasStatus(channel) {
-    const runtime = channel.runtime || {};
-    if (runtime.overlayHidden) return { label: "Overlay apagado", tone: "danger" };
-    if (runtime.liveEnabled === false)
-        return { label: runtime.hasDraftChanges ? "Estudio · cambios" : "Estudio", tone: "studio" };
-    if ((runtime.overlayCount || 0) > 0) return { label: "Live", tone: "live" };
-    if ((runtime.editorCount || 0) > 0) return { label: "Editando", tone: "editing" };
-    return { label: "Listo", tone: "idle" };
-}
-
 function CanvasSummaryCard({ channel, selected, onClick }) {
-    const status = canvasStatus(channel);
     const overlayUrl = `${window.location.origin}/overlay/${channel.publicKey}`;
     return (
         <article className={`dc-home-canvas-card ${selected ? "selected" : ""}`}>
@@ -195,10 +184,6 @@ function CanvasSummaryCard({ channel, selected, onClick }) {
                 <div className="dc-home-canvas-main">
                     <div className="dc-home-canvas-title-row">
                         <h3>{channel.name}</h3>
-                        <span className={`dc-home-canvas-status ${status.tone}`}>
-                            <i />
-                            {status.label}
-                        </span>
                     </div>
                     <p>
                         {channel.channelUrl
@@ -285,7 +270,7 @@ function CanvasDetails({
                 <div className="dc-canvas-link-box">
                     <span>EDITOR</span>
                     <PrivateLinkValue value={editorUrl} />
-                    <div>
+                    <div className="dc-canvas-link-actions">
                         <CopyLink value={editorUrl} />
                         <Link className="dc-canvas-mini-action" to={`/app/editor/${channel.publicKey}`}>
                             <ExternalLink size={14} /> Abrir
@@ -295,14 +280,14 @@ function CanvasDetails({
                 <div className="dc-canvas-link-box">
                     <span>OVERLAY / OBS</span>
                     <PrivateLinkValue value={overlayUrl} />
-                    <div>
+                    <div className="dc-canvas-link-actions">
                         <CopyLink value={overlayUrl} />
                         <a className="dc-canvas-mini-action" href={overlayUrl} target="_blank" rel="noreferrer">
                             <ExternalLink size={14} /> Abrir
                         </a>
                     </div>
                 </div>
-                <div className="dc-canvas-link-box">
+                <div className="dc-canvas-link-box dc-canvas-link-box-channel">
                     <span>CANAL DEL STREAMER</span>
                     {channel.channelUrl ? (
                         <a
@@ -318,8 +303,8 @@ function CanvasDetails({
                         <em>Sin link registrado</em>
                     )}
                 </div>
-                <div className="mt-[18px] flex items-center justify-end gap-5 pt-4 max-[680px]:flex-col max-[680px]:items-stretch">
-                    <div className="min-w-0 text-right">
+                <div className="dc-canvas-danger-row">
+                    <div className="dc-canvas-danger-copy">
                         <h3 className="mb-1 mt-[3px] text-[10px] text-[var(--dc-danger-text)]">Eliminar lienzo</h3>
                         <p className="m-0 max-w-[720px] text-[10px] leading-[1.45] text-[var(--dc-muted)]">
                             Elimina permanentemente colaboradores, invitaciones, diseños guardados, archivos subidos y el
@@ -328,7 +313,7 @@ function CanvasDetails({
                     </div>
                     <button
                         type="button"
-                        className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-[7px] border border-[var(--dc-button-danger-border)] bg-[var(--dc-button-danger-bg)] px-[13px] text-[10px] font-bold text-[var(--dc-button-danger-text)] hover:brightness-110 max-[680px]:w-full"
+                        className="dc-canvas-danger-button"
                         onClick={onDeleteChannel}
                     >
                         <Trash2 size={15} /> Eliminar lienzo
@@ -898,7 +883,7 @@ export default function ChannelDashboard() {
                     los que ya tienes.
                 </div>
             )}
-             {!loading && ownedChannels.length > 0 ? (
+             {!loading && ownedChannels.length > 0 && !atLimit ? (
               <div className="dc-home-main-grid items-start max-[980px]:grid-cols-1 my-[-20px] p-0">
                 <div className="mt-3 max-[980px]:hidden">
                     <div className=""></div>

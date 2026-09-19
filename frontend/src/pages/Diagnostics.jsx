@@ -7,8 +7,8 @@ export default function Diagnostics() {
             <div className="mb-[18px] flex items-end justify-between gap-5 max-[820px]:flex-col max-[820px]:items-start">
                 <div>
                     {/* <span className="dc-kicker">SOPORTE</span> */}
-                    <h1 className="font-['Bebas_Neue'] font-normal uppercase text-[3rem] md:text-[5rem] leading-[5rem]">
-                        DIAGNOSTICO <span className="text-[var(--dc-accent)]"> DE RENDIMIENTO</span>
+                    <h1 className="dc-page-title">
+                        DIAGNOSTICO <span className="dc-page-title-accent">DE RENDIMIENTO</span>
                     </h1>
                     <p className="m-0 max-w-[720px] text-[13px] text-[var(--dc-muted)]">
                         Revisa si un problema viene de tu conexión, este equipo o los servidores de DrawCast.

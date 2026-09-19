@@ -236,8 +236,8 @@ export default function EditorHub() {
             <div className="mb-4 md:flex items-end justify-between gap-6 max-[760px]:items-start">
                 <div>
                     {/* <span className="dc-kicker">EDITORES</span> */}
-                    <h1 className="font-['Bebas_Neue'] font-normal uppercase text-[3rem] md:text-[5rem] leading-[5rem]">
-                        ERES <span className="text-[var(--dc-accent)]">EDITOR</span>
+                    <h1 className="dc-page-title">
+                        ERES <span className="dc-page-title-accent">EDITOR</span>
                     </h1>
                     {/* <p className="m-0 text-[13px] text-[var(--dc-text)]">Accede rápido a tus espacios o a los lienzos donde colaboras.</p> */}
                 </div>

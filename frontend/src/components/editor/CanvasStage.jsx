@@ -185,10 +185,20 @@ export default function CanvasStage({
   });
 
   const onViewportPointerDown = (event) => {
-    if (tool !== 'hand' || event.button !== 0 || event.target.closest?.('.dc-canvas-zoom, .dc-inline-text-editor')) return;
+    const handPan = tool === 'hand' && event.button === 0;
+    const temporaryMiddlePan = event.button === 1;
+    if ((!handPan && !temporaryMiddlePan) || event.target.closest?.('.dc-canvas-zoom, .dc-inline-text-editor')) return;
+
     event.preventDefault();
+    setPointerCursor('');
     viewportRef.current?.setPointerCapture?.(event.pointerId);
-    panInteraction.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, pan: { ...panRef.current } };
+    panInteraction.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      pan: { ...panRef.current },
+      temporary: temporaryMiddlePan
+    };
     setPanning(true);
   };
 
@@ -205,6 +215,7 @@ export default function CanvasStage({
     if (!active || (event?.pointerId != null && active.pointerId !== event.pointerId)) return;
     panInteraction.current = null;
     setPanning(false);
+    setPointerCursor('');
     if (event?.pointerId != null && viewportRef.current?.hasPointerCapture?.(event.pointerId)) viewportRef.current.releasePointerCapture?.(event.pointerId);
   };
 
@@ -785,11 +796,12 @@ export default function CanvasStage({
   return (
     <div
       ref={viewportRef}
-      className={`dc-canvas-viewport ${tool === 'hand' ? 'is-hand' : ''} ${panning ? 'is-panning' : ''}`}
+      className={`dc-canvas-viewport ${tool === 'hand' || panning ? 'is-hand' : ''} ${panning ? 'is-panning' : ''}`}
       onPointerDown={onViewportPointerDown}
       onPointerMove={onViewportPointerMove}
       onPointerUp={finishPan}
       onPointerCancel={finishPan}
+      onAuxClick={(event) => { if (event.button === 1) event.preventDefault(); }}
     >
       <div
         className="dc-canvas-frame"
@@ -805,7 +817,7 @@ export default function CanvasStage({
       <canvas
         ref={canvasRef}
         className={`dc-canvas tool-${tool} ${mediaDragging ? 'is-media-dragging' : ''}`}
-        style={pointerCursor ? { cursor: pointerCursor } : undefined}
+        style={panning ? { cursor: 'grabbing' } : pointerCursor ? { cursor: pointerCursor } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishInteraction}

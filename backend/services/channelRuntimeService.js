@@ -9,11 +9,43 @@ const uploadRoot = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'upload
 
 const EDITOR_COLOR_SLOTS = 12;
 
+function makeRuntimeDrawLayer(objects = new Map()) {
+  const maxZ = Math.max(0, ...Array.from(objects.values()).map((object) => Number(object?.zIndex) || 0));
+  return {
+    id: `draw_layer_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    tipo: 'draw',
+    compuesto: true,
+    x: 0,
+    y: 0,
+    w: 1920,
+    h: 1080,
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    rotation: 0,
+    lineas: [],
+    hidden: false,
+    layerName: 'DIBUJO 1',
+    zIndex: maxZ + 1
+  };
+}
+
+function hasDrawLayer(objects) {
+  return Array.from(objects.values()).some((object) => object?.tipo === 'draw' || object?.tipo === 'trazo');
+}
+
+function ensureDrawLayer(objects) {
+  if (hasDrawLayer(objects)) return null;
+  const layer = makeRuntimeDrawLayer(objects);
+  objects.set(layer.id, layer);
+  return layer;
+}
+
 function runtime(channelId) {
   if (!runtimes.has(channelId)) {
+    const initialLayer = makeRuntimeDrawLayer();
     runtimes.set(channelId, {
-      objects: new Map(),
-      publishedObjects: new Map(),
+      objects: new Map([[initialLayer.id, initialLayer]]),
+      publishedObjects: new Map([[initialLayer.id, initialLayer]]),
       editors: new Map(),
       overlays: new Set(),
       liveEnabled: true,
@@ -121,31 +153,36 @@ export function setObject(channelId, object) {
 export function removeObject(channelId, id) {
   const r = runtime(channelId);
   r.objects.delete(id);
+  const fallback = ensureDrawLayer(r.objects);
   if (r.liveEnabled) {
     r.publishedObjects.delete(id);
+    if (fallback) r.publishedObjects.set(fallback.id, fallback);
     r.hasDraftChanges = false;
   } else {
     r.hasDraftChanges = true;
   }
-  return getChannelControl(channelId);
+  return { control: getChannelControl(channelId), fallback };
 }
 
 export function clearObjects(channelId) {
   const r = runtime(channelId);
   r.objects.clear();
+  const fallback = ensureDrawLayer(r.objects);
   if (r.liveEnabled) {
     r.publishedObjects.clear();
+    if (fallback) r.publishedObjects.set(fallback.id, fallback);
     r.hasDraftChanges = false;
   } else {
     r.hasDraftChanges = true;
   }
-  return getChannelControl(channelId);
+  return { control: getChannelControl(channelId), fallback };
 }
 
 export function replaceObjects(channelId, objects = []) {
   const r = runtime(channelId);
   r.objects.clear();
   objects.forEach((object) => r.objects.set(object.id, object));
+  ensureDrawLayer(r.objects);
   if (r.liveEnabled) {
     r.publishedObjects = copyMap(r.objects);
     r.hasDraftChanges = false;

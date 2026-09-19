@@ -128,8 +128,8 @@ export default function Profile() {
   const initial = (shown?.displayName || shown?.username || 'U').slice(0, 1).toUpperCase();
 
   return <div className="mx-auto w-full max-w-[1440px] py-8 pt-7">
-    <div className="mb-[18px] flex flex-col items-start justify-between gap-[18px] md:flex-row md:items-end [&_h1]:my-1 [&_h1]:text-[clamp(32px,5vw,48px)] [&_h1]:leading-none [&_p]:m-0">
-      <div><span className="inline-block text-[11px] font-black uppercase tracking-[.1em] text-[var(--dc-text-muted)]">Mi cuenta</span><h1>Perfil</h1><p className="text-[var(--dc-text-muted)]">Administra tu información personal y métodos de acceso.</p></div>
+    <div className="mb-[18px] flex flex-col items-start justify-between gap-[18px] md:flex-row md:items-end [&_p]:m-0">
+      <div><h1 className="dc-page-title">TU <span className="dc-page-title-accent">PERFIL</span></h1><p className="mt-2 text-[var(--dc-text-muted)]">Administra tu información personal y métodos de acceso.</p></div>
       <button className="inline-flex items-center justify-center gap-2  border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] transition hover:bg-[var(--dc-button-secondary-hover)] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => loadProfile({ force: true })}><RefreshCw size={16} /> Actualizar</button>
     </div>
 

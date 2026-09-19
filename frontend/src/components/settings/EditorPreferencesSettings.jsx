@@ -17,7 +17,7 @@ function RangeField({ label, value, min, max, step = 1, suffix = '', onChange })
 }
 
 function Card({ title, description, children }) {
-  return <section className="bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]"><div className="mb-5"><strong className="text-base">{title}</strong><p className="mt-1 text-[13px] text-[var(--dc-text-muted)]">{description}</p></div><div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{children}</div></section>;
+  return <section className="bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]"><div className="mb-5"><h3 className="m-0 font-['Bebas_Neue'] text-[1.3rem] font-normal uppercase leading-none tracking-[.025em] text-[var(--dc-text-muted)]">{title}</h3><p className="mt-1 text-[13px] text-[var(--dc-text-muted)]">{description}</p></div><div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{children}</div></section>;
 }
 
 export default function EditorPreferencesSettings({ value, onChange, onSave, onReset, saving }) {

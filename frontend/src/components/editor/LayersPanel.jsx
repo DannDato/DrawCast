@@ -396,7 +396,12 @@ export default function LayersPanel({
         {!units.length && <div className="dc-layers-empty">No hay capas.</div>}
         {unitNodes}
       </div>
-      <button type="button" className="p-10" onClick={onNewDrawLayer} title="Nueva capa de dibujo" aria-label="Nueva capa de dibujo"><Plus size={14} /><span>Capa</span></button>
+      <div className="dc-layers-new-footer">
+        <button type="button" className="dc-layers-new-layer" onClick={onNewDrawLayer} title="Nueva capa de dibujo" aria-label="Nueva capa de dibujo">
+          <span className="dc-layers-new-layer-icon"><Plus size={15} /></span>
+          <span className="dc-layers-new-layer-copy"><b>Nueva capa</b><small>Dibujo</small></span>
+        </button>
+      </div>
 
       {dragState && (
         <div

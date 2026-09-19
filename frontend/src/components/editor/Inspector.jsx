@@ -227,6 +227,18 @@ export default function Inspector({
     if (isShape) onPatch(patch);
   };
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const closeOnOutsidePointer = (event) => {
+      if (panelRef.current?.contains(event.target)) return;
+      onClose?.();
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer, true);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer, true);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (

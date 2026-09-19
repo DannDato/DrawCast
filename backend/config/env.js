@@ -22,7 +22,7 @@ export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 3000),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
-  appName: process.env.APP_NAME || 'Drawcast',
+  appName: process.env.APP_NAME || 'Dova',
   trustProxy: process.env.TRUST_PROXY || 'loopback',
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
