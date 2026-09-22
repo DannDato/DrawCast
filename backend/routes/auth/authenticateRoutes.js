@@ -17,6 +17,12 @@ router.post('/google/code', authLimiter, asyncHandler(ctrlAuth.googleCodeAuth));
 router.get('/twitch/config', asyncHandler(ctrlAuth.twitchConfig));
 router.get('/twitch', authLimiter, asyncHandler(ctrlAuth.twitchStart));
 router.get('/twitch/callback', authLimiter, asyncHandler(ctrlAuth.twitchCallback));
+router.get('/kick/config', asyncHandler(ctrlAuth.kickConfig));
+router.get('/kick', authLimiter, asyncHandler(ctrlAuth.kickStart));
+router.get('/kick/callback', authLimiter, asyncHandler(ctrlAuth.kickCallback));
+router.get('/discord/config', asyncHandler(ctrlAuth.discordConfig));
+router.get('/discord', authLimiter, asyncHandler(ctrlAuth.discordStart));
+router.get('/discord/callback', authLimiter, asyncHandler(ctrlAuth.discordCallback));
 router.post('/forgot-password', authLimiter, asyncHandler(ctrlAuth.forgotPassword));
 router.post('/reset-password', authLimiter, asyncHandler(ctrlAuth.resetPassword));
 

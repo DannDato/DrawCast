@@ -1,6 +1,7 @@
 import { DataTypes } from 'sequelize';
 export default (db) => db.define('ChannelInvitation', {
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
+  uuid: { type: DataTypes.UUID, allowNull: false, unique: true, defaultValue: DataTypes.UUIDV4 },
   channelId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, field: 'channel_id' },
   invitedBy: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, field: 'invited_by' },
   email: { type: DataTypes.STRING(191), allowNull: false },

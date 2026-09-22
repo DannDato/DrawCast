@@ -1,13 +1,13 @@
 import { useEffect, useState, useTransition } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Activity, LayoutDashboard, LogOut, Menu, PenTool, Settings, User, X } from "lucide-react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { LayoutDashboard, LogOut, Menu, PenTool, Settings, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getPendingInvitations } from "../api/channels";
+import AppFooter from "../components/footer/AppFooter";
 
 const items = [
     { name: "Inicio", path: "/app", icon: LayoutDashboard, end: true },
     { name: "Editores", path: "/app/editor", icon: PenTool },
-    { name: "Diagnóstico", path: "/app/diagnostico", icon: Activity },
     // { name: "Perfil", path: "/app/profile", icon: User },
     { name: "Configuración", path: "/app/settings", icon: Settings },
 ];
@@ -15,9 +15,11 @@ const items = [
 export default function DashboardLayout() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [invitationCount, setInvitationCount] = useState(0);
     const [navigationPending, startNavigation] = useTransition();
+    const isFullEditor = /^\/app\/editor\/[^/]+$/.test(location.pathname);
 
     useEffect(() => {
         let active = true;
@@ -74,7 +76,7 @@ export default function DashboardLayout() {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--dc-bg)] text-[var(--dc-text)]">
+        <div className="flex min-h-screen flex-col bg-[var(--dc-bg)] text-[var(--dc-text)]">
             <header className="sticky top-0 z-40 bg-[var(--dc-nav-bg)] backdrop-blur">
                 <div className="flex h-14 min-w-0 items-center gap-3 px-3 md:px-5">
                     <NavLink to="/app" className="flex min-w-0 shrink-0 items-baseline gap-1.5 no-underline" onClick={(event) => {
@@ -131,8 +133,11 @@ export default function DashboardLayout() {
                 )}
             </header>
 
-            <main className="dc-dashboard-stage min-w-0">
-                <Outlet />
+            <main className="dc-dashboard-stage min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
+                    <Outlet />
+                </div>
+                {!isFullEditor && <AppFooter />}
             </main>
         </div>
     );

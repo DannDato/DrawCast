@@ -63,7 +63,7 @@ export default function GoogleAuthButton({ mode = 'signin', onError }) {
   return (
     <button type="button" className="dc-oauth-button dc-oauth-google" onClick={start} disabled={busy}>
       {/* <span className="dc-google-mark" aria-hidden="true">G</span> */}
-      <img src="/icons/google.svg" alt="Google" className="w-8 h-8 m-[-10px]" />
+      <img src="/icons/google.svg" alt="Google" className="dc-oauth-icon" />
       <span>{busy ? 'ABRIENDO GOOGLE...' : mode === 'signup' ? 'GOOGLE' : 'GOOGLE'}</span>
     </button>
   );

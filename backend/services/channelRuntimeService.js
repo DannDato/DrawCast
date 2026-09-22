@@ -94,8 +94,7 @@ export function getPublishedChannelState(channelId) {
   return mapToList(runtime(channelId).publishedObjects);
 }
 
-export function getChannelControl(channelId) {
-  const r = runtime(channelId);
+function controlFromRuntime(r) {
   return {
     liveEnabled: r.liveEnabled,
     overlayHidden: r.overlayHidden,
@@ -105,11 +104,10 @@ export function getChannelControl(channelId) {
   };
 }
 
-export function getChannelPresence(channelId) {
-  const r = runtime(channelId);
+function presenceFromRuntime(r) {
   const editorList = Array.from(r.editors.entries()).map(([socketId, editor]) => ({
     socketId,
-    userId: editor.userId,
+    userUuid: editor.userUuid,
     username: editor.username,
     displayName: editor.displayName,
     avatarUrl: editor.avatarUrl || null,
@@ -124,6 +122,25 @@ export function getChannelPresence(channelId) {
     clients: r.editors.size + r.overlays.size,
     editorList
   };
+}
+
+export function getChannelRuntimeSnapshot(channelId) {
+  const r = runtimes.get(channelId);
+  if (!r) {
+    return {
+      control: { liveEnabled: true, overlayHidden: false, hasDraftChanges: false, editorCount: 0, liveRequired: false },
+      presence: { editors: 0, overlays: 0, clients: 0, editorList: [] }
+    };
+  }
+  return { control: controlFromRuntime(r), presence: presenceFromRuntime(r) };
+}
+
+export function getChannelControl(channelId) {
+  return controlFromRuntime(runtime(channelId));
+}
+
+export function getChannelPresence(channelId) {
+  return presenceFromRuntime(runtime(channelId));
 }
 
 export function getEditorAccess(channelId, socketId) {
@@ -231,7 +248,7 @@ export function connectRole(channelId, socketId, role, metadata = {}) {
   if (role === 'editor') {
     const wasEmpty = r.editors.size === 0;
     r.editors.set(socketId, {
-      userId: metadata.userId ?? null,
+      userUuid: metadata.userUuid ?? null,
       username: String(metadata.username || '').trim().replace(/^@/, '').slice(0, 80),
       displayName: String(metadata.displayName || metadata.username || 'Editor').slice(0, 120),
       avatarUrl: metadata.avatarUrl ? String(metadata.avatarUrl).slice(0, 500) : null,

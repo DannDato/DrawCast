@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../../api/axios';
 import { requestGoogleCode } from '../../utils/googleIdentity';
 
-export default function GoogleConnectButton({ onConnected, onError }) {
+export default function GoogleConnectButton({ onConnected, onError, iconOnly = false, className = "" }) {
   const [busy, setBusy] = useState(false);
   const cleanupRequestRef = useRef(null);
   const mountedRef = useRef(true);
@@ -47,6 +47,8 @@ export default function GoogleConnectButton({ onConnected, onError }) {
       onError?.(error.message || 'No se pudo abrir Google.');
     }
   }, [busy, handleCode, onError]);
+
+  if (iconOnly) return <button type="button" className={`${className || 'grid h-[88px] w-[88px] place-items-center border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] p-4 transition hover:border-[var(--dc-accent)]'} disabled:cursor-wait disabled:opacity-60`} onClick={start} disabled={busy} title={busy ? 'Abriendo Google…' : 'Conectar Google'}><img src="/icons/google.svg" alt="Google" className="h-full w-full object-contain grayscale opacity-55 transition" /></button>;
 
   return (
     <button type="button" className="dc-oauth-button dc-oauth-google dc-google-connect-button" onClick={start} disabled={busy}>

@@ -10,6 +10,7 @@ function decodeJsonValue(value) {
 
 export default (db) => db.define('SavedDesign', {
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
+  uuid: { type: DataTypes.UUID, allowNull: false, unique: true, defaultValue: DataTypes.UUIDV4 },
   channelId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, field: 'channel_id' },
   createdBy: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, field: 'created_by' },
   name: { type: DataTypes.STRING(120), allowNull: false },

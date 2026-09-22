@@ -4,10 +4,11 @@ import { models } from '../models/index.js';
 import { sha256 } from '../helpers/security.js';
 import logger from '../helpers/winston.js';
 import * as emailService from './emailService.js';
+import { isPublicUuid } from './channelAccessService.js';
 
 const invitationInclude = [
-  { model: models.Channel, as: 'channel', attributes: ['id', 'name', 'platform', 'channelUrl', 'publicKey', 'ownerId'] },
-  { model: models.User, as: 'inviter', attributes: ['id', 'username', 'displayName', 'avatarUrl'] }
+  { model: models.Channel, as: 'channel', attributes: ['id', 'uuid', 'name', 'platform', 'channelUrl', 'publicKey', 'ownerId'] },
+  { model: models.User, as: 'inviter', attributes: ['id', 'uuid', 'username', 'displayName', 'avatarUrl'] }
 ];
 
 function invitationMessage(status) {
@@ -105,14 +106,16 @@ export async function acceptInvitation(token, user) {
   return acceptInvitationRecord(invitation, user);
 }
 
-export async function acceptInvitationById(invitationId, user) {
-  const invitation = await models.ChannelInvitation.findByPk(invitationId, { include: invitationInclude });
+export async function acceptInvitationByUuid(invitationUuid, user) {
+  if (!isPublicUuid(invitationUuid)) throw Object.assign(new Error('Identificador de invitación inválido.'), { status: 400, code: 'INVITATION_INVALID_UUID' });
+  const invitation = await models.ChannelInvitation.findOne({ where: { uuid: invitationUuid }, include: invitationInclude });
   if (!invitation) throw Object.assign(new Error('Invitación no encontrada.'), { status: 404, code: 'INVITATION_NOT_FOUND' });
   return acceptInvitationRecord(invitation, user);
 }
 
-export async function rejectInvitationById(invitationId, user) {
-  const invitation = await models.ChannelInvitation.findByPk(invitationId, { include: invitationInclude });
+export async function rejectInvitationByUuid(invitationUuid, user) {
+  if (!isPublicUuid(invitationUuid)) throw Object.assign(new Error('Identificador de invitación inválido.'), { status: 400, code: 'INVITATION_INVALID_UUID' });
+  const invitation = await models.ChannelInvitation.findOne({ where: { uuid: invitationUuid }, include: invitationInclude });
   if (!invitation) throw Object.assign(new Error('Invitación no encontrada.'), { status: 404, code: 'INVITATION_NOT_FOUND' });
   if (String(user.email || '').toLowerCase() !== String(invitation.email || '').toLowerCase()) {
     throw Object.assign(new Error('La invitación pertenece a otro correo'), { status: 403 });

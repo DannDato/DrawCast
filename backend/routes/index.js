@@ -4,6 +4,7 @@ import profileRoutes from './user/profileRoutes.js';
 import settingsRoutes from './user/settingsRoutes.js';
 import channelRoutes from './channel/channelRoutes.js';
 import mediaRoutes from './channel/mediaRoutes.js';
+import publicMediaRoutes from './channel/publicMediaRoutes.js';
 import savedDesignRoutes from './channel/savedDesignRoutes.js';
 import { getServerDiagnostics } from '../services/diagnosticsService.js';
 
@@ -14,8 +15,9 @@ router.get('/health/diagnostics', (req, res) => res.json(getServerDiagnostics())
 router.use('/auth', authRoutes);
 router.use('/user', profileRoutes);
 router.use('/user/settings', settingsRoutes);
+router.use('/channel-media', publicMediaRoutes);
 router.use('/channels', channelRoutes);
 router.use('/channels', mediaRoutes);
-router.use('/channels/:channelId/designs', savedDesignRoutes);
+router.use('/channels/:channelUuid/designs', savedDesignRoutes);
 
 export default router;

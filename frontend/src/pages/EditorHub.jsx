@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-    Activity,
     Check,
+    Clock3,
     Copy,
     ExternalLink,
     FileStack,
@@ -11,6 +11,7 @@ import {
     MonitorPlay,
     PenTool,
     Search,
+    Star,
     Users,
     X,
     XCircle,
@@ -22,8 +23,10 @@ import {
     leaveChannel,
     notifyInvitationsChanged,
     rejectPendingInvitation,
+    setChannelFavorite,
 } from "../api/channels";
 import { useSystemAlert } from "../components/ui/SystemAlert";
+import { PresenceStack } from "../components/ui/PresenceAvatar";
 
 function channelStatus(channel) {
     const runtime = channel.runtime || {};
@@ -77,6 +80,21 @@ function InvitationAvatar({ inviter }) {
     );
 }
 
+
+function lastUsedLabel(value) {
+    if (!value) return "Nunca usado";
+    const time = new Date(value).getTime();
+    if (!Number.isFinite(time)) return "Nunca usado";
+    const diffMinutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
+    if (diffMinutes < 1) return "Usado ahora";
+    if (diffMinutes < 60) return `Usado hace ${diffMinutes} min`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `Usado hace ${diffHours} h`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `Usado hace ${diffDays} d`;
+    return `Usado ${new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short" }).format(new Date(time))}`;
+}
+
 function expiresLabel(value) {
     const expires = new Date(value).getTime();
     const hours = Math.max(0, Math.ceil((expires - Date.now()) / 3600000));
@@ -89,8 +107,11 @@ export default function EditorHub() {
     const [data, setData] = useState({ ownedChannels: [], collaborations: [] });
     const [invitations, setInvitations] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [busyInvitationId, setBusyInvitationId] = useState(null);
+    const [busyInvitationUuid, setBusyInvitationUuid] = useState(null);
+    const [favoriteBusyUuids, setFavoriteBusyUuids] = useState(() => new Set());
     const [query, setQuery] = useState("");
+    const [activeTab, setActiveTab] = useState("all");
+    const [sortBy, setSortBy] = useState("recent");
 
     useEffect(() => {
         let active = true;
@@ -123,17 +144,38 @@ export default function EditorHub() {
         ],
         [ownedChannels, data.collaborations]
     );
+    const tabs = useMemo(() => [
+        { id: "all", label: "Todos", count: channels.length },
+        { id: "favorites", label: "Favoritos", count: channels.filter((channel) => channel.isFavorite).length },
+        { id: "owned", label: "Tus lienzos", count: ownedChannels.length },
+        { id: "guest", label: "Invitado", count: (data.collaborations || []).length },
+    ], [channels, ownedChannels.length, data.collaborations]);
+
     const filtered = useMemo(() => {
         const value = query.trim().toLowerCase();
-        if (!value) return channels;
-        return channels.filter((channel) =>
-            [channel.name, channel.platform, channel.channelUrl, channel.relation].some((field) =>
+        let next = channels.filter((channel) => {
+            if (activeTab === "favorites" && !channel.isFavorite) return false;
+            if (activeTab === "owned" && !channel.owned) return false;
+            if (activeTab === "guest" && channel.owned) return false;
+            if (!value) return true;
+            return [channel.name, channel.platform, channel.channelUrl, channel.relation].some((field) =>
                 String(field || "")
                     .toLowerCase()
                     .includes(value)
-            )
-        );
-    }, [channels, query]);
+            );
+        });
+
+        next = [...next].sort((a, b) => {
+            if (sortBy === "name") return String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" });
+            const aUsed = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+            const bUsed = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+            if (aUsed !== bUsed) return bUsed - aUsed;
+            return String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" });
+        });
+        return next;
+    }, [channels, query, activeTab, sortBy]);
+
+    const gridColumns = filtered.length === 1 ? "grid-cols-1" : filtered.length % 2 === 0 ? "grid-cols-2" : "grid-cols-3";
 
     const emptyBox =
         "grid justify-items-center gap-2.5 bg-[var(--dc-panel)] p-[18px] text-center shadow-[0_8px_24px_var(--dc-shadow-soft)]";
@@ -143,11 +185,44 @@ export default function EditorHub() {
         setData(next);
     };
 
-    const handleAcceptInvitation = async (invitation) => {
-        setBusyInvitationId(invitation.id);
+    const updateFavoriteState = (channelUuid, isFavorite) => {
+        const updateChannel = (channel) => channel.uuid === channelUuid ? { ...channel, isFavorite } : channel;
+        setData((current) => ({
+            ...current,
+            owned: current.owned ? updateChannel(current.owned) : current.owned,
+            ownedChannels: (current.ownedChannels || []).map(updateChannel),
+            collaborations: (current.collaborations || []).map(updateChannel),
+        }));
+    };
+
+    const handleFavorite = async (channel) => {
+        if (favoriteBusyUuids.has(channel.uuid)) return;
+        const nextFavorite = !channel.isFavorite;
+        updateFavoriteState(channel.uuid, nextFavorite);
+        setFavoriteBusyUuids((current) => new Set(current).add(channel.uuid));
         try {
-            const result = await acceptPendingInvitation(invitation.id);
-            setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+            await setChannelFavorite(channel.uuid, nextFavorite);
+        } catch (error) {
+            updateFavoriteState(channel.uuid, !nextFavorite);
+            await showAlert({
+                title: "No se pudo actualizar el favorito",
+                message: error.response?.data?.message || "Inténtalo nuevamente.",
+                tone: "danger",
+            });
+        } finally {
+            setFavoriteBusyUuids((current) => {
+                const next = new Set(current);
+                next.delete(channel.uuid);
+                return next;
+            });
+        }
+    };
+
+    const handleAcceptInvitation = async (invitation) => {
+        setBusyInvitationUuid(invitation.uuid);
+        try {
+            const result = await acceptPendingInvitation(invitation.uuid);
+            setInvitations((current) => current.filter((item) => item.uuid !== invitation.uuid));
             await refreshChannels();
             notifyInvitationsChanged();
             await showAlert({
@@ -157,7 +232,7 @@ export default function EditorHub() {
             });
         } catch (error) {
             if ([409, 410].includes(error.response?.status)) {
-                setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+                setInvitations((current) => current.filter((item) => item.uuid !== invitation.uuid));
                 notifyInvitationsChanged();
             }
             await showAlert({
@@ -166,7 +241,7 @@ export default function EditorHub() {
                 tone: "danger",
             });
         } finally {
-            setBusyInvitationId(null);
+            setBusyInvitationUuid(null);
         }
     };
 
@@ -180,10 +255,10 @@ export default function EditorHub() {
         });
         if (!accepted) return;
 
-        setBusyInvitationId(invitation.id);
+        setBusyInvitationUuid(invitation.uuid);
         try {
-            const result = await rejectPendingInvitation(invitation.id);
-            setInvitations((current) => current.filter((item) => item.id !== invitation.id));
+            const result = await rejectPendingInvitation(invitation.uuid);
+            setInvitations((current) => current.filter((item) => item.uuid !== invitation.uuid));
             notifyInvitationsChanged();
             await showAlert({
                 title: "Invitación rechazada",
@@ -197,7 +272,7 @@ export default function EditorHub() {
                 tone: "danger",
             });
         } finally {
-            setBusyInvitationId(null);
+            setBusyInvitationUuid(null);
         }
     };
 
@@ -212,10 +287,10 @@ export default function EditorHub() {
         });
         if (!accepted) return;
         try {
-            await leaveChannel(channel.id);
+            await leaveChannel(channel.uuid);
             setData((current) => ({
                 ...current,
-                collaborations: (current.collaborations || []).filter((item) => item.id !== channel.id),
+                collaborations: (current.collaborations || []).filter((item) => item.uuid !== channel.uuid),
             }));
             await showAlert({
                 title: "Lienzo abandonado",
@@ -241,25 +316,55 @@ export default function EditorHub() {
                     </h1>
                     {/* <p className="m-0 text-[13px] text-[var(--dc-text)]">Accede rápido a tus espacios o a los lienzos donde colaboras.</p> */}
                 </div>
-                <div className="mb-3.5 grid min-h-11 grid-cols-[18px_minmax(0,1fr)_30px] items-center gap-[9px] border border-[var(--dc-line)] bg-[var(--dc-panel)] px-[11px] pl-[13px] text-[var(--dc-muted)] focus-within:border-[var(--dc-accent)] focus-within:text-[var(--dc-accent)]">
-                  <Search size={16} />
-                  <input
-                      className="h-[42px] w-full border-0 bg-transparent text-[13px] font-medium text-[var(--dc-text)] outline-none"
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Buscar lienzo..."
-                  />
-                  {query && (
-                      <button
-                          type="button"
-                          className="grid h-7 w-7 place-items-center border-0 bg-transparent text-[var(--dc-muted)]"
-                          onClick={() => setQuery("")}
-                          title="Limpiar búsqueda"
-                      >
-                          <X size={14} />
-                      </button>
-                  )}
-              </div>
+                <div className="mb-3.5 flex items-center gap-2.5 max-[760px]:mt-3 max-[760px]:w-full max-[760px]:flex-col max-[760px]:items-stretch">
+                    <label className="flex min-h-11 items-center gap-2 border border-[var(--dc-line)] bg-[var(--dc-panel)] px-[11px] text-[12px] font-bold text-[var(--dc-muted)]">
+                        <span className="shrink-0">ORDENAR POR</span>
+                        <select
+                            className="min-w-[170px] flex-1 border-0 bg-transparent text-[13px] font-bold text-[var(--dc-text)] outline-none"
+                            value={sortBy}
+                            onChange={(event) => setSortBy(event.target.value)}
+                        >
+                            <option value="recent">Última vez utilizado</option>
+                            <option value="name">Nombre (A - Z)</option>
+                        </select>
+                    </label>
+                    <div className="grid min-h-11 min-w-[260px] grid-cols-[18px_minmax(0,1fr)_30px] items-center gap-[9px] border border-[var(--dc-line)] bg-[var(--dc-panel)] px-[11px] pl-[13px] text-[var(--dc-muted)] focus-within:border-[var(--dc-accent)] focus-within:text-[var(--dc-accent)] max-[760px]:min-w-0">
+                        <Search size={16} />
+                        <input
+                            className="h-[42px] w-full border-0 bg-transparent text-[13px] font-medium text-[var(--dc-text)] outline-none"
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            placeholder="Buscar lienzo..."
+                        />
+                        {query && (
+                            <button
+                                type="button"
+                                className="grid h-7 w-7 place-items-center border-0 bg-transparent text-[var(--dc-muted)]"
+                                onClick={() => setQuery("")}
+                                title="Limpiar búsqueda"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="mb-5 flex flex-wrap items-center gap-1 border-b border-[var(--dc-line)]" role="tablist" aria-label="Filtrar lienzos">
+                {tabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
+                        className={`relative inline-flex min-h-10 items-center gap-2 px-3.5 text-[13px] font-bold transition ${activeTab === tab.id ? "text-[var(--dc-text-strong)]" : "text-[var(--dc-muted)] hover:text-[var(--dc-text)]"}`}
+                        onClick={() => setActiveTab(tab.id)}
+                    >
+                        {tab.label}
+                        <span className="text-[11px] font-black opacity-60">{tab.count}</span>
+                        {activeTab === tab.id && <span className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-[var(--dc-accent)]" />}
+                    </button>
+                ))}
             </div>
 
             {invitations.length > 0 && (
@@ -271,13 +376,13 @@ export default function EditorHub() {
                             {invitations.length}
                         </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2.5 max-[760px]:grid-cols-1">
+                    <div className="grid grid-cols-3 gap-2.5 max-[760px]:grid-cols-1">
                         {invitations.map((invitation) => {
                             const inviterName =
                                 invitation.inviter?.displayName || invitation.inviter?.username || "Un usuario";
                             return (
                                 <article
-                                    key={invitation.id}
+                                    key={invitation.uuid}
                                     className="grid min-w-0 gap-[13px] border border-[var(--dc-accent-soft)] bg-[var(--dc-panel)] p-[15px] shadow-[0_8px_24px_var(--dc-shadow-soft)]"
                                 >
                                     <div className="flex items-center justify-between gap-3">
@@ -309,7 +414,7 @@ export default function EditorHub() {
                                     <div className="flex items-center gap-[7px] max-[520px]:flex-col max-[520px]:items-stretch">
                                         <button
                                             type="button"
-                                            disabled={busyInvitationId === invitation.id}
+                                            disabled={busyInvitationUuid === invitation.uuid}
                                             className="inline-flex min-h-9 flex-1 items-center justify-center gap-[7px] border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-[11px] text-[13px] font-bold text-[var(--dc-button-primary-text)] transition hover:brightness-110 disabled:opacity-50"
                                             onClick={() => handleAcceptInvitation(invitation)}
                                         >
@@ -317,7 +422,7 @@ export default function EditorHub() {
                                         </button>
                                         <button
                                             type="button"
-                                            disabled={busyInvitationId === invitation.id}
+                                            disabled={busyInvitationUuid === invitation.uuid}
                                             className="inline-flex min-h-9 items-center justify-center gap-[7px] border border-[var(--dc-button-danger-border)] bg-[var(--dc-button-danger-bg)] px-[11px] text-[13px] font-bold text-[var(--dc-button-danger-text)] transition hover:brightness-110 disabled:opacity-50"
                                             onClick={() => handleRejectInvitation(invitation)}
                                         >
@@ -355,13 +460,21 @@ export default function EditorHub() {
             ) : null}
             {!loading && channels.length > 0 && filtered.length === 0 ? (
                 <section className={emptyBox}>
-                    <Search size={26} className="text-[var(--dc-accent)]" />
-                    <h2>Sin resultados</h2>
-                    <p className="text-[var(--dc-muted)]">No encontramos ningún lienzo con “{query}”.</p>
+                    {activeTab === "favorites" ? <Star size={26} className="text-[#f3c94d]" /> : <Search size={26} className="text-[var(--dc-accent)]" />}
+                    <h2>{activeTab === "favorites" && !query ? "Todavía no tienes favoritos" : "Sin resultados"}</h2>
+                    <p className="text-[var(--dc-muted)]">
+                        {query
+                            ? `No encontramos ningún lienzo con “${query}”.`
+                            : activeTab === "favorites"
+                              ? "Marca una estrella en cualquier lienzo para tenerlo a mano aquí."
+                              : activeTab === "owned"
+                                ? "No tienes lienzos propios en esta vista."
+                                : "No tienes lienzos invitados en esta vista."}
+                    </p>
                 </section>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-2.5 max-[760px]:grid-cols-1">
+            <div className={`grid ${gridColumns} gap-2.5 max-[760px]:grid-cols-1`}>
                 {filtered.map((channel) => {
                     const status =
                         !channel.owned && channel.collaboration?.canEdit === false
@@ -370,20 +483,32 @@ export default function EditorHub() {
                     return (
                         <article
                             className="grid min-w-0 gap-[13px] bg-[var(--dc-panel)] p-[15px] shadow-[0_8px_24px_var(--dc-shadow-soft)] transition hover:-translate-y-px hover:bg-[var(--dc-surface-hover)]"
-                            key={`${channel.relation}-${channel.id}`}
+                            key={`${channel.relation}-${channel.uuid}`}
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <span className="dc-kicker">{channel.relation}</span>
-                                <span className={`dc-home-canvas-status ${status.tone}`}>
-                                    <i />
-                                    {status.label}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        className={`grid h-8 w-8 place-items-center border transition ${channel.isFavorite ? "border-[#c99b24] bg-[rgba(243,201,77,0.12)] text-[#f3c94d]" : "border-[var(--dc-line)] bg-[var(--dc-surface-2)] text-[var(--dc-muted)] hover:border-[#c99b24] hover:text-[#f3c94d]"}`}
+                                        onClick={() => handleFavorite(channel)}
+                                        disabled={favoriteBusyUuids.has(channel.uuid)}
+                                        title={channel.isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
+                                        aria-label={channel.isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
+                                        aria-pressed={Boolean(channel.isFavorite)}
+                                    >
+                                        <Star size={15} fill={channel.isFavorite ? "currentColor" : "none"} />
+                                    </button>
+                                    <span className={`dc-home-canvas-status ${status.tone}`}>
+                                        <i />
+                                        {status.label}
+                                    </span>
+                                </div>
                             </div>
                             <div className="min-w-0">
                                 <h2 className="mb-1 mt-0 truncate text-[19px]">{channel.name}</h2>
-                                <p className="m-0 truncate text-[13px] text-[var(--dc-muted)]">
-                                    {channel.platform ? channel.platform.toUpperCase() : "SIN CANAL VINCULADO"} · LIENZO
-                                    1920×1080
+                                <p className="m-0 flex items-center gap-1.5 truncate text-[13px] text-[var(--dc-muted)]">
+                                    <Clock3 size={13} className="shrink-0" /> {lastUsedLabel(channel.lastUsedAt)}
                                 </p>
                             </div>
                             <div className="flex min-h-7 flex-wrap items-center gap-x-3.5 gap-y-2 text-[var(--dc-muted)] [&>span]:inline-flex [&>span]:items-center [&>span]:gap-[5px] [&>span]:text-[13px] [&>span]:font-bold">
@@ -394,10 +519,11 @@ export default function EditorHub() {
                                 <span>
                                     <FileStack size={14} /> {channel.savedDesignCount || 0} diseños
                                 </span>
-                                {(channel.runtime?.editorCount || 0) > 0 && (
-                                    <span>
-                                        <Activity size={14} /> {channel.runtime.editorCount} conectados
-                                    </span>
+                                {(channel.runtime?.editorUsers || []).length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <PresenceStack editors={channel.runtime.editorUsers} max={4} />
+                                        <span className="text-[12px] font-bold text-[var(--dc-muted)]">{channel.runtime.editorUsers.length} dentro</span>
+                                    </div>
                                 )}
                             </div>
                             <div className="flex items-center gap-[7px] pt-0.5 max-[680px]:flex-col max-[680px]:items-stretch">

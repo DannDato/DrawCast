@@ -120,7 +120,7 @@ export function configureSockets(io) {
       socket.join(editorRoom(channel.id));
       socket.join(`user:${user.id}`);
       connectRole(channel.id, socket.id, 'editor', {
-        userId: user.id,
+        userUuid: user.uuid,
         username,
         displayName,
         avatarUrl: user.avatarUrl || null,

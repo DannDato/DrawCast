@@ -3,7 +3,7 @@ import { ImagePlus, Search, Upload, X } from 'lucide-react';
 import { searchChannelImages } from '../../api/media';
 import { DEFAULT_IMAGE_CONFIG } from './tools/images/imageTool';
 
-export default function ImagePanel({ channelId, tool, selected, imageConfig, setImageConfig, onPatch, onUploadFile, onImportUrl }) {
+export default function ImagePanel({ channelUuid, tool, selected, imageConfig, setImageConfig, onPatch, onUploadFile, onImportUrl }) {
   const inputRef = useRef(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -33,7 +33,7 @@ export default function ImagePanel({ channelId, tool, selected, imageConfig, set
       return;
     }
 
-    if (!channelId) {
+    if (!channelUuid) {
       setStatus('Canal no disponible todavía.');
       return;
     }
@@ -43,7 +43,7 @@ export default function ImagePanel({ channelId, tool, selected, imageConfig, set
     setStatus('Buscando imágenes web...');
 
     try {
-      const data = await searchChannelImages(channelId, trimmed);
+      const data = await searchChannelImages(channelUuid, trimmed);
       setResults(data.results || []);
       setStatus(`${data.results?.length || 0} resultado${data.results?.length === 1 ? '' : 's'} en Wikimedia Commons. Arrastra una imagen al lienzo.`);
     } catch (error) {

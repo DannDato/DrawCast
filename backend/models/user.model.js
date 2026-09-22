@@ -2,6 +2,7 @@ import { DataTypes } from 'sequelize';
 
 export default (db) => db.define('User', {
   id: { type: DataTypes.INTEGER.UNSIGNED, autoIncrement: true, primaryKey: true },
+  uuid: { type: DataTypes.UUID, allowNull: false, unique: true, defaultValue: DataTypes.UUIDV4 },
   username: { type: DataTypes.STRING(80), allowNull: false, unique: true },
   email: { type: DataTypes.STRING(191), allowNull: false, unique: true },
   passwordHash: { type: DataTypes.STRING(255), allowNull: true, field: 'password_hash' },

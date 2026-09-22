@@ -4,6 +4,8 @@ import { Helmet } from "react-helmet-async";
 import { UserPlus } from "lucide-react";
 import api from "../api/axios";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
+import TwitchAuthButton from "../components/auth/TwitchAuthButton";
+import ExternalOAuthButton from "../components/auth/ExternalOAuthButton";
 import AuthShell from "../components/auth/AuthShell";
 import { clearPendingVerifyAccess, setPendingVerifyAccess } from "../utils/verifyAccessStorage";
 
@@ -94,7 +96,12 @@ export default function Register() {
             <div className="dc-auth-divider">
                 <span>O REGÍSTRATE CON</span>
             </div>
-            <GoogleAuthButton mode="signup" onError={setError} />
+            <div className="grid grid-cols-2 gap-3 max-[560px]:grid-cols-1">
+                <GoogleAuthButton mode="signup" onError={setError} />
+                <TwitchAuthButton onError={setError} />
+                <ExternalOAuthButton provider="kick" onError={setError} />
+                <ExternalOAuthButton provider="discord" onError={setError} />
+            </div>
             <div className="dc-auth-links">
                 <span>¿Ya estás registrado?</span>
                 <Link to="/login">Iniciar sesión</Link>

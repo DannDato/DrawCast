@@ -50,7 +50,7 @@ export default function Inspector({
   setTextConfig,
   timerConfig,
   setTimerConfig,
-  channelId,
+  channelUuid,
   onUploadFile,
   onImportUrl,
   onPatch,
@@ -278,7 +278,7 @@ export default function Inspector({
 
         {showImagePanel && (
           <ImagePanel
-            channelId={channelId}
+            channelUuid={channelUuid}
             tool={tool}
             selected={selected}
             imageConfig={imageConfig}

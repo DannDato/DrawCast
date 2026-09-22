@@ -4,6 +4,9 @@ import { Helmet } from "react-helmet-async";
 import { ArrowRight, Check, Clock3, MonitorUp, PenTool, Radio, Type, Users } from "lucide-react";
 
 import DoodleBackground from "../components/ui/DoodleBackground";
+import PublicFooter from "../components/footer/PublicFooter";
+
+const SHOW_PLANS = false;
 
 export default function Landing() {
     const landingRef = useRef(null);
@@ -414,6 +417,7 @@ export default function Landing() {
                 </section>
 
                 {/* PLANS */}
+                {SHOW_PLANS && (
                 <section className="border-t border-[var(--dc-text)]/15">
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
@@ -636,6 +640,7 @@ export default function Landing() {
 
                     </div>
                 </section>
+                )}
 
                 {/* FINAL CTA */}
                 <section className="border-t border-[var(--dc-text)]/15">
@@ -659,14 +664,7 @@ export default function Landing() {
                     </div>
                 </section>
 
-                {/* BOTTOM */}
-                <footer className="border-t border-[var(--dc-text)]/15">
-                    <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-4 px-6 py-7 font-mono text-[10px] tracking-[0.12em] text-[var(--dc-text)]/25 md:flex-row md:items-center md:justify-between md:px-10 xl:px-0">
-                        <span>DRAWCAST // GRÁFICOS PARA TRANSMISIONES EN VIVO</span>
-                        <span>Sitio desarrollado por <a href="https://datech.dannprod.com/" target="_blank" rel="noopener noreferrer">Datech</a>.</span>
-                        <span>DIBUJA. COLABORA. TRANSMITE.</span>
-                    </div>
-                </footer>
+                <PublicFooter />
 
 
             </div>

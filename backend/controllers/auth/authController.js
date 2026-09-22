@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { models } from '../../models/index.js';
@@ -19,6 +20,7 @@ import { notifySecurity } from '../../services/securityNotificationService.js';
 import { getSettingBoolean } from '../../services/settingsService.js';
 import { exchangeGoogleCode, googleCodeFlowConfigured, googleIdentityConfigured, verifyGoogleCredential } from '../../services/googleOAuthService.js';
 import logger from '../../helpers/winston.js';
+import { env } from '../../config/env.js';
 import {
   clearTrustedDeviceCookie,
   getTrustedDevice,
@@ -64,6 +66,67 @@ function frontendRedirect(pathname, params = {}) {
 
 function oauthErrorRedirect(message) {
   return frontendRedirect('/login', { oauthError: message });
+}
+
+function profileOAuthRedirect(params = {}) {
+  return frontendRedirect('/app/profile', params);
+}
+
+async function upsertOAuthAccount(req, user, { provider, providerUserId, email, avatarUrl, event }) {
+  const occupied = await models.OAuthAccount.findOne({
+    where: { provider, providerUserId, userId: { [Op.ne]: user.id }, active: true }
+  });
+  if (occupied) return { error: `Esa cuenta de ${provider} ya está conectada a otro usuario` };
+
+  let account = await models.OAuthAccount.findOne({ where: { userId: user.id, provider } });
+  const values = { providerUserId: String(providerUserId), email: normalizeEmail(email), avatarUrl: avatarUrl || null, active: true };
+  if (account) await account.update(values);
+  else account = await models.OAuthAccount.create({ userId: user.id, provider, ...values });
+
+  await audit(req, { event, category: 'security', userId: user.id });
+  await notifySecurity(user, `Cuenta de ${provider} conectada`, [`Se conectó ${email} como método de acceso.`]);
+  return { account };
+}
+
+async function getOrCreateOAuthUser({ provider, providerUserId, email, displayName, usernameBase }) {
+  let account = await models.OAuthAccount.findOne({ where: { provider, providerUserId } });
+  if (account && !account.active) return { account, user: null, inactive: true };
+
+  let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
+  if (!user) {
+    const rawBase = String(usernameBase || email.split('@')[0] || 'user');
+    const base = rawBase.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 60) || `user${Date.now()}`;
+    let username = base;
+    let suffix = 1;
+    while (await models.User.findOne({ where: { username } })) username = `${base}${suffix++}`;
+
+    user = await models.User.create({
+      username,
+      email,
+      displayName: String(displayName || username).slice(0, 120),
+      emailVerifiedAt: new Date(),
+      roleKey: 'USER'
+    });
+    await applyRolePreset(user.id, 'USER');
+  }
+
+  return { account, user, inactive: false };
+}
+
+async function getOAuthSession(req) {
+  const token = req.cookies?.[env.cookieName];
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, env.jwtSecret, { issuer: 'fullstack-base' });
+    const session = await models.Session.findOne({ where: { id: decoded.sid, userId: decoded.sub, tokenHash: sha256(token), revokedAt: null } });
+    if (!session || session.expiresAt <= new Date()) return null;
+    const user = await models.User.findByPk(decoded.sub);
+    if (!user || user.statusKey !== 'ACTIVE') return null;
+    await session.update({ lastSeenAt: new Date() });
+    return { user, session };
+  } catch {
+    return null;
+  }
 }
 
 async function finishOAuthRedirect(req, res, user, event) {
@@ -297,7 +360,14 @@ class AuthController {
     }
 
     const nonce = randomToken();
-    const state = jwt.sign({ provider: 'twitch', nonce }, process.env.JWT_SECRET, { expiresIn: '10m' });
+    const connectMode = String(req.query.mode || '').trim().toLowerCase() === 'connect';
+    let statePayload = { provider: 'twitch', nonce };
+    if (connectMode) {
+      const auth = await getOAuthSession(req);
+      if (!auth) return res.redirect(profileOAuthRedirect({ oauthError: 'Tu sesión ya no es válida. Inicia sesión de nuevo.' }));
+      statePayload = { ...statePayload, mode: 'connect', userId: auth.user.id, sessionId: auth.session.id };
+    }
+    const state = jwt.sign(statePayload, env.jwtSecret, { expiresIn: '10m' });
     res.cookie('twitch_oauth_state', nonce, {
       httpOnly: true,
       secure: process.env.COOKIE_SECURE === 'true',
@@ -326,10 +396,16 @@ class AuthController {
     if (providerError) return res.redirect(oauthErrorRedirect(providerError));
     if (!code || !state) return res.redirect(oauthErrorRedirect('Respuesta OAuth de Twitch incompleta.'));
 
+    let oauthPayload;
     try {
-      const payload = jwt.verify(state, process.env.JWT_SECRET);
+      const payload = jwt.verify(state, env.jwtSecret);
+      oauthPayload = payload;
       const cookieNonce = String(req.cookies?.twitch_oauth_state || '');
       if (payload?.provider !== 'twitch' || !cookieNonce || payload.nonce !== cookieNonce) throw new Error('OAuth state mismatch');
+      if (oauthPayload?.mode === 'connect') {
+        const auth = await getOAuthSession(req);
+        if (!auth || auth.user.id !== oauthPayload.userId || auth.session.id !== oauthPayload.sessionId) throw new Error('OAuth session mismatch');
+      }
       res.clearCookie('twitch_oauth_state', { path: '/api/auth/twitch/callback' });
     } catch {
       res.clearCookie('twitch_oauth_state', { path: '/api/auth/twitch/callback' });
@@ -364,6 +440,20 @@ class AuthController {
       if (!validEmail(email)) return res.redirect(oauthErrorRedirect('Twitch no devolvió un correo válido. Revisa que tu cuenta tenga un correo disponible.'));
 
       let account = await models.OAuthAccount.findOne({ where: { provider: 'twitch', providerUserId: twitchUser.id } });
+      if (oauthPayload?.mode === 'connect') {
+        const auth = await getOAuthSession(req);
+        if (!auth) return res.redirect(profileOAuthRedirect({ oauthError: 'Tu sesión expiró mientras conectabas Twitch.' }));
+        if (account && account.userId !== auth.user.id) return res.redirect(profileOAuthRedirect({ oauthError: 'Esa cuenta de Twitch ya está conectada a otro usuario.' }));
+        if (!account) {
+          account = await models.OAuthAccount.create({ userId: auth.user.id, provider: 'twitch', providerUserId: twitchUser.id, email, avatarUrl: twitchUser.profile_image_url || null, active: true });
+        } else {
+          await account.update({ email, avatarUrl: twitchUser.profile_image_url || null, active: true });
+        }
+        await audit(req, { event: 'profile.twitch_connected', category: 'security', userId: auth.user.id });
+        await notifySecurity(auth.user, 'Cuenta de Twitch conectada', [`Se conectó ${email} como método de acceso.`]);
+        return res.redirect(profileOAuthRedirect({ oauth: 'connected', provider: 'twitch' }));
+      }
+
       if (account && !account.active) return res.redirect(oauthErrorRedirect('Esta cuenta de Twitch fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
       let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
 
@@ -399,6 +489,255 @@ class AuthController {
     } catch (error) {
       logger.error('Twitch OAuth failed', { error: error.message });
       return res.redirect(oauthErrorRedirect('No se pudo continuar con Twitch.'));
+    }
+  };
+
+  kickConfig = async (req, res) => res.json({
+    enabled: Boolean(process.env.KICK_CLIENT_ID && process.env.KICK_CLIENT_SECRET && process.env.KICK_REDIRECT_URI)
+  });
+
+  kickStart = async (req, res) => {
+    if (!process.env.KICK_CLIENT_ID || !process.env.KICK_CLIENT_SECRET || !process.env.KICK_REDIRECT_URI) {
+      return res.redirect(oauthErrorRedirect('Kick OAuth no está configurado en el servidor.'));
+    }
+
+    const nonce = randomToken();
+    const codeVerifier = randomToken(64);
+    const connectMode = String(req.query.mode || '').trim().toLowerCase() === 'connect';
+    let statePayload = { provider: 'kick', nonce };
+    if (connectMode) {
+      const auth = await getOAuthSession(req);
+      if (!auth) return res.redirect(profileOAuthRedirect({ oauthError: 'Tu sesión ya no es válida. Inicia sesión de nuevo.' }));
+      statePayload = { ...statePayload, mode: 'connect', userId: auth.user.id, sessionId: auth.session.id };
+    }
+
+    const state = jwt.sign(statePayload, env.jwtSecret, { expiresIn: '10m' });
+    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.COOKIE_SECURE === 'true',
+      sameSite: process.env.COOKIE_SAME_SITE || 'lax',
+      maxAge: 10 * 60 * 1000,
+      path: '/api/auth/kick/callback'
+    };
+    res.cookie('kick_oauth_state', nonce, cookieOptions);
+    res.cookie('kick_oauth_verifier', codeVerifier, cookieOptions);
+
+    const params = new URLSearchParams({
+      client_id: process.env.KICK_CLIENT_ID,
+      redirect_uri: process.env.KICK_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'user:read',
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256'
+    });
+    return res.redirect(`https://id.kick.com/oauth/authorize?${params.toString()}`);
+  };
+
+  kickCallback = async (req, res) => {
+    if (!process.env.KICK_CLIENT_ID || !process.env.KICK_CLIENT_SECRET || !process.env.KICK_REDIRECT_URI) {
+      return res.redirect(oauthErrorRedirect('Kick OAuth no está configurado en el servidor.'));
+    }
+
+    const code = String(req.query.code || '');
+    const state = String(req.query.state || '');
+    const providerError = String(req.query.error_description || req.query.error || '');
+    if (providerError) return res.redirect(oauthErrorRedirect(providerError));
+    if (!code || !state) return res.redirect(oauthErrorRedirect('Respuesta OAuth de Kick incompleta.'));
+
+    let oauthPayload;
+    try {
+      oauthPayload = jwt.verify(state, env.jwtSecret);
+      const cookieNonce = String(req.cookies?.kick_oauth_state || '');
+      if (oauthPayload?.provider !== 'kick' || !cookieNonce || oauthPayload.nonce !== cookieNonce) throw new Error('OAuth state mismatch');
+      if (oauthPayload?.mode === 'connect') {
+        const auth = await getOAuthSession(req);
+        if (!auth || auth.user.id !== oauthPayload.userId || auth.session.id !== oauthPayload.sessionId) throw new Error('OAuth session mismatch');
+      }
+    } catch {
+      res.clearCookie('kick_oauth_state', { path: '/api/auth/kick/callback' });
+      res.clearCookie('kick_oauth_verifier', { path: '/api/auth/kick/callback' });
+      return res.redirect(oauthErrorRedirect('La sesión OAuth de Kick expiró o no es válida.'));
+    }
+
+    try {
+      const codeVerifier = String(req.cookies?.kick_oauth_verifier || '');
+      if (!codeVerifier) throw new Error('Kick PKCE verifier missing');
+      const tokenResponse = await fetch('https://id.kick.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: process.env.KICK_CLIENT_ID,
+          client_secret: process.env.KICK_CLIENT_SECRET,
+          redirect_uri: process.env.KICK_REDIRECT_URI,
+          code_verifier: codeVerifier,
+          code
+        })
+      });
+      if (!tokenResponse.ok) throw new Error(`Kick token exchange failed (${tokenResponse.status})`);
+      const tokenData = await tokenResponse.json();
+      if (!tokenData.access_token) throw new Error('Kick access token missing');
+
+      const userResponse = await fetch('https://api.kick.com/public/v1/users', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      });
+      if (!userResponse.ok) throw new Error(`Kick user lookup failed (${userResponse.status})`);
+      const userData = await userResponse.json();
+      const kickUser = Array.isArray(userData?.data) ? userData.data[0] : userData?.data;
+      if (!kickUser?.user_id || !validEmail(kickUser.email)) throw new Error('Kick no devolvió una identidad válida');
+
+      const email = normalizeEmail(kickUser.email);
+      if (oauthPayload?.mode === 'connect') {
+        const auth = await getOAuthSession(req);
+        if (!auth) return res.redirect(profileOAuthRedirect({ oauthError: 'Tu sesión expiró mientras conectabas Kick.' }));
+        const result = await upsertOAuthAccount(req, auth.user, {
+          provider: 'kick', providerUserId: kickUser.user_id, email,
+          avatarUrl: kickUser.profile_picture,
+          event: 'profile.kick_connected'
+        });
+        if (result.error) return res.redirect(profileOAuthRedirect({ oauthError: result.error }));
+        return res.redirect(profileOAuthRedirect({ oauth: 'connected', provider: 'kick' }));
+      }
+
+      const result = await getOrCreateOAuthUser({
+        provider: 'kick', providerUserId: kickUser.user_id, email,
+        displayName: kickUser.name, usernameBase: email.split('@')[0]
+      });
+      if (result.inactive) return res.redirect(oauthErrorRedirect('Esta cuenta de Kick fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
+      const user = result.user;
+      if (!user || user.statusKey !== 'ACTIVE') return res.redirect(oauthErrorRedirect('Cuenta no disponible.'));
+
+      if (!result.account) {
+        await models.OAuthAccount.create({ userId: user.id, provider: 'kick', providerUserId: String(kickUser.user_id), email, avatarUrl: kickUser.profile_picture || null });
+      }
+      return finishOAuthRedirect(req, res, user, 'auth.kick');
+    } catch (error) {
+      logger.error('Kick OAuth failed', { error: error.message });
+      return res.redirect(oauthErrorRedirect('No se pudo continuar con Kick.'));
+    } finally {
+      res.clearCookie('kick_oauth_state', { path: '/api/auth/kick/callback' });
+      res.clearCookie('kick_oauth_verifier', { path: '/api/auth/kick/callback' });
+    }
+  };
+
+  discordConfig = async (req, res) => res.json({
+    enabled: Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET && process.env.DISCORD_REDIRECT_URI)
+  });
+
+  discordStart = async (req, res) => {
+    if (!process.env.DISCORD_CLIENT_ID || !process.env.DISCORD_CLIENT_SECRET || !process.env.DISCORD_REDIRECT_URI) {
+      return res.redirect(oauthErrorRedirect('Discord OAuth no está configurado en el servidor.'));
+    }
+
+    const nonce = randomToken();
+    const connectMode = String(req.query.mode || '').trim().toLowerCase() === 'connect';
+    let statePayload = { provider: 'discord', nonce };
+    if (connectMode) {
+      const auth = await getOAuthSession(req);
+      if (!auth) return res.redirect(profileOAuthRedirect({ oauthError: 'Tu sesión ya no es válida. Inicia sesión de nuevo.' }));
+      statePayload = { ...statePayload, mode: 'connect', userId: auth.user.id, sessionId: auth.session.id };
+    }
+
+    const state = jwt.sign(statePayload, env.jwtSecret, { expiresIn: '10m' });
+    res.cookie('discord_oauth_state', nonce, {
+      httpOnly: true,
+      secure: process.env.COOKIE_SECURE === 'true',
+      sameSite: process.env.COOKIE_SAME_SITE || 'lax',
+      maxAge: 10 * 60 * 1000,
+      path: '/api/auth/discord/callback'
+    });
+    const params = new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID,
+      redirect_uri: process.env.DISCORD_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'identify email',
+      state
+    });
+    return res.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
+  };
+
+  discordCallback = async (req, res) => {
+    if (!process.env.DISCORD_CLIENT_ID || !process.env.DISCORD_CLIENT_SECRET || !process.env.DISCORD_REDIRECT_URI) {
+      return res.redirect(oauthErrorRedirect('Discord OAuth no está configurado en el servidor.'));
+    }
+
+    const code = String(req.query.code || '');
+    const state = String(req.query.state || '');
+    const providerError = String(req.query.error_description || req.query.error || '');
+    if (providerError) return res.redirect(oauthErrorRedirect(providerError));
+    if (!code || !state) return res.redirect(oauthErrorRedirect('Respuesta OAuth de Discord incompleta.'));
+
+    let oauthPayload;
+    try {
+      oauthPayload = jwt.verify(state, env.jwtSecret);
+      const cookieNonce = String(req.cookies?.discord_oauth_state || '');
+      if (oauthPayload?.provider !== 'discord' || !cookieNonce || oauthPayload.nonce !== cookieNonce) throw new Error('OAuth state mismatch');
+      if (oauthPayload?.mode === 'connect') {
+        const auth = await getOAuthSession(req);
+        if (!auth || auth.user.id !== oauthPayload.userId || auth.session.id !== oauthPayload.sessionId) throw new Error('OAuth session mismatch');
+      }
+    } catch {
+      res.clearCookie('discord_oauth_state', { path: '/api/auth/discord/callback' });
+      return res.redirect(oauthErrorRedirect('La sesión OAuth de Discord expiró o no es válida.'));
+    }
+
+    try {
+      const tokenResponse = await fetch('https://discord.com/api/v10/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: process.env.DISCORD_CLIENT_ID,
+          client_secret: process.env.DISCORD_CLIENT_SECRET,
+          redirect_uri: process.env.DISCORD_REDIRECT_URI,
+          code
+        })
+      });
+      if (!tokenResponse.ok) throw new Error(`Discord token exchange failed (${tokenResponse.status})`);
+      const tokenData = await tokenResponse.json();
+      if (!tokenData.access_token) throw new Error('Discord access token missing');
+
+      const userResponse = await fetch('https://discord.com/api/v10/users/@me', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      });
+      if (!userResponse.ok) throw new Error(`Discord user lookup failed (${userResponse.status})`);
+      const discordUser = await userResponse.json();
+      if (!discordUser?.id || !validEmail(discordUser.email) || discordUser.verified === false) throw new Error('Discord no devolvió una identidad válida con correo verificado');
+
+      const email = normalizeEmail(discordUser.email);
+      const avatarUrl = discordUser.avatar ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png` : null;
+      const displayName = discordUser.global_name || discordUser.username || email.split('@')[0];
+
+      if (oauthPayload?.mode === 'connect') {
+        const auth = await getOAuthSession(req);
+        if (!auth) return res.redirect(profileOAuthRedirect({ oauthError: 'Tu sesión expiró mientras conectabas Discord.' }));
+        const result = await upsertOAuthAccount(req, auth.user, {
+          provider: 'discord', providerUserId: discordUser.id, email,
+          avatarUrl, event: 'profile.discord_connected'
+        });
+        if (result.error) return res.redirect(profileOAuthRedirect({ oauthError: result.error }));
+        return res.redirect(profileOAuthRedirect({ oauth: 'connected', provider: 'discord' }));
+      }
+
+      const result = await getOrCreateOAuthUser({
+        provider: 'discord', providerUserId: discordUser.id, email,
+        displayName, usernameBase: discordUser.username
+      });
+      if (result.inactive) return res.redirect(oauthErrorRedirect('Esta cuenta de Discord fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
+      const user = result.user;
+      if (!user || user.statusKey !== 'ACTIVE') return res.redirect(oauthErrorRedirect('Cuenta no disponible.'));
+
+      if (!result.account) {
+        await models.OAuthAccount.create({ userId: user.id, provider: 'discord', providerUserId: discordUser.id, email, avatarUrl });
+      }
+      return finishOAuthRedirect(req, res, user, 'auth.discord');
+    } catch (error) {
+      logger.error('Discord OAuth failed', { error: error.message });
+      return res.redirect(oauthErrorRedirect('No se pudo continuar con Discord.'));
+    } finally {
+      res.clearCookie('discord_oauth_state', { path: '/api/auth/discord/callback' });
     }
   };
 

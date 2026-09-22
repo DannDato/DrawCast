@@ -18,7 +18,7 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-export default function SecuritySettings({ onNotice }) {
+export default function SecuritySettings({ onNotice, embedded = false }) {
   const { refresh, logout } = useAuth();
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
@@ -107,18 +107,18 @@ export default function SecuritySettings({ onNotice }) {
   };
 
   return <div className="grid gap-[18px]">
-    <section className="bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
+    <section className={embedded ? 'border-t border-[var(--dc-line)] pt-5 first:border-t-0 first:pt-0' : 'bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]'}>
       <div className="mb-[18px] flex items-start gap-2.5"><KeyRound size={20} /><div className="grid gap-1"><strong>Contraseña</strong><span className="text-[13px] text-[var(--dc-text-muted)]">{hasPassword ? 'Actualiza tu contraseña de acceso.' : 'Tu cuenta no tiene contraseña local. Puedes configurar una.'}</span></div></div>
       <form className="grid grid-cols-1 gap-3.5 xl:grid-cols-3 [&>div:last-child]:xl:col-span-full" onSubmit={changePassword}>
         {hasPassword && <label className="grid gap-1.5 text-sm font-bold">Contraseña actual<input className="w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent)]" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required /></label>}
         <label className="grid gap-1.5 text-sm font-bold">Nueva contraseña<input className="w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent)]" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required /></label>
         <label className="grid gap-1.5 text-sm font-bold">Confirmar nueva contraseña<input className="w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent)]" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>
-        <div className="mt-[18px] flex flex-col items-stretch justify-between gap-4 border-t border-[var(--dc-line)] pt-4 md:flex-row md:items-center"><span className="text-[var(--dc-text-muted)]">Mínimo 6 caracteres, una mayúscula y un número.</span><button className="inline-flex items-center justify-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-[var(--dc-button-primary-text)] disabled:opacity-50" disabled={busy === 'password'}><ShieldCheck size={16} /> {hasPassword ? 'Cambiar contraseña' : 'Configurar contraseña'}</button></div>
+        <div className="mt-[18px] flex flex-col justify-between gap-4 border-t border-[var(--dc-line)] pt-4 md:flex-row md:items-center"><button className="order-1 inline-flex items-center justify-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-[var(--dc-button-primary-text)] disabled:opacity-50" disabled={busy === 'password'}><ShieldCheck size={16} /> {hasPassword ? 'Cambiar contraseña' : 'Configurar contraseña'}</button><span className="order-2 text-right text-[var(--dc-text-muted)]">Mínimo 6 caracteres, una mayúscula y un número.</span></div>
       </form>
     </section>
 
-    <section className="bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-      <div className="mb-[18px] flex flex-wrap items-start gap-2.5 md:items-center"><Monitor size={20} /><div className="grid min-w-0 flex-1 gap-1"><strong>Dispositivos y sesiones</strong><span className="text-[13px] text-[var(--dc-text-muted)]">Revisa dónde está abierta tu cuenta y cierra accesos individualmente.</span></div><button className="inline-flex items-center justify-center gap-2 border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] disabled:opacity-50" onClick={revokeOthers} disabled={busy === 'others' || sessions.filter((row) => !row.current).length === 0}><RefreshCw size={15} /> Cerrar las demás</button></div>
+    <section className={embedded ? 'border-t border-[var(--dc-line)] pt-5 first:border-t-0 first:pt-0' : 'bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]'}>
+      <div className="mb-[18px] flex flex-wrap items-center justify-between gap-3"><button className="order-1 inline-flex items-center justify-center gap-2 border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] disabled:opacity-50" onClick={revokeOthers} disabled={busy === 'others' || sessions.filter((row) => !row.current).length === 0}><RefreshCw size={15} /> Cerrar las demás</button><div className="order-2 flex min-w-0 items-start gap-2.5 text-right"><div className="grid min-w-0 gap-1"><strong>Dispositivos y sesiones</strong><span className="text-[13px] text-[var(--dc-text-muted)]">Revisa dónde está abierta tu cuenta y cierra accesos individualmente.</span></div><Monitor size={20} className="mt-0.5 shrink-0" /></div></div>
       <div className="grid gap-2.5">
         {sessions.length === 0 && <div className="bg-[var(--dc-surface-raised)] p-4">No hay sesiones activas para mostrar.</div>}
         {sessions.map((session) => {
@@ -133,7 +133,7 @@ export default function SecuritySettings({ onNotice }) {
       </div>
     </section>
 
-    <section className="bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
+    <section className={embedded ? 'border-t border-[var(--dc-line)] pt-5 first:border-t-0 first:pt-0' : 'bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]'}>
       <div className="mb-[18px] flex items-start gap-2.5"><LogOut size={20} /><div className="grid gap-1"><strong>Cerrar sesión</strong><span className="text-[13px] text-[var(--dc-text-muted)]">Finaliza esta sesión o revoca todas las sesiones de tu cuenta.</span></div></div>
       <div className="flex flex-wrap gap-2"><button className="inline-flex items-center justify-center gap-2 border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-[var(--dc-button-secondary-text)] disabled:opacity-50" onClick={logoutCurrent} disabled={busy === 'logout'}>Cerrar esta sesión</button><button className="inline-flex items-center justify-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-[var(--dc-button-primary-text)] disabled:opacity-50" onClick={logoutAll} disabled={busy === 'all'}>Cerrar en todos los dispositivos</button></div>
     </section>

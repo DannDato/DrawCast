@@ -3,8 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import routes from './routes/index.js';
@@ -17,15 +15,15 @@ import { apiLimiter, verifyBrowserOrigin } from './middlewares/security.js';
 import { configureSockets } from './sockets/index.js';
 
 validateEnv();
-const __dirname=path.dirname(fileURLToPath(import.meta.url)); const app=express(); const httpServer=createServer(app);
+const app=express(); const httpServer=createServer(app);
 const origins=String(process.env.CORS_ORIGINS||env.frontendUrl).split(',').map(v=>v.trim()).filter(Boolean);
 const io=new Server(httpServer,{cors:{origin:origins,credentials:true,methods:['GET','POST']},maxHttpBufferSize:Number(process.env.SOCKET_MAX_BYTES||10000000)});
 app.set('io', io);
 app.disable('x-powered-by'); app.set('trust proxy',env.trustProxy); app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));
 app.use(cors({origin(origin,cb){if(!origin||origins.includes(origin))return cb(null,true);cb(new Error('Origen no permitido por CORS'));},credentials:true,methods:['GET','POST','PUT','PATCH','DELETE']}));
 app.use(cookieParser()); app.use(verifyBrowserOrigin); app.use(express.json({limit:process.env.JSON_BODY_LIMIT||'10mb'})); app.use(express.urlencoded({extended:true,limit:process.env.JSON_BODY_LIMIT||'10mb'})); app.use(apiLimiter);
-const appFolder=process.env.APP_FOLDER||'/api'; const channelMedia=path.resolve(__dirname,process.env.UPLOAD_DIR||'uploads','channels');
-app.use(`${appFolder}/channel-media`,express.static(channelMedia,{fallthrough:false,maxAge:'1h',dotfiles:'deny'})); app.use(appFolder,routes);
+const appFolder=process.env.APP_FOLDER||'/api';
+app.use(appFolder,routes);
 app.use((req,res)=>res.status(404).json({message:'Ruta no encontrada'})); app.use(handleError); configureSockets(io);
 await db.authenticate(); if(hasAuditDatabase){try{await auditDb.authenticate();logger.info('Base de datos de auditoría conectada');}catch(error){logger.error('No fue posible conectar con la base de datos de auditoría',{error:error.message});}}
 httpServer.listen(env.port,()=>logger.info(`DrawCast Cloud iniciado en puerto ${env.port}`));

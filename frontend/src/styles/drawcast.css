@@ -542,15 +542,26 @@
     border: 1px solid var(--dc-line);
     background: var(--dc-surface);
     color: var(--dc-text);
-    display: flex;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) 24px;
     align-items: center;
-    justify-content: flex-start;
-    gap: 22px;
-    padding: 0 20px;
+    gap: 8px;
+    padding: 0 14px;
     font:
         800 12px Outfit,
         sans-serif;
     transition: 0.15s;
+}
+
+.dc-oauth-icon {
+    grid-column: 1;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+.dc-oauth-button > span:last-child {
+    grid-column: 2;
+    text-align: center;
 }
 .dc-oauth-twitch:hover {
     border-color: var(--dc-brand-twitch);
@@ -560,17 +571,20 @@
     border-color: var(--dc-text-strong);
     background: var(--dc-brand-google-bg);
 }
+.dc-oauth-kick:hover {
+    border-color: #53fc18;
+    background: rgba(83, 252, 24, 0.08);
+}
+.dc-oauth-discord:hover {
+    border-color: #5865f2;
+    background: rgba(88, 101, 242, 0.1);
+}
 .dc-oauth-button:disabled {
     opacity: 0.55;
     cursor: wait;
 }
 .dc-oauth-twitch svg {
     color: var(--dc-brand-twitch);
-}
-.dc-oauth-twitch span {
-    flex: 1;
-    text-align: center;
-    padding-right: 18px;
 }
 
 /* SYSTEM ALERT // reusable app-wide dialogs */
@@ -763,14 +777,6 @@
 }
 
 /* GOOGLE OAUTH // local button, popup code flow */
-.dc-oauth-google {
-    justify-content: flex-start;
-}
-.dc-oauth-google > span:last-child {
-    flex: 1;
-    text-align: center;
-    padding-right: 18px;
-}
 .dc-google-mark {
     display: grid;
     width: 18px;

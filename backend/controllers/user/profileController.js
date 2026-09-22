@@ -116,14 +116,19 @@ class ProfileController {
     return res.json({ message: 'Cuenta de Google conectada', account: { id: account.id, provider: account.provider, email: account.email, avatarUrl: account.avatarUrl } });
   };
 
-  disconnectGoogle = async (req, res) => {
-    if (!req.user.passwordHash) return res.status(409).json({ message: 'Configura una contraseña antes de desconectar Google' });
-    const account = await models.OAuthAccount.findOne({ where: { userId: req.user.id, provider: 'google', active: true } });
-    if (!account) return res.status(404).json({ message: 'No hay una cuenta de Google conectada' });
+  disconnectOAuth = async (req, res) => {
+    const provider = String(req.params.provider || '').trim().toLowerCase();
+    const labels = { google: 'Google', twitch: 'Twitch', kick: 'Kick', discord: 'Discord' };
+    const label = labels[provider];
+    if (!label) return res.status(400).json({ message: 'Proveedor de acceso no válido' });
+    if (!req.user.passwordHash) return res.status(409).json({ message: `Configura una contraseña antes de desconectar ${label}` });
+
+    const account = await models.OAuthAccount.findOne({ where: { userId: req.user.id, provider, active: true } });
+    if (!account) return res.status(404).json({ message: `No hay una cuenta de ${label} conectada` });
     await account.update({ active: false });
-    await audit(req, { event: 'profile.google_disconnected', category: 'security', userId: req.user.id });
-    await notifySecurity(req.user, 'Cuenta de Google desconectada', [`Se desconectó ${account.email || 'la cuenta de Google'} como método de acceso.`]);
-    return res.json({ message: 'Cuenta de Google desconectada' });
+    await audit(req, { event: `profile.${provider}_disconnected`, category: 'security', userId: req.user.id });
+    await notifySecurity(req.user, `Cuenta de ${label} desconectada`, [`Se desconectó ${account.email || `la cuenta de ${label}`} como método de acceso.`]);
+    return res.json({ message: `Cuenta de ${label} desconectada` });
   };
 
   uploadAvatar = async (req, res) => { const mime = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase(); const extension = avatarTypes.get(mime); if (!extension) return res.status(415).json({ message: 'Formato no permitido. Usa JPG, PNG o WEBP' }); if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ message: 'No se recibió ninguna imagen' }); await fs.mkdir(avatarDirectory, { recursive: true }); const oldAvatar = req.user.avatarUrl; const fileName = `user_${req.user.id}_${Date.now()}.${extension}`; await fs.writeFile(path.join(avatarDirectory, fileName), req.body); const avatarUrl = `${avatarPublicBase}/${fileName}`; await req.user.update({ avatarUrl }); if (oldAvatar) await removeStoredAvatar(oldAvatar); await audit(req, { event: 'profile.avatar_changed', category: 'user', userId: req.user.id }); return res.json({ avatarUrl, user: await serializeUser(req.user) }); };

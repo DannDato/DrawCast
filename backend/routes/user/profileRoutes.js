@@ -12,7 +12,7 @@ r.post('/profile/email/request', verifyToken, asyncHandler(ctrlProfile.requestEm
 r.post('/profile/email/confirm', verifyToken, asyncHandler(ctrlProfile.confirmEmailChange));
 r.post('/profile/google/connect', verifyToken, asyncHandler(ctrlProfile.connectGoogle));
 r.post('/profile/google/connect/code', verifyToken, asyncHandler(ctrlProfile.connectGoogleCode));
-r.delete('/profile/google', verifyToken, asyncHandler(ctrlProfile.disconnectGoogle));
+r.delete('/profile/oauth/:provider', verifyToken, asyncHandler(ctrlProfile.disconnectOAuth));
 r.put('/profile/avatar', verifyToken, express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), asyncHandler(ctrlProfile.uploadAvatar));
 r.delete('/profile/avatar', verifyToken, asyncHandler(ctrlProfile.deleteAvatar));
 r.get('/profile/sessions', verifyToken, asyncHandler(ctrlProfile.sessions));

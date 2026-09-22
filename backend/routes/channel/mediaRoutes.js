@@ -26,11 +26,11 @@ function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
 }
 
-function mediaUrl(req, channelId, fileName) {
+function mediaUrl(req, channelUuid, fileName) {
   const configuredOrigin = String(process.env.PUBLIC_API_ORIGIN || '').trim().replace(/\/$/, '');
   const origin = configuredOrigin || `${req.protocol}://${req.get('host')}`;
   const appFolder = `/${String(process.env.APP_FOLDER || 'api').replace(/^\/+|\/+$/g, '')}`;
-  return `${origin}${appFolder}/channel-media/${channelId}/${encodeURIComponent(fileName)}`;
+  return `${origin}${appFolder}/channel-media/${channelUuid}/${encodeURIComponent(fileName)}`;
 }
 
 function detectImageMime(buffer) {
@@ -149,7 +149,7 @@ const upload = multer({
   }
 });
 
-router.get('/:channelId/image-search', verifyToken, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
+router.get('/:channelUuid/image-search', verifyToken, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
   const query = String(req.query.q || '').trim().slice(0, 160);
   if (!query) throw httpError('Consulta vacía');
 
@@ -190,7 +190,7 @@ router.get('/:channelId/image-search', verifyToken, asyncHandler(requireChannelE
   res.json({ ok: true, provider: 'wikimedia', results });
 }));
 
-router.post('/:channelId/upload', verifyToken, asyncHandler(requireChannelEditor), upload.single('image'), asyncHandler(async (req, res) => {
+router.post('/:channelUuid/upload', verifyToken, asyncHandler(requireChannelEditor), upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) throw httpError('No se recibió archivo', 400);
 
   const buffer = await fsp.readFile(req.file.path);
@@ -200,13 +200,13 @@ router.post('/:channelId/upload', verifyToken, asyncHandler(requireChannelEditor
     throw httpError('El contenido del archivo no coincide con una imagen permitida', 415);
   }
 
-  const url = mediaUrl(req, req.channel.id, req.file.filename);
+  const url = mediaUrl(req, req.channel.uuid, req.file.filename);
   const mediaKind = detectedMime === 'image/gif' ? 'gif' : 'image';
   logger.info('Imagen subida al canal', { channelId: req.channel.id, userId: req.user.id, mimeType: detectedMime, bytes: req.file.size, mediaKind });
   res.status(201).json({ url, mimeType: detectedMime, mediaKind, fileName: req.file.originalname });
 }));
 
-router.post('/:channelId/import-image-url', verifyToken, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
+router.post('/:channelUuid/import-image-url', verifyToken, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
   const sourceUrl = await safeUrl(req.body?.url);
   const { buffer, mimeType } = await downloadLimited(sourceUrl);
   const dir = path.join(root, String(req.channel.id));
@@ -217,7 +217,7 @@ router.post('/:channelId/import-image-url', verifyToken, asyncHandler(requireCha
 
   const mediaKind = mimeType === 'image/gif' ? 'gif' : 'image';
   logger.info('Imagen remota importada', { channelId: req.channel.id, userId: req.user.id, bytes: buffer.length, mimeType, mediaKind, sourceHost: sourceUrl.hostname });
-  res.status(201).json({ url: mediaUrl(req, req.channel.id, fileName), mimeType, mediaKind, fileName: sourceUrl.pathname.split('/').pop() || 'Imagen web' });
+  res.status(201).json({ url: mediaUrl(req, req.channel.uuid, fileName), mimeType, mediaKind, fileName: sourceUrl.pathname.split('/').pop() || 'Imagen web' });
 }));
 
 export default router;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { importChannelImageUrl, uploadChannelImage } from '../api/media';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
-import { getChannels } from '../api/channels';
+import { getChannels, markChannelUsed } from '../api/channels';
 import { getUserSettings } from '../api/settings';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
@@ -57,7 +57,7 @@ function ensureSceneDrawLayer(scene = {}) {
 export default function Editor() {
   const { publicKey } = useParams();
   const { confirmDialog, showAlert } = useSystemAlert();
-  const [channelId, setChannelId] = useState(null);
+  const [channelUuid, setChannelUuid] = useState(null);
   const [objects, setObjects] = useState({});
   const [selectedId, setSelectedId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -374,12 +374,12 @@ export default function Editor() {
   };
 
   const refreshRecentDesigns = async () => {
-    if (!channelId) {
+    if (!channelUuid) {
       setRecentDesigns([]);
       return [];
     }
     try {
-      const rows = await getSavedDesigns(channelId);
+      const rows = await getSavedDesigns(channelUuid);
       const ordered = [...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
       setRecentDesigns(ordered);
       return ordered;
@@ -871,13 +871,14 @@ export default function Editor() {
       const ownedChannels = data.ownedChannels || (data.owned ? [data.owned] : []);
       setIsOwner(ownedChannels.some((channel) => channel.publicKey === publicKey));
       const allChannels = [...ownedChannels, ...(data.collaborations || [])].filter(Boolean);
-      const nextChannelId = allChannels.find((channel) => channel.publicKey === publicKey)?.id || null;
-      setChannelId(nextChannelId);
-      if (!nextChannelId) {
+      const nextChannelUuid = allChannels.find((channel) => channel.publicKey === publicKey)?.uuid || null;
+      setChannelUuid(nextChannelUuid);
+      if (!nextChannelUuid) {
         setRecentDesigns([]);
         return;
       }
-      getSavedDesigns(nextChannelId)
+      markChannelUsed(nextChannelUuid).catch(() => {});
+      getSavedDesigns(nextChannelUuid)
         .then((rows) => {
           if (active) setRecentDesigns([...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
         })
@@ -885,7 +886,7 @@ export default function Editor() {
     }).catch(() => {
       if (!active) return;
       setIsOwner(false);
-      setChannelId(null);
+      setChannelUuid(null);
       setRecentDesigns([]);
     });
     return () => { active = false; };
@@ -1091,7 +1092,7 @@ export default function Editor() {
 
   const uploadFile = async (file, point = null) => {
     if (editingLocked) return;
-    if (!channelId) {
+    if (!channelUuid) {
       setMediaStatus('El canal todavía no está listo.');
       return;
     }
@@ -1104,7 +1105,7 @@ export default function Editor() {
 
     setMediaStatus(`Subiendo ${file.name}...`);
     try {
-      const data = await uploadChannelImage(channelId, file);
+      const data = await uploadChannelImage(channelUuid, file);
       await addMediaObject({ url: data.url, name: file.name, mimeType: data.mimeType || file.type, point });
       setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'Imagen'} lista: ${file.name}`);
     } catch (error) {
@@ -1114,14 +1115,14 @@ export default function Editor() {
 
   const importRemote = async (url, point = null) => {
     if (editingLocked) return;
-    if (!channelId) {
+    if (!channelUuid) {
       setMediaStatus('El canal todavía no está listo.');
       return;
     }
 
     setMediaStatus('Importando imagen desde la web...');
     try {
-      const data = await importChannelImageUrl(channelId, url);
+      const data = await importChannelImageUrl(channelUuid, url);
       const name = data.fileName || 'Imagen web';
       await addMediaObject({ url: data.url, name, mimeType: data.mimeType || '', point });
       setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'Imagen'} importada.`);
@@ -1191,7 +1192,7 @@ export default function Editor() {
   };
 
   const loadRecentDesign = async (design) => {
-    if (!design || !channelId) return;
+    if (!design || !channelUuid) return;
     if (Object.keys(objectsRef.current).length) {
       const accepted = await confirmDialog({
         title: `¿Cargar “${design.name}”?`,
@@ -1204,7 +1205,7 @@ export default function Editor() {
 
     setMediaStatus(`Cargando “${design.name}”...`);
     try {
-      const fullDesign = await getSavedDesign(channelId, design.id);
+      const fullDesign = await getSavedDesign(channelUuid, design.uuid);
       await loadDesignSnapshot(fullDesign.state, fullDesign);
       refreshRecentDesigns();
     } catch (error) {
@@ -1353,7 +1354,7 @@ export default function Editor() {
           setTextConfig={setTextConfig}
           timerConfig={timerConfig}
           setTimerConfig={setTimerConfig}
-          channelId={channelId}
+          channelUuid={channelUuid}
           onUploadFile={uploadFile}
           onImportUrl={importRemote}
           onPatch={(patchData) => selectedId && patchWithHistory(selectedId, patchData, 'Editar capa')}
@@ -1418,7 +1419,7 @@ export default function Editor() {
       </div>
 
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-      {designsOpen && <SavedDesignsModal initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelId={channelId} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
+      {designsOpen && <SavedDesignsModal initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelUuid={channelUuid} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
     </div>
   );
 }

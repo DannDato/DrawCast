@@ -1,5 +1,6 @@
 import { models } from '../../models/index.js';
 import logger from '../../helpers/winston.js';
+import { isPublicUuid } from '../../services/channelAccessService.js';
 
 const DESIGN_VERSION = 1;
 const DEFAULT_MAX_BYTES = 8 * 1024 * 1024;
@@ -55,9 +56,7 @@ function serializedSize(state) {
 
 function publicDesign(row, includeState = false, stateOverride = undefined) {
   const data = {
-    id: row.id,
-    channelId: row.channelId,
-    createdBy: row.createdBy,
+    uuid: row.uuid,
     name: row.name,
     sizeBytes: row.sizeBytes,
     version: row.version,
@@ -68,8 +67,9 @@ function publicDesign(row, includeState = false, stateOverride = undefined) {
   return data;
 }
 
-async function findDesign(channelId, designId) {
-  return models.SavedDesign.findOne({ where: { id: Number(designId), channelId: Number(channelId) } });
+async function findDesign(channelId, designUuid) {
+  if (!isPublicUuid(designUuid)) return null;
+  return models.SavedDesign.findOne({ where: { uuid: designUuid, channelId: Number(channelId) } });
 }
 
 export class SavedDesignController {
@@ -83,7 +83,7 @@ export class SavedDesignController {
   }
 
   static async get(req, res) {
-    const design = await findDesign(req.channel.id, req.params.designId);
+    const design = await findDesign(req.channel.id, req.params.designUuid);
     if (!design) return res.status(404).json({ message: 'Diseño no encontrado' });
 
     const { error, state } = validateState(design.state);
@@ -125,7 +125,7 @@ export class SavedDesignController {
   }
 
   static async update(req, res) {
-    const design = await findDesign(req.channel.id, req.params.designId);
+    const design = await findDesign(req.channel.id, req.params.designUuid);
     if (!design) return res.status(404).json({ message: 'Diseño no encontrado' });
 
     const patch = {};
@@ -154,7 +154,7 @@ export class SavedDesignController {
   }
 
   static async remove(req, res) {
-    const design = await findDesign(req.channel.id, req.params.designId);
+    const design = await findDesign(req.channel.id, req.params.designUuid);
     if (!design) return res.status(404).json({ message: 'Diseño no encontrado' });
     await design.destroy();
     logger.info('Diseño eliminado', { designId: design.id, channelId: req.channel.id, userId: req.user.id });

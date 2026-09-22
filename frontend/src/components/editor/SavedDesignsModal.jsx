@@ -27,24 +27,24 @@ function sameName(a, b) {
   return String(a || '').trim().localeCompare(String(b || '').trim(), 'es-MX', { sensitivity: 'accent' }) === 0;
 }
 
-export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, onLoad, hasScene, liveEnabled = true, initialView = 'load' }) {
+export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot, onLoad, hasScene, liveEnabled = true, initialView = 'load' }) {
   const { confirmDialog } = useSystemAlert();
   const [designs, setDesigns] = useState([]);
   const [name, setName] = useState('');
-  const [activeDesignId, setActiveDesignId] = useState(null);
+  const [activeDesignUuid, setActiveDesignUuid] = useState(null);
   const [busy, setBusy] = useState('list');
   const [status, setStatus] = useState('');
   const saveInputRef = useRef(null);
   const listRef = useRef(null);
 
-  const activeDesign = useMemo(() => designs.find((design) => Number(design.id) === Number(activeDesignId)) || null, [designs, activeDesignId]);
+  const activeDesign = useMemo(() => designs.find((design) => design.uuid === activeDesignUuid) || null, [designs, activeDesignUuid]);
 
   const refresh = async () => {
-    if (!channelId) return;
+    if (!channelUuid) return;
     setBusy('list');
     setStatus('');
     try {
-      setDesigns(await getSavedDesigns(channelId));
+      setDesigns(await getSavedDesigns(channelUuid));
     } catch (error) {
       setStatus(errorMessage(error, 'No se pudieron cargar tus diseños.'));
     } finally {
@@ -54,13 +54,13 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
 
   useEffect(() => {
     let active = true;
-    if (!channelId) return undefined;
-    getSavedDesigns(channelId)
+    if (!channelUuid) return undefined;
+    getSavedDesigns(channelUuid)
       .then((rows) => { if (active) setDesigns(rows); })
       .catch((error) => { if (active) setStatus(errorMessage(error, 'No se pudieron cargar tus diseños.')); })
       .finally(() => { if (active) setBusy(''); });
     return () => { active = false; };
-  }, [channelId]);
+  }, [channelUuid]);
 
   useEffect(() => {
     if (busy === 'list') return undefined;
@@ -77,9 +77,9 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
 
   const applyUpdatedDesign = (updated) => {
     setDesigns((current) => current
-      .map((design) => Number(design.id) === Number(updated.id) ? updated : design)
+      .map((design) => design.uuid === updated.uuid ? updated : design)
       .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
-    setActiveDesignId(updated.id);
+    setActiveDesignUuid(updated.uuid);
     setName(updated.name);
   };
 
@@ -96,10 +96,10 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
       if (!accepted) return false;
     }
 
-    setBusy(`update:${design.id}`);
+    setBusy(`update:${design.uuid}`);
     setStatus(`Sobrescribiendo “${design.name}”...`);
     try {
-      const updated = await updateSavedDesign(channelId, design.id, { state: buildSnapshot() });
+      const updated = await updateSavedDesign(channelUuid, design.uuid, { state: buildSnapshot() });
       applyUpdatedDesign(updated);
       setStatus(`“${updated.name}” quedó sobrescrito con tu workspace actual.`);
       return true;
@@ -134,9 +134,9 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
     setBusy('save');
     setStatus('Guardando diseño...');
     try {
-      const saved = await createSavedDesign(channelId, { name: cleanName, state: buildSnapshot() });
+      const saved = await createSavedDesign(channelUuid, { name: cleanName, state: buildSnapshot() });
       setDesigns((current) => [saved, ...current]);
-      setActiveDesignId(saved.id);
+      setActiveDesignUuid(saved.uuid);
       setName(saved.name);
       setStatus(`“${saved.name}” quedó guardado.`);
     } catch (error) {
@@ -156,12 +156,12 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
       });
       if (!accepted) return;
     }
-    setBusy(`load:${design.id}`);
+    setBusy(`load:${design.uuid}`);
     setStatus(`Cargando “${design.name}”...`);
     try {
-      const fullDesign = await getSavedDesign(channelId, design.id);
+      const fullDesign = await getSavedDesign(channelUuid, design.uuid);
       await onLoad(fullDesign.state, fullDesign);
-      setActiveDesignId(fullDesign.id);
+      setActiveDesignUuid(fullDesign.uuid);
       setName(fullDesign.name);
       setStatus(`“${fullDesign.name}” está cargado.`);
     } catch (error) {
@@ -180,13 +180,13 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
       tone: 'danger'
     });
     if (!accepted) return;
-    setBusy(`delete:${design.id}`);
+    setBusy(`delete:${design.uuid}`);
     setStatus('');
     try {
-      await deleteSavedDesign(channelId, design.id);
-      setDesigns((current) => current.filter((item) => Number(item.id) !== Number(design.id)));
-      if (Number(activeDesignId) === Number(design.id)) {
-        setActiveDesignId(null);
+      await deleteSavedDesign(channelUuid, design.uuid);
+      setDesigns((current) => current.filter((item) => item.uuid !== design.uuid));
+      if (activeDesignUuid === design.uuid) {
+        setActiveDesignUuid(null);
         setName('');
       }
       setStatus(`“${design.name}” fue eliminado.`);
@@ -216,7 +216,7 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
           </div>
           <div className="dc-designs-save-row">
             <input ref={saveInputRef} maxLength="120" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveNew(); }} placeholder="Ej. Sorteo de subs, charla, pantalla de espera..." />
-            <button type="button" className="primary" onClick={saveNew} disabled={!channelId || Boolean(busy)}><Save size={14} /> GUARDAR</button>
+            <button type="button" className="primary" onClick={saveNew} disabled={!channelUuid || Boolean(busy)}><Save size={14} /> GUARDAR</button>
             {activeDesign && <button type="button" onClick={() => overwriteDesign(activeDesign)} disabled={Boolean(busy)} title={`Sobrescribir ${activeDesign.name} con el workspace actual`}><RefreshCw size={14} /> SOBRESCRIBIR</button>}
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function SavedDesignsModal({ onClose, channelId, buildSnapshot, o
           {!busy && !designs.length && <div className="dc-designs-empty"><FolderOpen size={22} /><b>Todavía no has guardado ninguno</b><span>Arma tu escena, ponle nombre arriba y guárdala.</span></div>}
 
           {designs.map((design) => (
-            <article key={design.id} className={`dc-design-card ${Number(activeDesignId) === Number(design.id) ? 'active' : ''}`}>
+            <article key={design.uuid} className={`dc-design-card ${activeDesignUuid === design.uuid ? 'active' : ''}`}>
               <div className="dc-design-card-copy">
                 <b>{design.name}</b>
                 <span>{formatDate(design.updatedAt)} · {formatBytes(design.sizeBytes)}</span>

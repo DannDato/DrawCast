@@ -30,7 +30,6 @@ import {
     getCollaborators,
     getFeaturedChannel,
     inviteCollaborator,
-    leaveChannel,
     removeCollaborator,
     setCollaboratorAccess,
 } from "../api/channels";
@@ -350,7 +349,7 @@ function CanvasDetails({
                 
                 <div className="dc-canvas-collab-list">
                     {(collaborators || []).map((row) => (
-                        <div className={`dc-canvas-collab-row ${row.canEdit ? "" : "suspended"}`} key={row.userId}>
+                        <div className={`dc-canvas-collab-row ${row.canEdit ? "" : "suspended"}`} key={row.user?.uuid}>
                             <CollaboratorAvatar user={row.user} />
                             <div className="dc-canvas-collab-copy">
                                 <strong>{collaboratorName(row)}</strong>
@@ -452,7 +451,7 @@ export default function ChannelDashboard() {
     const [creating, setCreating] = useState(false);
     const [newCanvas, setNewCanvas] = useState({ name: "", channelUrl: "" });
     const [creatingCanvas, setCreatingCanvas] = useState(false);
-    const [expandedId, setExpandedId] = useState(null);
+    const [expandedUuid, setExpandedUuid] = useState(null);
     const [collaboratorsByCanvas, setCollaboratorsByCanvas] = useState({});
     const [collabLoading, setCollabLoading] = useState({});
     const [inviteByCanvas, setInviteByCanvas] = useState({});
@@ -460,8 +459,8 @@ export default function ChannelDashboard() {
 
     const ownedChannels = useMemo(() => data.ownedChannels || (data.owned ? [data.owned] : []), [data]);
     const selectedChannel = useMemo(
-        () => ownedChannels.find((channel) => channel.id === expandedId) || null,
-        [ownedChannels, expandedId]
+        () => ownedChannels.find((channel) => channel.uuid === expandedUuid) || null,
+        [ownedChannels, expandedUuid]
     );
     const limit = data.limits?.canvases ?? 1;
     const used = data.limits?.used ?? ownedChannels.length;
@@ -496,15 +495,15 @@ export default function ChannelDashboard() {
                 const firstChannel = (channels.ownedChannels || (channels.owned ? [channels.owned] : []))[0] || null;
                 if (!firstChannel) return;
 
-                setExpandedId(firstChannel.id);
-                setCollabLoading((current) => ({ ...current, [firstChannel.id]: true }));
-                getCollaborators(firstChannel.id)
+                setExpandedUuid(firstChannel.uuid);
+                setCollabLoading((current) => ({ ...current, [firstChannel.uuid]: true }));
+                getCollaborators(firstChannel.uuid)
                     .then((rows) => {
-                        if (active) setCollaboratorsByCanvas((current) => ({ ...current, [firstChannel.id]: rows }));
+                        if (active) setCollaboratorsByCanvas((current) => ({ ...current, [firstChannel.uuid]: rows }));
                     })
                     .catch(() => {})
                     .finally(() => {
-                        if (active) setCollabLoading((current) => ({ ...current, [firstChannel.id]: false }));
+                        if (active) setCollabLoading((current) => ({ ...current, [firstChannel.uuid]: false }));
                     });
             })
             .catch(() => {})
@@ -516,22 +515,22 @@ export default function ChannelDashboard() {
         };
     }, []);
 
-    const ensureCollaborators = async (channelId, { force = false } = {}) => {
-        if (!force && collaboratorsByCanvas[channelId]) return collaboratorsByCanvas[channelId];
-        setCollabLoading((current) => ({ ...current, [channelId]: true }));
+    const ensureCollaborators = async (channelUuid, { force = false } = {}) => {
+        if (!force && collaboratorsByCanvas[channelUuid]) return collaboratorsByCanvas[channelUuid];
+        setCollabLoading((current) => ({ ...current, [channelUuid]: true }));
         try {
-            const rows = await getCollaborators(channelId, { force });
-            setCollaboratorsByCanvas((current) => ({ ...current, [channelId]: rows }));
+            const rows = await getCollaborators(channelUuid, { force });
+            setCollaboratorsByCanvas((current) => ({ ...current, [channelUuid]: rows }));
             return rows;
         } finally {
-            setCollabLoading((current) => ({ ...current, [channelId]: false }));
+            setCollabLoading((current) => ({ ...current, [channelUuid]: false }));
         }
     };
 
     const selectCanvas = (channel) => {
-        if (expandedId === channel.id) return;
-        setExpandedId(channel.id);
-        ensureCollaborators(channel.id).catch(() => {});
+        if (expandedUuid === channel.uuid) return;
+        setExpandedUuid(channel.uuid);
+        ensureCollaborators(channel.uuid).catch(() => {});
     };
 
     const handleCreate = async () => {
@@ -542,8 +541,8 @@ export default function ChannelDashboard() {
             await load({ force: true });
             setCreating(false);
             setNewCanvas({ name: "", channelUrl: "" });
-            setExpandedId(created.id);
-            setCollaboratorsByCanvas((current) => ({ ...current, [created.id]: [] }));
+            setExpandedUuid(created.uuid);
+            setCollaboratorsByCanvas((current) => ({ ...current, [created.uuid]: [] }));
         } catch (error) {
             await showAlert({
                 title: "No se pudo crear el lienzo",
@@ -555,22 +554,22 @@ export default function ChannelDashboard() {
         }
     };
 
-    const inviteState = (channelId) => inviteByCanvas[channelId] || { email: "", sending: false, message: "" };
-    const setInviteState = (channelId, next) => setInviteByCanvas((current) => ({ ...current, [channelId]: next }));
+    const inviteState = (channelUuid) => inviteByCanvas[channelUuid] || { email: "", sending: false, message: "" };
+    const setInviteState = (channelUuid, next) => setInviteByCanvas((current) => ({ ...current, [channelUuid]: next }));
 
-    const handleInvite = async (channelId) => {
-        const state = inviteState(channelId);
+    const handleInvite = async (channelUuid) => {
+        const state = inviteState(channelUuid);
         if (!state.email.trim() || state.sending) return;
-        setInviteState(channelId, { ...state, sending: true, message: "" });
+        setInviteState(channelUuid, { ...state, sending: true, message: "" });
         try {
-            await inviteCollaborator(channelId, state.email);
-            setInviteState(channelId, {
+            await inviteCollaborator(channelUuid, state.email);
+            setInviteState(channelUuid, {
                 email: "",
                 sending: false,
                 message: "Invitación enviada. Aparecerá aquí cuando la acepte.",
             });
         } catch (error) {
-            setInviteState(channelId, {
+            setInviteState(channelUuid, {
                 ...state,
                 sending: false,
                 message: error.response?.data?.message || "No se pudo enviar la invitación.",
@@ -578,7 +577,7 @@ export default function ChannelDashboard() {
         }
     };
 
-    const handleToggleCollaborator = async (channelId, row) => {
+    const handleToggleCollaborator = async (channelUuid, row) => {
         const nextCanEdit = !row.canEdit;
         if (!nextCanEdit) {
             const accepted = await confirmDialog({
@@ -592,17 +591,17 @@ export default function ChannelDashboard() {
             if (!accepted) return;
         }
         try {
-            await setCollaboratorAccess(channelId, row.userId, nextCanEdit);
+            await setCollaboratorAccess(channelUuid, row.user?.uuid, nextCanEdit);
             setCollaboratorsByCanvas((current) => ({
                 ...current,
-                [channelId]: (current[channelId] || []).map((item) =>
-                    item.userId === row.userId ? { ...item, canEdit: nextCanEdit } : item
+                [channelUuid]: (current[channelUuid] || []).map((item) =>
+                    item.user?.uuid === row.user?.uuid ? { ...item, canEdit: nextCanEdit } : item
                 ),
             }));
             setData((current) => ({
                 ...current,
                 ownedChannels: (current.ownedChannels || []).map((canvas) =>
-                    canvas.id === channelId
+                    canvas.uuid === channelUuid
                         ? {
                               ...canvas,
                               activeCollaboratorCount: Math.max(
@@ -622,7 +621,7 @@ export default function ChannelDashboard() {
         }
     };
 
-    const handleRemoveCollaborator = async (channelId, row) => {
+    const handleRemoveCollaborator = async (channelUuid, row) => {
         const accepted = await confirmDialog({
             title: `¿Eliminar a ${collaboratorName(row)}?`,
             message: "Perderá el acceso a este lienzo. Después tendrás que invitarlo de nuevo si quieres recuperarlo.",
@@ -632,15 +631,15 @@ export default function ChannelDashboard() {
         });
         if (!accepted) return;
         try {
-            await removeCollaborator(channelId, row.userId);
+            await removeCollaborator(channelUuid, row.user?.uuid);
             setCollaboratorsByCanvas((current) => ({
                 ...current,
-                [channelId]: (current[channelId] || []).filter((item) => item.userId !== row.userId),
+                [channelUuid]: (current[channelUuid] || []).filter((item) => item.user?.uuid !== row.user?.uuid),
             }));
             setData((current) => ({
                 ...current,
                 ownedChannels: (current.ownedChannels || []).map((canvas) =>
-                    canvas.id === channelId
+                    canvas.uuid === channelUuid
                         ? {
                               ...canvas,
                               collaboratorCount: Math.max(0, Number(canvas.collaboratorCount || 1) - 1),
@@ -686,10 +685,10 @@ export default function ChannelDashboard() {
         if (typed !== requiredText) return;
 
         try {
-            await deleteChannel(channel.id, typed);
+            await deleteChannel(channel.uuid, typed);
             setCollaboratorsByCanvas((current) => {
                 const next = { ...current };
-                delete next[channel.id];
+                delete next[channel.uuid];
                 return next;
             });
             const [next, featuredResult] = await Promise.all([
@@ -699,8 +698,8 @@ export default function ChannelDashboard() {
             setFeatured(featuredResult.channel || null);
             const remaining = next.ownedChannels || (next.owned ? [next.owned] : []);
             const nextSelected = remaining[0] || null;
-            setExpandedId(nextSelected?.id ?? null);
-            if (nextSelected) ensureCollaborators(nextSelected.id, { force: true }).catch(() => {});
+            setExpandedUuid(nextSelected?.uuid ?? null);
+            if (nextSelected) ensureCollaborators(nextSelected.uuid, { force: true }).catch(() => {});
             await showAlert({
                 title: "Lienzo eliminado",
                 message: `“${channel.name}” se eliminó permanentemente.`,
@@ -709,36 +708,6 @@ export default function ChannelDashboard() {
         } catch (error) {
             await showAlert({
                 title: "No se pudo eliminar el lienzo",
-                message: error.response?.data?.message || "Inténtalo nuevamente.",
-                tone: "danger",
-            });
-        }
-    };
-
-    const handleLeaveChannel = async (channel) => {
-        const accepted = await confirmDialog({
-            title: `¿Abandonar “${channel.name}”?`,
-            message:
-                "Dejarás de tener acceso a este lienzo. Para volver, el propietario tendrá que invitarte nuevamente.",
-            confirmLabel: "Abandonar lienzo",
-            cancelLabel: "Cancelar",
-            tone: "danger",
-        });
-        if (!accepted) return;
-        try {
-            await leaveChannel(channel.id);
-            setData((current) => ({
-                ...current,
-                collaborations: (current.collaborations || []).filter((item) => item.id !== channel.id),
-            }));
-            await showAlert({
-                title: "Lienzo abandonado",
-                message: `Ya no colaboras en “${channel.name}”.`,
-                tone: "success",
-            });
-        } catch (error) {
-            await showAlert({
-                title: "No se pudo abandonar el lienzo",
                 message: error.response?.data?.message || "Inténtalo nuevamente.",
                 tone: "danger",
             });
@@ -816,9 +785,9 @@ export default function ChannelDashboard() {
                             ) : null}
                             {filteredOwnedChannels.map((channel) => (
                                 <CanvasSummaryCard
-                                    key={channel.id}
+                                    key={channel.uuid}
                                     channel={channel}
-                                    selected={expandedId === channel.id}
+                                    selected={expandedUuid === channel.uuid}
                                     onClick={() => selectCanvas(channel)}
                                 />
                             ))}
@@ -904,72 +873,19 @@ export default function ChannelDashboard() {
             {selectedChannel && (
                 <CanvasDetails
                     channel={selectedChannel}
-                    collaborators={collaboratorsByCanvas[selectedChannel.id]}
-                    loadingCollaborators={Boolean(collabLoading[selectedChannel.id])}
-                    inviteState={inviteState(selectedChannel.id)}
-                    onInviteChange={(next) => setInviteState(selectedChannel.id, next)}
-                    onInvite={() => handleInvite(selectedChannel.id)}
-                    onToggleCollaborator={(row) => handleToggleCollaborator(selectedChannel.id, row)}
-                    onRemoveCollaborator={(row) => handleRemoveCollaborator(selectedChannel.id, row)}
+                    collaborators={collaboratorsByCanvas[selectedChannel.uuid]}
+                    loadingCollaborators={Boolean(collabLoading[selectedChannel.uuid])}
+                    inviteState={inviteState(selectedChannel.uuid)}
+                    onInviteChange={(next) => setInviteState(selectedChannel.uuid, next)}
+                    onInvite={() => handleInvite(selectedChannel.uuid)}
+                    onToggleCollaborator={(row) => handleToggleCollaborator(selectedChannel.uuid, row)}
+                    onRemoveCollaborator={(row) => handleRemoveCollaborator(selectedChannel.uuid, row)}
                     onDeleteChannel={() => handleDeleteChannel(selectedChannel)}
                 />
             )}
 
             
 
-            {(data.collaborations || []).length > 0 && (
-                <section className="dc-shared-canvases">
-                    <div className="dc-canvas-section-heading">
-                        <div>
-                            <span className="dc-kicker">COLABORACIÓN</span>
-                            <h2>Compartidos contigo</h2>
-                        </div>
-                        <span>
-                            {data.collaborations.length} lienzo{data.collaborations.length === 1 ? "" : "s"}
-                        </span>
-                    </div>
-                    <div className="dc-shared-grid">
-                        {data.collaborations.map((channel) => (
-                            <div
-                                className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] max-[680px]:grid-cols-1 ${channel.collaboration?.canEdit === false ? "opacity-80" : ""}`}
-                                key={channel.id}
-                            >
-                                {channel.collaboration?.canEdit === false ? (
-                                    <div className="dc-shared-card border-[var(--dc-warning-border)] bg-[var(--dc-warning-bg)]">
-                                        <div>
-                                            <strong>{channel.name}</strong>
-                                            <span className="!text-[var(--dc-warning)]">
-                                                SUSPENDIDO · SIN ACCESO DE EDICIÓN
-                                            </span>
-                                        </div>
-                                        <Pause size={16} />
-                                    </div>
-                                ) : (
-                                    <Link to={`/app/editor/${channel.publicKey}`} className="dc-shared-card">
-                                        <div>
-                                            <strong>{channel.name}</strong>
-                                            <span>
-                                                {channel.platform
-                                                    ? channel.platform.toUpperCase()
-                                                    : "LIENZO COMPARTIDO"}
-                                            </span>
-                                        </div>
-                                        <ExternalLink size={16} />
-                                    </Link>
-                                )}
-                                <button
-                                    type="button"
-                                    className="inline-flex min-w-[108px] items-center justify-center gap-[7px] border border-l-0 border-[var(--dc-button-danger-border)] bg-[var(--dc-button-danger-bg)] px-2.5 text-[13px] font-bold text-[var(--dc-button-danger-text)] hover:brightness-110 max-[680px]:min-h-9 max-[680px]:border-l max-[680px]:border-t-0"
-                                    onClick={() => handleLeaveChannel(channel)}
-                                    title="Abandonar lienzo"
-                                >
-                                    <LogOut size={15} /> Abandonar
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            )}
         </div>
     );
 }

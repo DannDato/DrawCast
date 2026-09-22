@@ -28,6 +28,7 @@ import {
   LayerArrowDown
 } from 'lucide-react';
 import { GUIDE_SHORTCUTS, TOOL_SHORTCUTS } from './hotkeys/shortcuts';
+import { PresenceStack } from '../ui/PresenceAvatar';
 
 const directTools = [
   { id: 'select', label: 'Seleccionar / mover', icon: MousePointer2 },
@@ -55,34 +56,6 @@ function IconButton({ label, icon, onClick, disabled = false, active = false, da
     <button type="button" className={`dc-toolbar-icon ${active ? 'active' : ''} ${danger ? 'danger' : ''}`} onClick={onClick} disabled={disabled} title={label} aria-label={label}>
       {createElement(icon, { size: 16 })}
     </button>
-  );
-}
-
-function editorInitials(editor) {
-  const value = String(editor?.username || editor?.displayName || 'Editor').trim().replace(/^@/, '');
-  if (!value) return 'E';
-  const parts = value.split(/[\s._-]+/).filter(Boolean);
-  if (parts.length > 1) return `${parts[0][0] || ''}${parts.at(-1)?.[0] || ''}`.toUpperCase();
-  return value.slice(0, 2).toUpperCase();
-}
-
-function PresenceAvatar({ editor }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const username = String(editor.username || '').trim();
-  const displayName = String(editor.displayName || username || 'Editor').trim();
-  const handle = username ? `@${username}` : displayName;
-  const title = `${displayName}${username ? ` · ${handle}` : ''}${editor.isOwner ? ' · propietario' : ''}${editor.canEdit === false ? ' · esperando Live' : ''}`;
-  const hasImage = Boolean(editor.avatarUrl && !imageFailed);
-
-  return (
-    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor.colorSlot ? `var(--dc-cursor-${editor.colorSlot})` : 'var(--dc-accent)' }} title={title}>
-      <span className="dc-presence-avatar-media">
-        {hasImage
-          ? <img src={editor.avatarUrl} alt="" onError={() => setImageFailed(true)} />
-          : <b>{editorInitials(editor)}</b>}
-      </span>
-      <span className="dc-presence-avatar-name">{displayName}</span>
-    </span>
   );
 }
 
@@ -199,7 +172,7 @@ export default function Toolbar({
             <span className="dc-toolbar-popover-separator" />
             <div className="dc-toolbar-file-label"><Clock3 size={13} /><span>Recientes</span></div>
             {recentDesigns.length > 0 ? recentDesigns.slice(0, 5).map((design) => (
-              <button key={design.id} type="button" className="dc-toolbar-recent" title={`Cargar ${design.name}`} onClick={() => { onLoadRecent?.(design); setOpenMenu(null); }}>
+              <button key={design.uuid} type="button" className="dc-toolbar-recent" title={`Cargar ${design.name}`} onClick={() => { onLoadRecent?.(design); setOpenMenu(null); }}>
                 <Clock3 size={14} />
                 <span>{design.name}</span>
               </button>
@@ -321,10 +294,7 @@ export default function Toolbar({
 
       <div className="dc-toolbar-presence" aria-label={`${editors.length} editor${editors.length === 1 ? '' : 'es'} conectado${editors.length === 1 ? '' : 's'}`}>
         {editors.length > 0 && (
-          <div className="dc-presence-stack">
-            {editors.slice(0, 5).map((editor) => <PresenceAvatar key={editor.socketId} editor={editor} />)}
-            {editors.length > 5 && <span className="dc-presence-more">+{editors.length - 5}</span>}
-          </div>
+          <PresenceStack editors={editors} max={5} />
         )}
         <span className={`dc-toolbar-live ${connected ? 'online' : ''}`} title={connected ? 'Conectado al canal' : 'Sin conexión'}>
           <i />
