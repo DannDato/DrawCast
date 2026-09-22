@@ -273,7 +273,7 @@ export default function CanvasStage({
           ctx.save();
           ctx.globalAlpha = 0.72;
           drawObject(ctx, shapePreview.current);
-          ctx.strokeStyle = getThemeColor('--dc-accent');
+          ctx.strokeStyle = getThemeColor('--dc-accent-three');
           ctx.lineWidth = 2;
           ctx.setLineDash([10, 8]);
           ctx.strokeRect(shapePreview.current.x - 4, shapePreview.current.y - 4, shapePreview.current.w + 8, shapePreview.current.h + 8);
@@ -287,10 +287,11 @@ export default function CanvasStage({
         ctx.strokeRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         ctx.restore();
 
-        const accent = getThemeColor('--dc-accent');
+        const selectionAccent = getThemeColor('--dc-accent-four');
+        const guideAccent = getThemeColor('--dc-accent-three');
         const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
-        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter((object) => object && object.id !== editingTextId), accent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
-        drawSnapGuides(ctx, snapGuides.current, accent, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
+        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter((object) => object && object.id !== editingTextId), selectionAccent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
+        drawSnapGuides(ctx, snapGuides.current, guideAccent, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
 
         const cursorScale = 1 / cssScale;
         const now = Date.now();
@@ -335,7 +336,7 @@ export default function CanvasStage({
           ctx.restore();
         });
 
-        if (marquee.current) drawMarquee(ctx, marquee.current.start, marquee.current.end, accent);
+        if (marquee.current) drawMarquee(ctx, marquee.current.start, marquee.current.end, selectionAccent);
         lastFrame = timestamp;
       }
 

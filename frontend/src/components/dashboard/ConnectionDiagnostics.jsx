@@ -106,19 +106,19 @@ function Sparkline({ values }) {
   }).join(' ');
   return (
     <svg className="mt-2.5 h-12 w-full overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-label="Historial reciente de latencia">
-      <polyline className="stroke-[var(--dc-accent)] [stroke-width:1.5]" points={points} fill="none" vectorEffect="non-scaling-stroke" />
+      <polyline className="stroke-[var(--dc-accent-one)] [stroke-width:1.5]" points={points} fill="none" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
 
 function diagnose({ online, failedChecks, latency, jitterMs, server, fps, longTasks }) {
   if (!online) return { tone: 'bad', title: 'Sin conexión a internet', message: 'El navegador reporta que este equipo está desconectado.' };
-  if (failedChecks >= 2) return { tone: 'bad', title: 'No podemos alcanzar DrawCast', message: 'La red local, el proveedor o la ruta hacia el servidor pueden estar fallando.' };
+  if (failedChecks >= 2) return { tone: 'bad', title: 'No podemos alcanzar TRAZIO', message: 'La red local, el proveedor o la ruta hacia el servidor pueden estar fallando.' };
 
   const serverLoop = server?.eventLoop?.p95Ms;
   const serverLoad = server?.cpu?.loadPercent;
   if ((Number.isFinite(serverLoop) && serverLoop > 80) || (Number.isFinite(serverLoad) && serverLoad > 95)) {
-    return { tone: 'bad', title: 'El servidor parece saturado', message: 'Tu conexión llega a DrawCast, pero el servidor está tardando en atender trabajo interno.' };
+    return { tone: 'bad', title: 'El servidor parece saturado', message: 'Tu conexión llega a TRAZIO, pero el servidor está tardando en atender trabajo interno.' };
   }
 
   const worstLongTask = longTasks.reduce((max, item) => Math.max(max, item.duration), 0);
@@ -127,16 +127,16 @@ function diagnose({ online, failedChecks, latency, jitterMs, server, fps, longTa
   }
 
   if ((Number.isFinite(latency) && latency > 180) || jitterMs > 60) {
-    return { tone: 'warn', title: 'La red se ve inestable', message: 'DrawCast responde, pero la latencia o su variación son altas. Wi‑Fi, VPN o tu proveedor pueden ser la causa.' };
+    return { tone: 'warn', title: 'La red se ve inestable', message: 'TRAZIO responde, pero la latencia o su variación son altas. Wi‑Fi, VPN o tu proveedor pueden ser la causa.' };
   }
 
   return { tone: 'good', title: 'Conexión estable', message: 'Red, navegador y servidor están dentro de rangos normales en esta muestra.' };
 }
 
-function DiagnosticCard({ icon, title, tone, primary, primaryLabel, stats, children }) {
-  return <article className="flex min-h-[205px] min-w-0 flex-col bg-[var(--dc-surface-1)] p-3.5 max-[980px]:min-h-0">
-    <div className="flex items-center justify-between gap-2.5 text-[var(--dc-muted)]"><span className="inline-flex items-center gap-[7px] font-extrabold text-[var(--dc-text)]">{icon} {title}</span><i className={`h-2 w-2 rounded-full shadow-[0_0_9px_currentColor] ${TONE_DOT[tone] || TONE_DOT.idle}`} /></div>
-    <div className="mt-[18px] grid gap-[3px]"><strong className="text-[27px] leading-none">{primary}</strong><span className="text-[13px] text-[var(--dc-muted)]">{primaryLabel}</span></div>
+function DiagnosticCard({ icon, title, tone, primary, primaryLabel, stats, children, accent = 'var(--dc-accent-one)' }) {
+  return <article style={{ '--dc-diagnostic-accent': accent }} className="flex min-h-[205px] min-w-0 flex-col bg-[var(--dc-surface-1)] p-3.5 max-[980px]:min-h-0">
+    <div className="flex items-center justify-between gap-2.5 text-[var(--dc-muted)]"><span className="inline-flex items-center gap-[7px] font-extrabold text-[var(--dc-text)]"><span className="text-[var(--dc-diagnostic-accent)]">{icon}</span> {title}</span><i className={`h-2 w-2 rounded-full shadow-[0_0_9px_currentColor] ${TONE_DOT[tone] || TONE_DOT.idle}`} /></div>
+    <div className="mt-[18px] grid gap-[3px]"><strong className="text-[27px] leading-none text-[var(--dc-diagnostic-accent)]">{primary}</strong><span className="text-[13px] text-[var(--dc-muted)]">{primaryLabel}</span></div>
     <div className="mt-3.5 grid grid-cols-2 gap-[7px] max-[680px]:grid-cols-1">{stats.map(([value, label]) => <span className="grid min-w-0 gap-0.5 border border-[var(--dc-line-soft)] p-2 text-[13px] text-[var(--dc-muted)]" key={label}><b className="truncate text-[13px] text-[var(--dc-text)]">{value}</b>{label}</span>)}</div>
     {children}
   </article>;
@@ -231,9 +231,9 @@ export default function ConnectionDiagnostics() {
     <section className="overflow-hidden bg-[var(--dc-panel)] text-[13px] shadow-[0_8px_24px_var(--dc-shadow-soft)]">
       <div className="flex items-center justify-between gap-5 px-[22px] pb-2.5 pt-5 max-[680px]:flex-col max-[680px]:items-start">
         <h1 className="m-0 font-['Bebas_Neue'] text-[1.9rem] font-normal uppercase leading-none tracking-[.015em] text-[var(--dc-text)] max-[980px]:text-[1.75rem] max-[680px]:text-[1.55rem]">
-            DIAGNOSTICO <span className="text-[var(--dc-accent)]">DE RENDIMIENTO</span>
+            DIAGNOSTICO <span className="text-[var(--dc-accent-four)]">DE RENDIMIENTO</span>
         </h1>
-        <button type="button" className="inline-flex min-h-9 shrink-0 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-1)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] hover:border-[var(--dc-accent)] hover:bg-[var(--dc-accent-soft)] disabled:cursor-wait disabled:opacity-60 max-[680px]:w-full" onClick={runCheck} disabled={checking} title="Actualizar diagnóstico"><RefreshCw size={15} className={checking ? 'animate-spin' : ''} /> {checking ? 'Midiendo...' : 'Actualizar'}</button>
+        <button type="button" className="inline-flex min-h-9 shrink-0 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-1)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] hover:border-[var(--dc-accent-three)] hover:bg-[var(--dc-accent-three-soft)] disabled:cursor-wait disabled:opacity-60 max-[680px]:w-full" onClick={runCheck} disabled={checking} title="Actualizar diagnóstico"><RefreshCw size={15} className={checking ? 'animate-spin' : ''} /> {checking ? 'Midiendo...' : 'Actualizar'}</button>
       </div>
 
       <div className={`mx-5 mt-3.5 flex items-center gap-[11px] border p-3 px-3.5 max-[680px]:items-start ${VERDICT_TONE[diagnosis.tone] || VERDICT_TONE.good}`}>
@@ -242,21 +242,21 @@ export default function ConnectionDiagnostics() {
       </div>
 
       <div className="grid grid-cols-3 gap-2.5 px-5 pb-5 pt-3.5 max-[980px]:grid-cols-1">
-        <DiagnosticCard icon={<Wifi size={17} />} title="Red" tone={toneForLatency(latency)} primary={formatMs(latency)} primaryLabel="latencia a DrawCast" stats={[[formatMs(jitterMs), 'jitter'], [online ? 'En línea' : 'Sin red', 'navegador']]}>
+        <DiagnosticCard icon={<Wifi size={17} />} title="Red" accent="var(--dc-accent-one)" tone={toneForLatency(latency)} primary={formatMs(latency)} primaryLabel="latencia a TRAZIO" stats={[[formatMs(jitterMs), 'jitter'], [online ? 'En línea' : 'Sin red', 'navegador']]}>
           <Sparkline values={samples} />
           <p className="mb-0 mt-auto pt-[11px] text-[13px] leading-[1.35] text-[var(--dc-muted)]">{connectionLabel(connection)}</p>
         </DiagnosticCard>
 
-        <DiagnosticCard icon={<Cpu size={17} />} title="Este equipo" tone={toneForFps(fps)} primary={Number.isFinite(fps) ? `${fps} FPS` : '—'} primaryLabel="fluidez del navegador" stats={[[recentLongTasks.length, 'bloqueos >50 ms'], [worstLongTask ? `${Math.round(worstLongTask)} ms` : '0 ms', 'peor bloqueo']]}>
+        <DiagnosticCard icon={<Cpu size={17} />} title="Este equipo" accent="var(--dc-accent-three)" tone={toneForFps(fps)} primary={Number.isFinite(fps) ? `${fps} FPS` : '—'} primaryLabel="fluidez del navegador" stats={[[recentLongTasks.length, 'bloqueos >50 ms'], [worstLongTask ? `${Math.round(worstLongTask)} ms` : '0 ms', 'peor bloqueo']]}>
           <p className="mb-0 mt-auto pt-[11px] text-[13px] leading-[1.35] text-[var(--dc-muted)]">{navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} hilos lógicos` : 'CPU no reportada'}{navigator.deviceMemory ? ` · ~${navigator.deviceMemory} GB RAM` : ''}</p>
         </DiagnosticCard>
 
-        <DiagnosticCard icon={<Server size={17} />} title="Servidor" tone={toneForEventLoop(server?.eventLoop?.p95Ms)} primary={formatMs(server?.eventLoop?.p95Ms)} primaryLabel="espera interna p95" stats={[[Number.isFinite(server?.cpu?.loadPercent) ? `${Math.round(server.cpu.loadPercent)}%` : '—', 'carga CPU'], [Number.isFinite(server?.memory?.heapPercent) ? `${Math.round(server.memory.heapPercent)}%` : '—', 'heap Node']]}>
+        <DiagnosticCard icon={<Server size={17} />} title="Servidor" accent="var(--dc-accent-four)" tone={toneForEventLoop(server?.eventLoop?.p95Ms)} primary={formatMs(server?.eventLoop?.p95Ms)} primaryLabel="espera interna p95" stats={[[Number.isFinite(server?.cpu?.loadPercent) ? `${Math.round(server.cpu.loadPercent)}%` : '—', 'carga CPU'], [Number.isFinite(server?.memory?.heapPercent) ? `${Math.round(server.memory.heapPercent)}%` : '—', 'heap Node']]}>
           <p className="mb-0 mt-auto pt-[11px] text-[13px] leading-[1.35] text-[var(--dc-muted)]">{server ? `Activo hace ${Math.max(1, Math.round(server.uptimeSeconds / 60))} min · ${server.cpu?.cores || '—'} cores` : 'Esperando respuesta del servidor...'}</p>
         </DiagnosticCard>
       </div>
 
-      <div className="flex min-h-[42px] items-center gap-[7px] px-[22px] pb-[18px] text-[13px] text-[var(--dc-muted)] max-[680px]:items-start max-[680px]:py-[11px]"><Gauge size={14} className="shrink-0 text-[var(--dc-accent)]" /><span>Las cifras son muestras recientes de este navegador y pueden cambiar con Wi‑Fi, VPN, carga del equipo o distancia al servidor.</span></div>
+      <div className="flex min-h-[42px] items-center gap-[7px] px-[22px] pb-[18px] text-[13px] text-[var(--dc-muted)] max-[680px]:items-start max-[680px]:py-[11px]"><Gauge size={14} className="shrink-0 text-[var(--dc-accent-three)]" /><span>Las cifras son muestras recientes de este navegador y pueden cambiar con Wi‑Fi, VPN, carga del equipo o distancia al servidor.</span></div>
     </section>
   );
 }

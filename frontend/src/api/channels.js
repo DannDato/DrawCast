@@ -63,7 +63,7 @@ export const rejectPendingInvitation = async (invitationUuid) => {
 };
 
 export const notifyInvitationsChanged = () => {
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('drawcast:invitations-changed'));
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('TRAZIO:invitations-changed'));
 };
 
 export const getCollaborators = (channelUuid, { force = false } = {}) => cachedRequest(

@@ -48,7 +48,7 @@ function CopyObsButton({ publicKey }) {
     return (
         <button
             type="button"
-            className="inline-flex min-h-9 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-2)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] transition hover:border-[var(--dc-accent)] hover:bg-[var(--dc-accent-soft)]"
+            className="inline-flex min-h-9 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-2)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] transition hover:border-[var(--dc-accent-three)] hover:bg-[var(--dc-accent-three-soft)]"
             onClick={copy}
         >
             <Copy size={15} /> {copied ? "Copiado" : "Copiar OBS"}
@@ -362,7 +362,7 @@ export default function EditorHub() {
                     >
                         {tab.label}
                         <span className="text-[11px] font-black opacity-60">{tab.count}</span>
-                        {activeTab === tab.id && <span className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-[var(--dc-accent)]" />}
+                        {activeTab === tab.id && <span className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-[var(--dc-accent-one)]" />}
                     </button>
                 ))}
             </div>
@@ -370,7 +370,7 @@ export default function EditorHub() {
             {invitations.length > 0 && (
                 <section className="mb-5">
                     <div className="mb-2.5 flex items-center gap-2">
-                        <Mail size={17} className="text-[var(--dc-accent)]" />
+                        <Mail size={17} className="text-[var(--dc-accent-four)]" />
                         <span className="dc-kicker">INVITACIONES PENDIENTES</span>
                         <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--dc-danger-strong)] px-1.5 text-[10px] font-black text-[var(--dc-text-strong)]">
                             {invitations.length}
@@ -383,7 +383,7 @@ export default function EditorHub() {
                             return (
                                 <article
                                     key={invitation.uuid}
-                                    className="grid min-w-0 gap-[13px] border border-[var(--dc-accent-soft)] bg-[var(--dc-panel)] p-[15px] shadow-[0_8px_24px_var(--dc-shadow-soft)]"
+                                    className="grid min-w-0 gap-[13px] border border-[var(--dc-accent-three)]/40 bg-[var(--dc-panel)] p-[15px] shadow-[0_8px_24px_var(--dc-shadow-soft)]"
                                 >
                                     <div className="flex items-center justify-between gap-3">
                                         <span className="dc-kicker">TE INVITARON</span>
@@ -445,7 +445,7 @@ export default function EditorHub() {
             ) : null}
             {!loading && channels.length === 0 && invitations.length === 0 ? (
                 <section className={emptyBox}>
-                    <PenTool size={28} className="text-[var(--dc-accent)]" />
+                    <PenTool size={28} className="text-[var(--dc-accent-four)]" />
                     <h2>Todavía no tienes lienzos</h2>
                     <p className="text-[var(--dc-muted)]">
                         Crea uno desde Inicio o espera una invitación para comenzar.
@@ -460,7 +460,7 @@ export default function EditorHub() {
             ) : null}
             {!loading && channels.length > 0 && filtered.length === 0 ? (
                 <section className={emptyBox}>
-                    {activeTab === "favorites" ? <Star size={26} className="text-[#f3c94d]" /> : <Search size={26} className="text-[var(--dc-accent)]" />}
+                    {activeTab === "favorites" ? <Star size={26} className="text-[#f3c94d]" /> : <Search size={26} className="text-[var(--dc-accent-three)]" />}
                     <h2>{activeTab === "favorites" && !query ? "Todavía no tienes favoritos" : "Sin resultados"}</h2>
                     <p className="text-[var(--dc-muted)]">
                         {query
@@ -529,7 +529,7 @@ export default function EditorHub() {
                             <div className="flex items-center gap-[7px] pt-0.5 max-[680px]:flex-col max-[680px]:items-stretch">
                                 {channel.owned || channel.collaboration?.canEdit !== false ? (
                                     <Link
-                                        className="inline-flex min-h-9 flex-1 items-center justify-center gap-[7px] border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text-strong)]"
+                                        className="inline-flex min-h-9 flex-1 items-center justify-center gap-[7px] border border-[var(--dc-accent-one)] bg-[var(--dc-accent-one)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text-inverse)]"
                                         to={`/app/editor/${channel.publicKey}`}
                                     >
                                         <MonitorPlay size={16} /> Abrir editor <ExternalLink size={14} />

@@ -4,8 +4,8 @@ import { getGroupName } from './groups/groupUtils';
 import { layerUnits, orderedLayerObjects } from './layers/layerUtils';
 import { textValue } from './tools/text/textTool';
 
-const VIEW_MODE_KEY = 'drawcast.layers.view.mode';
-const COLLAPSED_KEY = 'drawcast.layers.collapsed.groups';
+const VIEW_MODE_KEY = 'TRAZIO.layers.view.mode';
+const COLLAPSED_KEY = 'TRAZIO.layers.collapsed.groups';
 
 function layerLabel(object) {
   if (object.layerName) return object.layerName;

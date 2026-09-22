@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import api from '../../api/axios';
 
-const SCRIPT_ID = 'drawcast-turnstile-script';
+const SCRIPT_ID = 'TRAZIO-turnstile-script';
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 let scriptPromise = null;
 

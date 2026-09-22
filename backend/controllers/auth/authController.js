@@ -78,7 +78,7 @@ async function upsertOAuthAccount(req, user, { provider, providerUserId, email, 
   });
   if (occupied) return { error: `Esa cuenta de ${provider} ya está conectada a otro usuario` };
   const emailOwner = await models.User.findOne({ where: { email: normalizeEmail(email), id: { [Op.ne]: user.id } }, attributes: ['id'] });
-  if (emailOwner) return { error: 'El correo de esa plataforma ya pertenece a otra cuenta de DrawCast' };
+  if (emailOwner) return { error: 'El correo de esa plataforma ya pertenece a otra cuenta de TRAZIO' };
 
   let account = await models.OAuthAccount.findOne({ where: { userId: user.id, provider } });
   const values = { providerUserId: String(providerUserId), email: normalizeEmail(email), avatarUrl: avatarUrl || null, active: true };
@@ -392,7 +392,10 @@ class AuthController {
   me = async (req, res) => res.json({ user: await serializeUser(req.user) });
 
   logout = async (req, res) => {
-    if (req.session) await req.session.update({ revokedAt: new Date() });
+    if (req.session) {
+      await req.session.update({ revokedAt: new Date() });
+      req.app.get('io')?.in(`session:${req.session.id}`).disconnectSockets(true);
+    }
     await audit(req, { event: 'auth.logout', category: 'auth' });
     clearSessionCookie(res);
     return res.status(204).end();

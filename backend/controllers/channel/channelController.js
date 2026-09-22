@@ -197,7 +197,7 @@ export class ChannelController {
     if (!candidates.length) return res.json({ channel: null });
 
     const day = new Date().toISOString().slice(0, 10);
-    const seed = crypto.createHash('sha256').update(`drawcast-featured:${day}`).digest().readUInt32BE(0);
+    const seed = crypto.createHash('sha256').update(`TRAZIO-featured:${day}`).digest().readUInt32BE(0);
     const selected = candidates[seed % candidates.length];
     res.json({ channel: { uuid: selected.uuid, name: selected.name, platform: selected.platform, channelUrl: selected.channelUrl } });
   }

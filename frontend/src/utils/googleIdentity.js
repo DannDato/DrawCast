@@ -1,7 +1,7 @@
 import api from '../api/axios';
 
 const GOOGLE_READY_TIMEOUT_MS = 12000;
-const GOOGLE_SCRIPT_ID = 'drawcast-google-identity-script';
+const GOOGLE_SCRIPT_ID = 'TRAZIO-google-identity-script';
 const GOOGLE_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 const STATE_KEY = '__drawcastGoogleCodeState';
 

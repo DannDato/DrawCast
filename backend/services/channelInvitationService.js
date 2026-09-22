@@ -58,7 +58,7 @@ export async function createInvitation(channel, inviter, email) {
   const invitedUser = await models.User.findOne({ where: { email: normalized }, attributes: ['id', 'email', 'username', 'displayName'] });
   if (!invitedUser) {
     logger.warn('Invitación rechazada: correo sin cuenta', { channelId: channel.id, invitedBy: inviter.id, email: normalized });
-    throw Object.assign(new Error('Ese correo todavía no tiene una cuenta en DrawCast'), { status: 404 });
+    throw Object.assign(new Error('Ese correo todavía no tiene una cuenta en TRAZIO'), { status: 404 });
   }
   if (Number(invitedUser.id) === Number(inviter.id)) throw Object.assign(new Error('No puedes invitarte a tu propio canal'), { status: 400 });
 

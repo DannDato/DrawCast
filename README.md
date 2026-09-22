@@ -1,13 +1,13 @@
-# DrawCast Cloud
+# TRAZIO Cloud
 
-Evolución multiusuario de **Art-on-OBS / DrawCast**, construida sobre la base de identidad y seguridad de **FullStackBase**.
+Evolución multiusuario de **Art-on-OBS / TRAZIO**, construida sobre la base de identidad y seguridad de **FullStackBase**.
 
 ## Qué incluye
 
-- React + Vite para toda la interfaz, conservando la identidad visual oscura/terminal de DrawCast.
+- React + Vite para toda la interfaz, conservando la identidad visual oscura/terminal de TRAZIO.
 - Node.js + Express + Sequelize + MySQL.
 - Autenticación, sesiones persistentes, Google OAuth, OTP, recuperación de contraseña, dispositivos confiables, permisos y auditoría heredados de FullStackBase.
-- Un canal DrawCast por propietario, con `publicKey` criptográficamente aleatoria.
+- Un canal TRAZIO por propietario, con `publicKey` criptográficamente aleatoria.
 - URL única de editor y URL única de OBS Browser Source por canal.
 - Colaboradores por invitación de correo. El token es de un solo uso, expira a los 7 días y sólo puede aceptarlo una cuenta con el mismo correo invitado.
 - Socket.IO ligado a la sesión real: el navegador no puede autoproclamarse editor. Sólo propietario o colaboradores activos pueden emitir mutaciones.
@@ -50,4 +50,4 @@ Los eventos de escritura (`obj-upsert`, `obj-remove`, `clear-all`, `draw-live`) 
 
 ## Nota de persistencia
 
-Los objetos del canvas siguen siendo deliberadamente efímeros en memoria, como DrawCast original. La identidad, canales, colaboradores e invitaciones sí son persistentes. Una futura función de **Scenes/Presets** puede persistir composiciones sin convertir accidentalmente el estado de una transmisión en datos permanentes.
+Los objetos del canvas siguen siendo deliberadamente efímeros en memoria, como TRAZIO original. La identidad, canales, colaboradores e invitaciones sí son persistentes. Una futura función de **Scenes/Presets** puede persistir composiciones sin convertir accidentalmente el estado de una transmisión en datos permanentes.

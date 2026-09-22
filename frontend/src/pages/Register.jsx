@@ -98,8 +98,8 @@ export default function Register() {
     return (
         <AuthShell eyebrow="" title="CREAR // CUENTA" description="">
             <Helmet>
-                <title>Crear Cuenta Gratis — DrawCast</title>
-                <meta name="description" content="Regístrate gratis en DrawCast y empieza a crear overlays para tu transmisión en vivo. Conecta con OBS en minutos, sin tarjeta de crédito." />
+                <title>Crear Cuenta Gratis — TRAZIO</title>
+                <meta name="description" content="Regístrate gratis en TRAZIO y empieza a crear overlays para tu transmisión en vivo. Conecta con OBS en minutos, sin tarjeta de crédito." />
                 <link rel="canonical" href={`${import.meta.env.VITE_APP_URL}${window.location.pathname}register`} />
                 <meta name="robots" content="noindex, follow" />
             </Helmet>

@@ -4,7 +4,7 @@ import api from '../../api/axios';
 import { getProfile, invalidateProfileCache } from '../../api/profile';
 import { useAuth } from '../../context/AuthContext';
 
-const fieldClass = 'w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent)]';
+const fieldClass = 'w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent-four)]';
 
 export default function EmailSettings({ onNotice, embedded = false }) {
     const { refresh } = useAuth();
@@ -99,7 +99,7 @@ export default function EmailSettings({ onNotice, embedded = false }) {
             <div className="mt-[18px] border-t border-[var(--dc-line)] pt-4">
                 <p className="mb-3 text-sm text-[var(--dc-text-muted)]">Revisa el nuevo correo e introduce el código de 6 dígitos que recibiste.</p>
                 <div className="flex flex-wrap gap-2">
-                    <input className="w-44 border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent)]" inputMode="numeric" maxLength={6} placeholder="Código de 6 dígitos" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} />
+                    <input className="w-44 border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent-four)]" inputMode="numeric" maxLength={6} placeholder="Código de 6 dígitos" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} />
                     <button className="inline-flex items-center justify-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-[var(--dc-button-primary-text)] disabled:opacity-50" onClick={confirmEmailChange} disabled={code.length !== 6 || busy === 'confirm'}>
                         {busy === 'confirm' ? 'Confirmando…' : 'Confirmar correo'}
                     </button>

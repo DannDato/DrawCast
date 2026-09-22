@@ -3,7 +3,7 @@ import { parse as parseCookie } from 'cookie';
 import { models } from '../models/index.js';
 import { env } from '../config/env.js';
 import { sha256 } from '../helpers/security.js';
-import { getEditableChannelByPublicKey } from '../services/channelAccessService.js';
+import { getEditableChannel, getEditableChannelByPublicKey } from '../services/channelAccessService.js';
 import {
   clearObjects,
   connectRole,
@@ -35,7 +35,9 @@ async function socketUser(socket) {
     const decoded = jwt.verify(token, env.jwtSecret, { issuer: 'fullstack-base' });
     const session = await models.Session.findOne({ where: { id: decoded.sid, userId: decoded.sub, tokenHash: sha256(token), revokedAt: null } });
     if (!session || session.expiresAt <= new Date()) return null;
-    return models.User.findByPk(decoded.sub);
+    const user = await models.User.findByPk(decoded.sub);
+    if (!user || user.statusKey !== 'ACTIVE') return null;
+    return { user, session };
   } catch {
     return null;
   }
@@ -100,8 +102,9 @@ export function configureSockets(io) {
     });
 
     socket.on('join-editor', async ({ publicKey } = {}) => {
-      const user = await socketUser(socket);
-      if (!user) return socket.emit('access-denied');
+      const auth = await socketUser(socket);
+      if (!auth) return socket.emit('access-denied');
+      const { user, session } = auth;
 
       const channel = await getEditableChannelByPublicKey(user.id, String(publicKey || ''));
       if (!channel) return socket.emit('access-denied');
@@ -112,13 +115,14 @@ export function configureSockets(io) {
       const username = user.username || `editor${user.id}`;
       const displayName = user.displayName || username || 'Editor';
 
-      joined = { channelId: channel.id, role: 'editor', userId: user.id, isOwner };
+      joined = { channelId: channel.id, channelUuid: channel.uuid, role: 'editor', userId: user.id, sessionId: session.id, isOwner, authorizedAt: Date.now() };
       socket.data.channelId = channel.id;
       socket.data.userId = user.id;
       socket.data.role = 'editor';
       socket.join(room(channel.id));
       socket.join(editorRoom(channel.id));
       socket.join(`user:${user.id}`);
+      socket.join(`session:${session.id}`);
       connectRole(channel.id, socket.id, 'editor', {
         userUuid: user.uuid,
         username,
@@ -147,13 +151,38 @@ export function configureSockets(io) {
       logger.info('Editor conectado al canal', { channelId: channel.id, userId: user.id, isOwner, editors: getChannelPresence(channel.id).editors });
     });
 
-    const edit = (event, handler, options = {}) => socket.on(event, (payload, ack) => {
+    const edit = (event, handler, options = {}) => socket.on(event, async (payload, ack) => {
       const reply = typeof ack === 'function' ? ack : null;
       if (!joined || joined.role !== 'editor') {
         socket.emit('access-denied');
         reply?.({ ok: false, message: 'Acceso denegado' });
         return;
       }
+
+      try {
+        // Revalida sesión y permisos durante la conexión. La ventana corta evita
+        // golpear la BD en cada movimiento de cursor; revocaciones normales además
+        // desconectan el socket inmediatamente desde sus controladores HTTP.
+        if (Date.now() - joined.authorizedAt > 1000) {
+          const [session, channel] = await Promise.all([
+            models.Session.findOne({ where: { id: joined.sessionId, userId: joined.userId, revokedAt: null } }),
+            getEditableChannel(joined.userId, joined.channelUuid)
+          ]);
+          if (!session || session.expiresAt <= new Date() || !channel) {
+            socket.emit('access-revoked', { reason: 'authorization-changed' });
+            socket.disconnect(true);
+            reply?.({ ok: false, message: 'Tu acceso ya no es válido' });
+            return;
+          }
+          joined.authorizedAt = Date.now();
+        }
+      } catch (error) {
+        logger.warn('No fue posible revalidar un socket de editor', { socketId: socket.id, userId: joined.userId, error: error.message });
+        socket.disconnect(true);
+        reply?.({ ok: false, message: 'No fue posible validar tu acceso' });
+        return;
+      }
+
       if (!options.allowWhenBlocked && !canUseWorkspace(joined, socket, reply)) return;
       handler(joined, payload, reply);
     });
@@ -278,7 +307,7 @@ export function configureSockets(io) {
           io.to(overlayRoom(joined.channelId)).emit('sync-state', { objects: result.publishedObjects || [] });
           io.to(editorRoom(joined.channelId)).emit('channel-control', result.control);
           io.to(editorRoom(joined.channelId)).emit('studio-forced-live', {
-            message: 'El editor que estaba en modo Estudio se desconectó. DrawCast publicó el workspace y volvió a Live para no bloquear al equipo.'
+            message: 'El editor que estaba en modo Estudio se desconectó. TRAZIO publicó el workspace y volvió a Live para no bloquear al equipo.'
           });
         }
       }

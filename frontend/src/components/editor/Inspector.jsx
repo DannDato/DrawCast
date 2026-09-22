@@ -6,8 +6,8 @@ import TimerControls from './tools/timer/TimerControls';
 import DrawingControls from './tools/drawing/DrawingControls';
 import { DEFAULT_SHAPE_CONFIG, SHAPE_TYPES } from './tools/shapes/shapeTool';
 
-const PROPERTY_MODE_KEY = 'drawcast.editor.properties.mode';
-const PROPERTY_POSITION_KEY = 'drawcast.editor.properties.position';
+const PROPERTY_MODE_KEY = 'TRAZIO.editor.properties.mode';
+const PROPERTY_POSITION_KEY = 'TRAZIO.editor.properties.position';
 const DEFAULT_PROPERTY_POSITION = { x: 18, y: 18 };
 
 function readPropertyPosition() {

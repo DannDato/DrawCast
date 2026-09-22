@@ -5,7 +5,7 @@ import { SHAPE_TYPES } from '../editor/tools/shapes/shapeTool';
 import { TEXT_FONTS } from '../editor/tools/text/textTool';
 import { formatSecondsAsHms, parseHmsToSeconds } from '../editor/tools/timer/timerTool';
 
-const fieldClass = 'w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[10px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent)]';
+const fieldClass = 'w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[10px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent-three)]';
 const labelClass = 'grid gap-1.5 text-sm font-bold';
 
 function ColorField({ label, value, onChange }) {
@@ -13,7 +13,7 @@ function ColorField({ label, value, onChange }) {
 }
 
 function RangeField({ label, value, min, max, step = 1, suffix = '', onChange }) {
-  return <label className={labelClass}><span>{label} <b className="text-[var(--dc-accent)]">{step < 1 ? Math.round(value * 100) : value}{suffix}</b></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
+  return <label className={labelClass}><span>{label} <b className="text-[var(--dc-accent-four)]">{step < 1 ? Math.round(value * 100) : value}{suffix}</b></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
 }
 
 function Card({ title, description, children }) {

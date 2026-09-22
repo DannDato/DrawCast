@@ -121,7 +121,7 @@ function SystemAlertDialog({ dialog, onClose }) {
 
         <div className="dc-system-alert-icon" aria-hidden="true"><Icon size={20} /></div>
         <div className="dc-system-alert-copy">
-          <span className="dc-system-alert-kicker">DRAWCAST // {isConfirm ? 'CONFIRMACIÓN' : 'AVISO'}</span>
+          <span className="dc-system-alert-kicker">TRAZIO // {isConfirm ? 'CONFIRMACIÓN' : 'AVISO'}</span>
           <h2 id="dc-system-alert-title">{dialog.title}</h2>
           {dialog.message && <p id="dc-system-alert-message">{dialog.message}</p>}
         </div>

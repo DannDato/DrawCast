@@ -44,7 +44,7 @@ export function ResetPassword() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
-  return <AuthShell eyebrow="CAMBIO SEGURO" title="NUEVA // CONTRASEÑA" description="Define una nueva contraseña para recuperar el acceso a DrawCast.">
+  return <AuthShell eyebrow="CAMBIO SEGURO" title="NUEVA // CONTRASEÑA" description="Define una nueva contraseña para recuperar el acceso a TRAZIO.">
     <form onSubmit={async (event) => {
       event.preventDefault();
       setError('');

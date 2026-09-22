@@ -134,7 +134,7 @@ function FeaturedStreamer({ channel }) {
                 <div className="dc-home-featured-empty-copy">
                     {/* <span className="dc-kicker">STREAMER DEL DÍA</span> */}
                     <h2>Aquí puede aparecer tu canal</h2>
-                    <p>Cuando alguien registre el link de su canal, DrawCast podrá destacarlo aquí.</p>
+                    <p>Cuando alguien registre el link de su canal, TRAZIO podrá destacarlo aquí.</p>
                 </div>
                 <Video size={34} />
             </section>
@@ -161,8 +161,8 @@ function FeaturedStreamer({ channel }) {
             </div>
             <div className="dc-home-featured-footer bg-[var(--dc-panel)]">
                 <div className="flex gap-5 justify-between">
-                    <h2 className="font-['Bebas_Neue'] text-[3rem] font-normal uppercase leading-[0.82] tracking-[-0.02em] text-[var(--dc-accent)]">
-                        RECOMENDACION <span className="text-[var(--dc-text-muted)]">DEL DÍA</span>
+                    <h2 className="font-['Bebas_Neue'] text-[3rem] font-normal uppercase leading-[0.82] tracking-[-0.02em] text-[var(--dc-accent-four)]">
+                        RECOMENDACION <span className="text-[var(--dc-accent-three)]">DEL DÍA</span>
                     </h2>
                     <h2 className="font-['Bebas_Neue'] text-[3rem] font-normal uppercase leading-[0.82] tracking-[-0.02em] text-[var(--dc-text)]">{channel.name}</h2>
                     {/* <p>{handle ? `@${handle}` : channel.platform?.toUpperCase() || "CANAL DE LA COMUNIDAD"}</p> */}
@@ -737,7 +737,7 @@ export default function ChannelDashboard() {
                             </button>
                             <div>
                               <h2 className="font-['Bebas_Neue'] text-[clamp(3.5rem,6vw,5rem)] font-normal uppercase leading-[0.82] tracking-[-0.02em] text-right">
-                                  TUS <span className="text-[var(--dc-accent)]">LIENZOS</span>
+                                  TUS <span className="text-[var(--dc-accent-four)]">LIENZOS</span>
                               </h2>
                             </div>
                         </div>
@@ -862,7 +862,7 @@ export default function ChannelDashboard() {
                     <ArrowDown
                         size={28}
                         strokeWidth={1.35}
-                        className="absolute left-1/2 top-[-11px] -translate-x-1/2 text-[var(--dc-accent)]"
+                        className="absolute left-1/2 top-[-11px] -translate-x-1/2 text-[var(--dc-accent-one)]"
                     />
                 </div>
               </div>

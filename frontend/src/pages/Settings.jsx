@@ -9,16 +9,16 @@ import SecuritySettings from '../components/settings/SecuritySettings';
 import ConnectionDiagnostics from '../components/dashboard/ConnectionDiagnostics';
 
 const sections = [
-    { id: 'editor', label: 'Editor', title: ['PREFERENCIAS', 'DEL EDITOR'], icon: Palette },
-    { id: 'email', label: 'Correo', title: ['CORREO', 'DE ACCESO'], icon: Mail },
-    { id: 'security', label: 'Seguridad', title: ['SEGURIDAD', 'DE CUENTA'], icon: LockKeyhole },
-    { id: 'diagnostics', label: 'Diagnóstico', title: ['DIAGNÓSTICO', 'DE RENDIMIENTO'], icon: Activity },
+    { id: 'editor', label: 'Editor', title: ['PREFERENCIAS', 'DEL EDITOR'], icon: Palette, accent: 'var(--dc-accent-one)', soft: 'var(--dc-accent-one-soft)' },
+    { id: 'email', label: 'Correo', title: ['CORREO', 'DE ACCESO'], icon: Mail, accent: 'var(--dc-accent-four)', soft: 'var(--dc-accent-four-soft)' },
+    { id: 'security', label: 'Seguridad', title: ['SEGURIDAD', 'DE CUENTA'], icon: LockKeyhole, accent: 'var(--dc-accent-three)', soft: 'var(--dc-accent-three-soft)' },
+    { id: 'diagnostics', label: 'Diagnóstico', title: ['DIAGNÓSTICO', 'DE RENDIMIENTO'], icon: Activity, accent: 'var(--dc-accent-four)', soft: 'var(--dc-accent-two-soft)' },
 ];
 
 const diagnosticNotes = [
-    ['Red', 'Latencia y jitter altos apuntan normalmente a Wi‑Fi, ISP o la ruta entre tu navegador y DrawCast.'],
+    ['Red', 'Latencia y jitter altos apuntan normalmente a Wi‑Fi, ISP o la ruta entre tu navegador y TRAZIO.'],
     ['Este equipo', 'FPS bajos o bloqueos largos indican que el navegador o la computadora están trabajando de más.'],
-    ['Servidor', 'Event loop o CPU altos indican que el problema puede estar del lado de DrawCast, no en tu conexión.'],
+    ['Servidor', 'Event loop o CPU altos indican que el problema puede estar del lado de TRAZIO, no en tu conexión.'],
 ];
 
 export default function Settings() {
@@ -83,7 +83,7 @@ export default function Settings() {
                 {sections.map((section) => {
                     const SectionIcon = section.icon;
                     const selected = section.id === activeSection;
-                    return <button key={section.id} type="button" onClick={() => selectSection(section.id)} className={`grid grid-cols-[28px_minmax(0,1fr)] gap-2 px-2 py-2.5 text-left transition ${selected ? 'bg-[var(--dc-accent-soft)] text-[var(--dc-text-strong)]' : 'text-[var(--dc-text)] hover:bg-[var(--dc-button-secondary-hover)]'}`} aria-current={selected ? 'page' : undefined}>
+                    return <button key={section.id} type="button" onClick={() => selectSection(section.id)} style={{ '--dc-section-accent': section.accent, '--dc-section-soft': section.soft }} className={`grid grid-cols-[28px_minmax(0,1fr)] gap-2 px-2 py-2.5 text-left transition ${selected ? 'bg-[var(--dc-section-soft)] text-[var(--dc-section-accent)]' : 'text-[var(--dc-text)] hover:bg-[var(--dc-button-secondary-hover)]'}`} aria-current={selected ? 'page' : undefined}>
                         <SectionIcon size={18} className="mt-0.5" />
                         <strong className="block text-sm">{section.label}</strong>
                     </button>;
@@ -93,7 +93,7 @@ export default function Settings() {
             <main className="min-w-0">
                 {activeSection !== 'diagnostics' && <section className="overflow-hidden bg-[var(--dc-panel)] shadow-[0_8px_24px_var(--dc-shadow-soft)]">
                     <div className="flex justify-end px-5 py-4 max-[680px]:px-4">
-                        <h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[2rem] font-normal uppercase leading-none tracking-[.02em] text-[var(--dc-text)] max-[680px]:text-[1.75rem]"><span>{current.title[0]}</span><span className="text-[var(--dc-accent)]">{current.title[1]}</span></h1>
+                        <h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[2rem] font-normal uppercase leading-none tracking-[.02em] text-[var(--dc-text)] max-[680px]:text-[1.75rem]"><span>{current.title[0]}</span><span style={{ color: current.accent }}>{current.title[1]}</span></h1>
                     </div>
                     <div className="p-5 max-[680px]:p-4">
                         {activeSection === 'editor' && (loadingEditor ? <div>Cargando configuración…</div> : <EditorPreferencesSettings embedded value={editorPreferences} onChange={setEditorPreferences} onSave={saveEditor} onReset={resetEditor} saving={saving} />)}

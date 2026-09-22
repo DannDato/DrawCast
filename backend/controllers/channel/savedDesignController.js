@@ -89,7 +89,7 @@ export class SavedDesignController {
     const { error, state } = validateState(design.state);
     if (error) {
       logger.warn('Diseño guardado con estado inválido', { designId: design.id, channelId: req.channel.id, error });
-      return res.status(422).json({ message: 'La copia guardada está dañada o usa un formato que DrawCast no puede cargar.' });
+      return res.status(422).json({ message: 'La copia guardada está dañada o usa un formato que TRAZIO no puede cargar.' });
     }
 
     res.json(publicDesign(design, true, state));

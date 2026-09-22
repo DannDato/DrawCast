@@ -37,12 +37,12 @@ export default function DashboardLayout() {
         const handleChanged = () => refreshInvitations({ force: true });
         refreshInvitations();
         timer = window.setInterval(() => refreshInvitations({ force: true }), 30000);
-        window.addEventListener('drawcast:invitations-changed', handleChanged);
+        window.addEventListener('TRAZIO:invitations-changed', handleChanged);
 
         return () => {
             active = false;
             if (timer) window.clearInterval(timer);
-            window.removeEventListener('drawcast:invitations-changed', handleChanged);
+            window.removeEventListener('TRAZIO:invitations-changed', handleChanged);
         };
     }, []);
 
@@ -66,7 +66,7 @@ export default function DashboardLayout() {
                     startNavigation(() => navigate(item.path));
                 }}
                 aria-busy={navigationPending ? "true" : undefined}
-                className={({ isActive }) => `relative flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent)] bg-[var(--dc-accent-soft)] text-[var(--dc-text-strong)]" : "border-transparent text-[var(--dc-nav-text)] hover:border-[var(--dc-line)] hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"}`}
+                className={({ isActive }) => `relative flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent-three)] bg-[var(--dc-accent-three-soft)] text-[var(--dc-accent-four)]" : "border-transparent text-[var(--dc-nav-text)] hover:border-[var(--dc-line)] hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"}`}
             >
                 <Icon size={20} />
                 <span className="text-[11px] font-bold">{item.name}</span>
@@ -86,7 +86,7 @@ export default function DashboardLayout() {
                         startNavigation(() => navigate('/app'));
                     }}>
                         <strong className="dc-nav-brand whitespace-nowrap">
-                            {import.meta.env.VITE_APP_NAME || "DrawCast"} <b>//</b>
+                            {import.meta.env.VITE_APP_NAME || "TRAZIO"} <b>//</b>
                         </strong>
                         <span className="max-w-[130px] truncate text-[11px] font-semibold text-[var(--dc-text-muted)] sm:max-w-[180px]">{user?.username}</span>
                     </NavLink>

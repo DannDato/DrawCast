@@ -42,7 +42,7 @@ export default function App() {
         <Route path="/app/diagnostico" element={<Navigate to="/app/settings?section=diagnostics" replace />} />
       </Route>
 
-      <Route path="*" element={<div className="p-10">404</div>} />
+      <Route path="*" element={<div className="p-10 text-[var(--dc-accent-four)]">404</div>} />
     </Routes>
   );
 }

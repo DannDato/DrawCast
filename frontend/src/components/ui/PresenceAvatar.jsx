@@ -17,7 +17,7 @@ export function PresenceAvatar({ editor }) {
   const hasImage = Boolean(editor?.avatarUrl && !imageFailed);
 
   return (
-    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor?.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor?.colorSlot ? `var(--dc-cursor-${editor.colorSlot})` : 'var(--dc-accent)' }} title={title}>
+    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor?.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor?.colorSlot ? `var(--dc-cursor-${editor.colorSlot})` : 'var(--dc-accent-three)' }} title={title}>
       <span className="dc-presence-avatar-media">
         {hasImage
           ? <img src={editor.avatarUrl} alt="" onError={() => setImageFailed(true)} />

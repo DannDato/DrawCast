@@ -65,8 +65,8 @@ export async function sendChannelInvitation(email, token, channelName, inviterNa
   const url = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/invite/${encodeURIComponent(token)}`;
   await sendMail({
     to: email,
-    subject: `Invitación para editar ${channelName} en DrawCast`,
+    subject: `Invitación para editar ${channelName} en TRAZIO`,
     text: `${inviterName} te invitó a colaborar en ${channelName}. Inicia sesión con este correo y acepta la invitación: ${url}`,
-    html: `<h2>DrawCast // COLLAB INVITE</h2><p><strong>${inviterName}</strong> te invitó a editar <strong>${channelName}</strong>.</p><p><a href="${url}">Aceptar invitación</a></p><p>El enlace es único, expira en 7 días y sólo funciona para este correo.</p>`
+    html: `<h2>TRAZIO // COLLAB INVITE</h2><p><strong>${inviterName}</strong> te invitó a editar <strong>${channelName}</strong>.</p><p><a href="${url}">Aceptar invitación</a></p><p>El enlace es único, expira en 7 días y sólo funciona para este correo.</p>`
   });
 }

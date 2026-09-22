@@ -42,7 +42,7 @@ export function createClipboardPayload(objects, selectedIds) {
   if (!copied.length) return null;
   return {
     version: 1,
-    source: 'drawcast',
+    source: 'TRAZIO',
     createdAt: Date.now(),
     objects: copied
   };
@@ -57,7 +57,7 @@ export function parseClipboardText(text) {
   if (typeof text !== 'string' || !text.startsWith(CLIPBOARD_PREFIX)) return null;
   try {
     const payload = JSON.parse(text.slice(CLIPBOARD_PREFIX.length));
-    if (payload?.version !== 1 || payload?.source !== 'drawcast' || !Array.isArray(payload.objects) || !payload.objects.length) return null;
+    if (payload?.version !== 1 || payload?.source !== 'TRAZIO' || !Array.isArray(payload.objects) || !payload.objects.length) return null;
     return payload;
   } catch {
     return null;

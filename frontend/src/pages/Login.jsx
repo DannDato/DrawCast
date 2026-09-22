@@ -47,10 +47,10 @@ export default function Login() {
             description=" "
         >
             <Helmet>
-                <title>Iniciar Sesión — DrawCast</title>
+                <title>Iniciar Sesión — TRAZIO</title>
                 <meta
                     name="description"
-                    content="Inicia sesión en tu consola de DrawCast para administrar tu canal, tus overlays y colaboradores en tiempo real."
+                    content="Inicia sesión en tu consola de TRAZIO para administrar tu canal, tus overlays y colaboradores en tiempo real."
                 />
                 <link rel="canonical" href={`${import.meta.env.VITE_APP_URL}${window.location.pathname}login`} />
                 <meta name="robots" content="noindex, follow" />

@@ -26,6 +26,8 @@ const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 function safeSession(session, currentSessionId) { return { id: session.id, ip: session.ip || null, userAgent: session.userAgent || 'Dispositivo desconocido', createdAt: session.createdAt, lastSeenAt: session.lastSeenAt || session.createdAt, expiresAt: session.expiresAt, current: session.id === currentSessionId }; }
 async function activeSessions(userId, currentSessionId) { const rows = await models.Session.findAll({ where: { userId, revokedAt: null, expiresAt: { [Op.gt]: new Date() } }, order: [['createdAt', 'DESC']] }); return rows.map((session) => safeSession(session, currentSessionId)); }
 async function removeStoredAvatar(avatarUrl) { const fileName = path.basename(String(avatarUrl || '')); if (!fileName || fileName === '.' || fileName === path.sep) return; try { await fs.unlink(path.join(avatarDirectory, fileName)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
+function disconnectSessionSockets(req, sessionId) { req.app.get('io')?.in(`session:${sessionId}`).disconnectSockets(true); }
+function disconnectUserSockets(req, userId) { req.app.get('io')?.in(`user:${userId}`).disconnectSockets(true); }
 
 class ProfileController {
   get = async (req, res) => {
@@ -46,7 +48,9 @@ class ProfileController {
       if (await verifyPassword(newPassword, req.user.passwordHash)) return res.status(400).json({ message: 'La nueva contraseña debe ser diferente a la actual' });
     }
     await req.user.update({ passwordHash: await hashPassword(newPassword) });
+    const otherSessions = await models.Session.findAll({ where: { userId: req.user.id, id: { [Op.ne]: req.session.id }, revokedAt: null }, attributes: ['id'] });
     await models.Session.update({ revokedAt: new Date() }, { where: { userId: req.user.id, id: { [Op.ne]: req.session.id }, revokedAt: null } });
+    otherSessions.forEach((session) => disconnectSessionSockets(req, session.id));
     await revokeTrustedDevices(req.user.id);
     clearTrustedDeviceCookie(res);
     await audit(req, { event: 'profile.password_changed', category: 'security', userId: req.user.id });
@@ -110,7 +114,7 @@ class ProfileController {
     if (occupied) return res.status(409).json({ message: 'Esa cuenta de Google ya está conectada a otro usuario' });
     const email = normalizeEmail(payload.email);
     const emailOwner = await models.User.findOne({ where: { email, id: { [Op.ne]: req.user.id } }, attributes: ['id'] });
-    if (emailOwner) return res.status(409).json({ message: 'El correo de esa cuenta de Google ya pertenece a otra cuenta de DrawCast' });
+    if (emailOwner) return res.status(409).json({ message: 'El correo de esa cuenta de Google ya pertenece a otra cuenta de TRAZIO' });
     let account = await models.OAuthAccount.findOne({ where: { userId: req.user.id, provider: 'google' } });
     const values = { providerUserId: payload.sub, email, avatarUrl: payload.picture || null, active: true };
     if (account) await account.update(values); else account = await models.OAuthAccount.create({ userId: req.user.id, provider: 'google', ...values });
@@ -137,9 +141,9 @@ class ProfileController {
   uploadAvatar = async (req, res) => { const mime = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase(); const extension = avatarTypes.get(mime); if (!extension) return res.status(415).json({ message: 'Formato no permitido. Usa JPG, PNG o WEBP' }); if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ message: 'No se recibió ninguna imagen' }); await fs.mkdir(avatarDirectory, { recursive: true }); const oldAvatar = req.user.avatarUrl; const fileName = `user_${req.user.id}_${Date.now()}.${extension}`; await fs.writeFile(path.join(avatarDirectory, fileName), req.body); const avatarUrl = `${avatarPublicBase}/${fileName}`; await req.user.update({ avatarUrl }); if (oldAvatar) await removeStoredAvatar(oldAvatar); await audit(req, { event: 'profile.avatar_changed', category: 'user', userId: req.user.id }); return res.json({ avatarUrl, user: await serializeUser(req.user) }); };
   deleteAvatar = async (req, res) => { const oldAvatar = req.user.avatarUrl; if (oldAvatar) await removeStoredAvatar(oldAvatar); await req.user.update({ avatarUrl: null }); await audit(req, { event: 'profile.avatar_removed', category: 'user', userId: req.user.id }); return res.json({ user: await serializeUser(req.user) }); };
   sessions = async (req, res) => res.json({ sessions: await activeSessions(req.user.id, req.session?.id) });
-  revokeSession = async (req, res) => { const session = await models.Session.findOne({ where: { id: req.params.id, userId: req.user.id, revokedAt: null } }); if (!session) return res.status(404).json({ message: 'Sesión no encontrada o ya cerrada' }); const current = session.id === req.session?.id; await session.update({ revokedAt: new Date() }); await audit(req, { event: 'profile.session_revoked', category: 'security', userId: req.user.id, metadata: { sessionId: session.id, current } }); if (current) clearSessionCookie(res); return res.json({ message: 'Sesión cerrada correctamente', current }); };
-  revokeOtherSessions = async (req, res) => { await models.Session.update({ revokedAt: new Date() }, { where: { userId: req.user.id, id: { [Op.ne]: req.session.id }, revokedAt: null } }); await audit(req, { event: 'profile.other_sessions_revoked', category: 'security', userId: req.user.id }); return res.json({ message: 'Las demás sesiones fueron cerradas' }); };
-  revokeAllSessions = async (req, res) => { await models.Session.update({ revokedAt: new Date() }, { where: { userId: req.user.id, revokedAt: null } }); await revokeTrustedDevices(req.user.id); clearSessionCookie(res); clearTrustedDeviceCookie(res); await audit(req, { event: 'profile.all_sessions_revoked', category: 'security', userId: req.user.id }); return res.json({ message: 'Todas las sesiones fueron cerradas' }); };
+  revokeSession = async (req, res) => { const session = await models.Session.findOne({ where: { id: req.params.id, userId: req.user.id, revokedAt: null } }); if (!session) return res.status(404).json({ message: 'Sesión no encontrada o ya cerrada' }); const current = session.id === req.session?.id; await session.update({ revokedAt: new Date() }); disconnectSessionSockets(req, session.id); await audit(req, { event: 'profile.session_revoked', category: 'security', userId: req.user.id, metadata: { sessionId: session.id, current } }); if (current) clearSessionCookie(res); return res.json({ message: 'Sesión cerrada correctamente', current }); };
+  revokeOtherSessions = async (req, res) => { const sessions = await models.Session.findAll({ where: { userId: req.user.id, id: { [Op.ne]: req.session.id }, revokedAt: null }, attributes: ['id'] }); await models.Session.update({ revokedAt: new Date() }, { where: { userId: req.user.id, id: { [Op.ne]: req.session.id }, revokedAt: null } }); sessions.forEach((session) => disconnectSessionSockets(req, session.id)); await audit(req, { event: 'profile.other_sessions_revoked', category: 'security', userId: req.user.id }); return res.json({ message: 'Las demás sesiones fueron cerradas' }); };
+  revokeAllSessions = async (req, res) => { await models.Session.update({ revokedAt: new Date() }, { where: { userId: req.user.id, revokedAt: null } }); disconnectUserSockets(req, req.user.id); await revokeTrustedDevices(req.user.id); clearSessionCookie(res); clearTrustedDeviceCookie(res); await audit(req, { event: 'profile.all_sessions_revoked', category: 'security', userId: req.user.id }); return res.json({ message: 'Todas las sesiones fueron cerradas' }); };
 }
 
 export const ctrlProfile = new ProfileController();

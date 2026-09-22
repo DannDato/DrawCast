@@ -212,7 +212,7 @@ export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot,
         <div className="dc-designs-save">
           <div className="dc-designs-save-copy">
             <b>GUARDAR LO QUE TIENES AHORA</b>
-            <span>Si usas un nombre existente, DrawCast te preguntará si quieres sobrescribirlo.</span>
+            <span>Si usas un nombre existente, TRAZIO te preguntará si quieres sobrescribirlo.</span>
           </div>
           <div className="dc-designs-save-row">
             <input ref={saveInputRef} maxLength="120" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveNew(); }} placeholder="Ej. Sorteo de subs, charla, pantalla de espera..." />

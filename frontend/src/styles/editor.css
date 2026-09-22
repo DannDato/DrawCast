@@ -1,6 +1,6 @@
-/* DrawCast editor // Patch 02
+/* TRAZIO editor // Patch 02
    Toolbar + Shapes + shared renderer UI.
-   Loaded after drawcast.css so these rules intentionally refine the editor only. */
+   Loaded after TRAZIO.css so these rules intentionally refine the editor only. */
 
 .dc-editor {
   grid-template-columns: 64px minmax(0, 1fr) 310px;
@@ -290,7 +290,7 @@
   .dc-inspector { display: none; }
 }
 
-/* DrawCast editor // Patch 03
+/* TRAZIO editor // Patch 03
    Images + GIF + Uploads */
 
 .dc-canvas.is-media-dragging {
@@ -463,7 +463,7 @@
   font: 700 13px Outfit,sans-serif;
 }
 
-/* DrawCast editor // Patch 04
+/* TRAZIO editor // Patch 04
    Text + Timer */
 
 .dc-inline-text-editor {
@@ -527,7 +527,7 @@
   cursor: not-allowed;
 }
 
-/* DrawCast editor // Patch 06
+/* TRAZIO editor // Patch 06
    Groups + Layers */
 
 .dc-layers {
@@ -1203,7 +1203,7 @@
 }
 
 
-/* DrawCast editor // Dashboard integration + tool properties + right layers */
+/* TRAZIO editor // Dashboard integration + tool properties + right layers */
 .dc-editor{position:relative;inset:auto;width:100%;height:calc(100vh - 64px);min-height:560px;grid-template-columns:292px minmax(0,1fr) 292px;overflow:hidden;background:var(--dc-bg)}
 .dc-editor-sidebar{min-width:0;min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--dc-line);background:var(--dc-surface);overflow:hidden}
 .dc-editor-sidebar .dc-toolbar{position:relative;flex:0 0 auto;width:100%;display:block;padding:10px;border-right:0;border-bottom:0;overflow:visible}
@@ -1213,7 +1213,7 @@
 @media(max-width:1100px){.dc-editor{grid-template-columns:250px minmax(0,1fr) 250px}.dc-editor-sidebar{width:auto}.dc-toolbar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dc-editor .dc-inspector{display:flex}.dc-inspector-size button span{display:none}.dc-inspector-size button{width:28px;padding:0}}
 @media(max-width:820px){.dc-editor{grid-template-columns:220px minmax(0,1fr)}.dc-editor-layers-sidebar{display:none}.dc-editor-sidebar{width:auto}.dc-toolbar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.dc-editor-sidebar .dc-toolbar{padding:7px}.dc-editor-sidebar .dc-toolbar button{height:31px}.dc-inspector-head{padding:8px}.dc-inspector-body{padding-left:10px;padding-right:10px}}
 
-/* DrawCast editor // Patch 11
+/* TRAZIO editor // Patch 11
    Menos chrome, más workspace. Paneles fijos + controles compactos. */
 .dc-editor{height:calc(100dvh - 56px);min-height:520px;grid-template-columns:260px minmax(0,1fr) 276px;background:var(--dc-bg)}
 .dc-editor-sidebar{background:var(--dc-surface)}
@@ -1285,7 +1285,7 @@
 @media(max-width:820px){.dc-editor{grid-template-columns:210px minmax(0,1fr)}.dc-editor-layers-sidebar{display:none}.dc-editor-sidebar .dc-toolbar button{height:28px}.dc-toolbar-divider{margin-top:4px}.dc-inspector-head{padding-left:6px;padding-right:6px}}
 .dc-editor-layers-sidebar .dc-layer-row.selected,.dc-editor-layers-sidebar .dc-layer-group.selected>.dc-layer-group-head{background:var(--dc-accent-soft);box-shadow:inset 2px 0 0 var(--dc-accent)}
 
-/* DrawCast editor // Patch 12
+/* TRAZIO editor // Patch 12
    Ajuste fino: inspector vertical + tipografía legible sin perder espacio. */
 .dc-editor{
   position:relative;
@@ -1361,7 +1361,7 @@
   font-size:13px;
 }
 
-/* DrawCast editor // Diseños guardados */
+/* TRAZIO editor // Diseños guardados */
 .dc-toolbar-designs{display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;height:28px!important;margin:3px 0 6px!important;border-color:var(--dc-line)!important;background:var(--dc-surface-raised)!important;color:var(--dc-text-secondary)!important;font:700 13px/1 Outfit,sans-serif!important;letter-spacing:.25px!important;text-transform:none}.dc-toolbar-designs:hover{border-color:var(--dc-accent)!important;background:var(--dc-accent-soft)!important;color:var(--dc-text)!important}.dc-toolbar-designs svg{width:13px!important;height:13px!important}
 .dc-designs-backdrop{position:fixed;inset:0;z-index:220;display:grid;place-items:center;padding:24px;background:color-mix(in srgb, var(--dc-surface-deep) 85%, transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .dc-designs-modal{display:flex;flex-direction:column;width:min(760px,calc(100vw - 32px));max-height:min(760px,calc(100dvh - 48px));overflow:hidden;border:1px solid var(--dc-line-strong);background:var(--dc-surface);box-shadow:0 24px 80px var(--dc-shadow-strong);color:var(--dc-text)}
@@ -1373,7 +1373,7 @@
 .dc-designs-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:48px;padding:8px 22px;border-top:1px solid var(--dc-line);background:var(--dc-surface-raised)}.dc-designs-footer span{min-width:0;color:var(--dc-text-muted);font:600 9px/1.4 Outfit,sans-serif}.dc-designs-footer button{flex:0 0 auto;min-height:30px}
 @media(max-width:680px){.dc-designs-backdrop{padding:10px}.dc-designs-modal{width:calc(100vw - 20px);max-height:calc(100dvh - 20px)}.dc-designs-header,.dc-designs-save,.dc-designs-list,.dc-designs-list-head,.dc-designs-footer{padding-left:14px;padding-right:14px}.dc-designs-save-copy{display:grid;gap:4px}.dc-designs-save-row{grid-template-columns:1fr 1fr}.dc-designs-save-row input{grid-column:1/-1}.dc-design-card{grid-template-columns:1fr}.dc-design-card-actions{justify-content:flex-end}.dc-designs-footer{align-items:flex-start}.dc-designs-footer span{font-size:8px}}
 
-/* DrawCast editor // Patch 17
+/* TRAZIO editor // Patch 17
    Toolbar horizontal + inspector flotante. El canvas vuelve a ser el protagonista. */
 .dc-editor{
   grid-template-columns:minmax(0,1fr) 276px;
@@ -1764,7 +1764,7 @@
 }
 
 
-/* DrawCast editor // Patch 18
+/* TRAZIO editor // Patch 18
    Propiedades contextuales: ocultas hasta pedirlas con clic derecho o desde la toolbar. */
 .dc-inspector-floating .dc-inspector-actions .dc-inspector-toggle:last-child:hover{
   border-color:var(--dc-danger-border)!important;
@@ -1772,7 +1772,7 @@
   color:var(--dc-danger)!important;
 }
 
-/* DrawCast editor // Patch 20
+/* TRAZIO editor // Patch 20
    Aire inferior para la barra de estado + canvas centrado dentro del área útil. */
 .dc-workspace{
   padding:14px 14px 58px;
@@ -1790,7 +1790,7 @@
   max-width:none!important;
 }
 
-/* DrawCast editor // Patch 23
+/* TRAZIO editor // Patch 23
    Archivo + imán + capa de dibujo rápida. */
 .dc-toolbar-file-menu{
   min-width:250px;
@@ -1865,7 +1865,7 @@
   .dc-layers .dc-layers-head .dc-layer-new-draw span{display:none;}
 }
 
-/* DrawCast editor // Patch 24
+/* TRAZIO editor // Patch 24
    Modo Live / Estudio + publicación manual + botón de pánico. */
 .dc-toolbar-broadcast-group{
   display:flex;
@@ -2032,7 +2032,7 @@
   .dc-toolbar-separator{height:22px;}
 }
 
-/* DrawCast editor // Patch 29
+/* TRAZIO editor // Patch 29
    Presencia colaborativa, cursores remotos y bloqueo seguro de Estudio. */
 .dc-toolbar-presence{
   display:flex;
@@ -2198,7 +2198,7 @@
 }
 
 
-/* DrawCast editor // Patch 43
+/* TRAZIO editor // Patch 43
    Restore the editor structural grid removed during the CSS cleanup.
    Keep the canvas as the textured workspace while chrome stays solid. */
 .dc-editor{
@@ -2224,7 +2224,7 @@
   background:var(--dc-panel);
 }
 
-/* DrawCast editor // Patch 44-45
+/* TRAZIO editor // Patch 44-45
    Viewport navegable + espacio de trabajo fuera del área proyectada. */
 .dc-workspace{
   padding:0;
@@ -2336,4 +2336,222 @@
 
 .dc-canvas-viewport>.dc-drop-overlay{
   inset:18px;
+}
+
+
+/* PALETTE PASS // editor
+   Same editor geometry; color roles now distinguish creation, selection, guidance and risk. */
+
+.dc-logo,
+.dc-watermark span { color: var(--dc-accent-four); }
+
+.dc-toolbar button.active {
+  border-color: var(--dc-accent-one);
+  background: var(--dc-accent-one);
+  color: var(--dc-text-inverse);
+}
+
+.dc-toolbar button.danger {
+  border-color: var(--dc-danger-border);
+  color: var(--dc-danger);
+}
+.dc-toolbar button.danger:hover {
+  border-color: var(--dc-danger-strong);
+  background: var(--dc-danger-bg-soft);
+  color: var(--dc-danger-text);
+}
+
+.dc-tool-tip {
+  border-color: color-mix(in srgb, var(--dc-accent-three) 42%, var(--dc-line));
+  color: var(--dc-accent-four);
+}
+
+.dc-connection-dot:not(.online) {
+  background: var(--dc-accent-three);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--dc-accent-three) 65%, transparent);
+}
+
+.dc-inspector input:focus,
+.dc-inspector select:focus {
+  border-color: var(--dc-accent-three);
+}
+.dc-inspector input[type='range'],
+.dc-inspector input[type='checkbox'] { accent-color: var(--dc-accent-one); }
+
+.dc-help {
+  border-left-color: var(--dc-accent-three);
+  background: var(--dc-accent-three-soft);
+}
+
+.dc-upload {
+  border-color: var(--dc-accent-one);
+  background: var(--dc-accent-one);
+  color: var(--dc-text-inverse);
+}
+
+.dc-canvas.is-media-dragging {
+  border-color: var(--dc-accent-four);
+  outline-color: var(--dc-accent-four);
+  box-shadow: 0 0 38px color-mix(in srgb, var(--dc-accent-one) 18%, var(--dc-black));
+}
+.__drop_slot_end__,
+.dc-drop-overlay {
+  border-color: var(--dc-accent-four);
+  color: var(--dc-accent-four);
+}
+
+.dc-image-panel .dc-image-actions button:hover,
+.dc-image-panel .dc-image-actions button.active,
+.dc-image-search-submit:hover,
+.dc-image-search-row button:hover,
+.dc-image-result-card:hover {
+  border-color: var(--dc-accent-three);
+  color: var(--dc-accent-four);
+}
+
+.dc-inline-text-editor::selection {
+  background: var(--dc-accent-four);
+  color: var(--dc-text-inverse);
+}
+
+.dc-timer-actions button:hover:not(:disabled) {
+  border-color: var(--dc-accent-three);
+  color: var(--dc-accent-four);
+}
+.dc-timer-actions button.primary {
+  border-color: var(--dc-accent-one);
+  color: var(--dc-accent-one);
+}
+
+.dc-layers .dc-layer-selection-actions button:hover,
+.dc-layers .dc-layer-icon-btn:hover,
+.dc-selection-grid button:hover,
+.dc-secondary-wide:hover {
+  border-color: var(--dc-accent-three);
+  color: var(--dc-accent-four);
+}
+.dc-layers .dc-layer-selection-actions button.danger,
+.dc-layers .dc-layer-icon-btn.danger,
+.dc-brush-mode-grid button.danger {
+  color: var(--dc-danger);
+}
+.dc-layers .dc-layer-selection-actions button.danger:hover,
+.dc-layers .dc-layer-icon-btn.danger:hover,
+.dc-brush-mode-grid button.danger:hover {
+  border-color: var(--dc-danger-border);
+  background: var(--dc-danger-bg-soft);
+  color: var(--dc-danger-text);
+}
+
+.dc-layers .dc-layers-new-layer {
+  border-color: color-mix(in srgb, var(--dc-accent-one) 42%, var(--dc-line));
+  background: var(--dc-accent-one-soft);
+}
+.dc-layers .dc-layers-new-layer:hover,
+.dc-layers .dc-layers-head .dc-layer-new-draw:hover {
+  border-color: var(--dc-accent-one);
+  background: var(--dc-accent-one-soft);
+}
+.dc-layers .dc-layers-head .dc-layer-new-draw { color: var(--dc-accent-one); }
+
+.dc-layer-group.selected > .dc-layer-group-head,
+.dc-editor-layers-sidebar .dc-layer-row.selected,
+.dc-editor-layers-sidebar .dc-layer-group.selected > .dc-layer-group-head {
+  background: var(--dc-accent-three-soft);
+  box-shadow: inset 2px 0 0 var(--dc-accent-one);
+}
+.dc-layer-group-head > svg { color: var(--dc-accent-three); }
+
+.dc-brush-mode-grid button:hover {
+  border-color: var(--dc-accent-three);
+  color: var(--dc-accent-four);
+  background: var(--dc-accent-three-soft);
+}
+.dc-brush-mode-grid button.active {
+  border-color: var(--dc-accent-one);
+  color: var(--dc-accent-one);
+  background: var(--dc-accent-one-soft);
+}
+
+.dc-status-chip.connection { color: var(--dc-accent-three); }
+.dc-status-hotkeys:hover {
+  border-color: var(--dc-accent-three);
+  color: var(--dc-accent-four);
+}
+
+.dc-hotkeys-modal {
+  box-shadow: 0 30px 100px var(--dc-black), inset 0 2px 0 var(--dc-accent-three);
+}
+.dc-hotkeys-kicker { color: var(--dc-accent-three); }
+.dc-hotkeys-close:hover {
+  border-color: var(--dc-accent-three);
+  color: var(--dc-accent-four);
+}
+.dc-hotkey-section h3 {
+  background: var(--dc-accent-two-soft);
+  color: var(--dc-accent-four);
+}
+
+.dc-inspector-head > div:first-child > span { color: var(--dc-accent-four); }
+.dc-inspector-size button:hover,
+.dc-inspector-size button.active {
+  border-color: var(--dc-accent-three);
+  color: var(--dc-accent-four);
+  background: var(--dc-accent-three-soft);
+}
+
+.dc-toolbar-designs:hover {
+  border-color: var(--dc-accent-three) !important;
+  background: var(--dc-accent-three-soft) !important;
+  color: var(--dc-accent-four) !important;
+}
+.dc-designs-kicker { color: var(--dc-accent-four); }
+.dc-designs-close:hover,
+.dc-designs-save-row input:focus,
+.dc-designs-save-row button:hover,
+.dc-designs-list-head button:hover,
+.dc-design-card-actions button:hover,
+.dc-designs-footer button:hover {
+  border-color: var(--dc-accent-three);
+}
+.dc-designs-save-row button.primary {
+  border-color: var(--dc-accent-one);
+  background: var(--dc-accent-one);
+  color: var(--dc-text-inverse);
+}
+.dc-design-card.active {
+  border-color: color-mix(in srgb, var(--dc-accent-three) 62%, var(--dc-line-strong));
+  box-shadow: inset 2px 0 0 var(--dc-accent-one);
+  background: var(--dc-accent-three-soft);
+}
+
+.dc-toolbar-menu-trigger.active,
+.dc-toolbar-wide.active {
+  background: var(--dc-accent-three-soft);
+  color: var(--dc-accent-four);
+  box-shadow: inset 0 -2px 0 var(--dc-accent-one);
+}
+.dc-toolbar-popover button.active { color: var(--dc-accent-four); }
+
+.dc-publish-button.has-changes {
+  border-color: color-mix(in srgb, var(--dc-accent-two) 62%, var(--dc-line-strong));
+  background: var(--dc-accent-two-soft);
+  color: var(--dc-accent-four);
+  box-shadow: inset 0 -2px 0 var(--dc-accent-one);
+}
+.dc-publish-button.has-changes:not(:disabled):hover {
+  border-color: var(--dc-accent-one);
+  background: color-mix(in srgb, var(--dc-accent-two) 44%, var(--dc-panel2));
+}
+
+.dc-canvas-zoom button:hover:not(:disabled) {
+  background: var(--dc-accent-three-soft);
+  color: var(--dc-accent-four);
+}
+
+.dc-image-search-results {
+  scrollbar-color: color-mix(in srgb, var(--dc-accent-three) 55%, var(--dc-line-strong)) var(--dc-bg);
+}
+.dc-image-search-results::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--dc-accent-three) 55%, var(--dc-line-strong));
 }

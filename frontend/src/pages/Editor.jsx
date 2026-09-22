@@ -64,7 +64,7 @@ export default function Editor() {
   const [tool, setTool] = useState('select');
   const [imagePickerRequest, setImagePickerRequest] = useState(0);
   const [guide, setGuide] = useState(() => {
-    try { return localStorage.getItem('drawcast.editor.guide') || 'none'; } catch { return 'none'; }
+    try { return localStorage.getItem('TRAZIO.editor.guide') || 'none'; } catch { return 'none'; }
   });
   const [drawConfig, setDrawConfig] = useState(DEFAULT_DRAW_CONFIG);
   const [activeDrawLayerId, setActiveDrawLayerId] = useState(null);
@@ -82,7 +82,7 @@ export default function Editor() {
   const [designsIntent, setDesignsIntent] = useState('load');
   const [recentDesigns, setRecentDesigns] = useState([]);
   const [snapEnabled, setSnapEnabled] = useState(() => {
-    try { return localStorage.getItem('drawcast.editor.snap') !== 'off'; } catch { return true; }
+    try { return localStorage.getItem('TRAZIO.editor.snap') !== 'off'; } catch { return true; }
   });
   const [liveEnabled, setLiveEnabled] = useState(true);
   const [overlayHidden, setOverlayHidden] = useState(false);
@@ -221,7 +221,7 @@ export default function Editor() {
     },
     'studio-forced-live': ({ message } = {}) => {
       void showAlert({
-        title: 'DrawCast volvió a Live',
+        title: 'TRAZIO volvió a Live',
         message: message || 'El editor que controlaba el modo Estudio se desconectó. El workspace fue publicado para desbloquear al equipo.'
       });
     },
@@ -264,7 +264,7 @@ export default function Editor() {
 
   const emitChannelAction = (event, payload = {}) => new Promise((resolve, reject) => {
     if (!socket.connected) {
-      reject(new Error('DrawCast perdió conexión con el canal.'));
+      reject(new Error('TRAZIO perdió conexión con el canal.'));
       return;
     }
     socket.timeout(6000).emit(event, payload, (error, response) => {
@@ -857,11 +857,11 @@ export default function Editor() {
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem('drawcast.editor.guide', guide); } catch { /* noop */ }
+    try { localStorage.setItem('TRAZIO.editor.guide', guide); } catch { /* noop */ }
   }, [guide]);
 
   useEffect(() => {
-    try { localStorage.setItem('drawcast.editor.snap', snapEnabled ? 'on' : 'off'); } catch { /* noop */ }
+    try { localStorage.setItem('TRAZIO.editor.snap', snapEnabled ? 'on' : 'off'); } catch { /* noop */ }
   }, [snapEnabled]);
 
   useEffect(() => {
@@ -1162,7 +1162,7 @@ export default function Editor() {
     if (Object.keys(rawScene).length !== list.length) throw new Error('La copia guardada contiene una capa inválida y no se cargó.');
     const ensured = ensureSceneDrawLayer(rawScene);
     const next = ensured.scene;
-    if (!socket.connected) throw new Error('DrawCast perdió conexión con el canal. Vuelve a intentarlo en un momento.');
+    if (!socket.connected) throw new Error('TRAZIO perdió conexión con el canal. Vuelve a intentarlo en un momento.');
 
     await new Promise((resolve, reject) => {
       socket.timeout(6000).emit('scene-replace', { objects: Object.values(next) }, (error, response) => {
@@ -1252,7 +1252,7 @@ export default function Editor() {
     commitHistory('Ajustar temporizador');
   };
 
-  if (denied) return <div className="fixed inset-0 grid place-content-center bg-[var(--dc-bg)] text-center text-[var(--dc-text)]">NO TIENES ACCESO A ESTE CANAL // <Link className="text-[var(--dc-accent)]" to="/app">VOLVER AL INICIO</Link></div>;
+  if (denied) return <div className="fixed inset-0 grid place-content-center bg-[var(--dc-bg)] text-center text-[var(--dc-text)]">NO TIENES ACCESO A ESTE CANAL // <Link className="text-[var(--dc-accent-four)]" to="/app">VOLVER AL INICIO</Link></div>;
 
   return (
     <div className={`dc-editor ${editingLocked ? 'is-collab-locked' : ''}`}>
@@ -1298,7 +1298,7 @@ export default function Editor() {
       </div>
 
       <main className="dc-workspace">
-        {/* <div className="dc-watermark">DrawCast <span>// DannDato</span></div> */}
+        {/* <div className="dc-watermark">TRAZIO <span>// DannDato</span></div> */}
 
         <CanvasStage
           objects={objects}

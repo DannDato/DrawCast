@@ -9,7 +9,7 @@ validateEnv();
 
 await db.authenticate();
 
-// Versiones antiguas de DrawCast tenían channels.owner_id como UNIQUE porque
+// Versiones antiguas de TRAZIO tenían channels.owner_id como UNIQUE porque
 // sólo existía un lienzo por usuario. Antes de sync({ alter:true }) dejamos un
 // índice normal disponible para la FK y retiramos el UNIQUE legado.
 const queryInterface = db.getQueryInterface();

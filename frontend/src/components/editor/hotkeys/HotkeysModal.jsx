@@ -6,11 +6,11 @@ export default function HotkeysModal({ open, onClose }) {
 
   return (
     <div className="dc-hotkeys-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="dc-hotkeys-modal" role="dialog" aria-modal="true" aria-label="Atajos de teclado de DrawCast" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="dc-hotkeys-modal" role="dialog" aria-modal="true" aria-label="Atajos de teclado de TRAZIO" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
             <span className="dc-hotkeys-kicker"><Keyboard size={15} /> MAPA DE CONTROLES</span>
-            <h2>ATAJOS // DRAWCAST</h2>
+            <h2>ATAJOS // TRAZIO</h2>
           </div>
           <button type="button" className="dc-hotkeys-close" onClick={onClose} aria-label="Cerrar atajos"><X size={18} /></button>
         </header>
