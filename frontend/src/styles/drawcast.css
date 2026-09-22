@@ -230,7 +230,10 @@
 .dc-dashboard-stage {
     position: relative;
     isolation: isolate;
+    display: flex;
     min-height: calc(100vh - 56px);
+    min-height: calc(100dvh - 56px);
+    flex-direction: column;
     overflow: clip;
     background:
         radial-gradient(circle at 84% 0%, var(--dc-stipple-accent), transparent 30%),
@@ -1222,4 +1225,12 @@
 
 *::-webkit-scrollbar-corner {
     background: var(--dc-panel);
+}
+.dc-turnstile {
+    width: 100%;
+    min-height: 65px;
+}
+
+.dc-turnstile > div:not(.dc-auth-alert) {
+    width: 100%;
 }

@@ -106,10 +106,13 @@ class ProfileController {
   };
 
   finishGoogleConnection = async (req, res, payload) => {
-    const occupied = await models.OAuthAccount.findOne({ where: { provider: 'google', providerUserId: payload.sub, userId: { [Op.ne]: req.user.id }, active: true } });
+    const occupied = await models.OAuthAccount.findOne({ where: { provider: 'google', providerUserId: payload.sub, userId: { [Op.ne]: req.user.id } } });
     if (occupied) return res.status(409).json({ message: 'Esa cuenta de Google ya está conectada a otro usuario' });
+    const email = normalizeEmail(payload.email);
+    const emailOwner = await models.User.findOne({ where: { email, id: { [Op.ne]: req.user.id } }, attributes: ['id'] });
+    if (emailOwner) return res.status(409).json({ message: 'El correo de esa cuenta de Google ya pertenece a otra cuenta de DrawCast' });
     let account = await models.OAuthAccount.findOne({ where: { userId: req.user.id, provider: 'google' } });
-    const values = { providerUserId: payload.sub, email: normalizeEmail(payload.email), avatarUrl: payload.picture || null, active: true };
+    const values = { providerUserId: payload.sub, email, avatarUrl: payload.picture || null, active: true };
     if (account) await account.update(values); else account = await models.OAuthAccount.create({ userId: req.user.id, provider: 'google', ...values });
     await audit(req, { event: 'profile.google_connected', category: 'security', userId: req.user.id });
     await notifySecurity(req.user, 'Cuenta de Google conectada', [`Se conectó ${payload.email} como método de acceso.`]);

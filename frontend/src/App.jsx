@@ -6,6 +6,7 @@ import VerifyAccess from './pages/VerifyAccess';
 import { ForgotPassword, ResetPassword } from './pages/PasswordPages';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import PublicOnlyRoute from './components/PublicOnlyRoute';
 import ChannelDashboard from './pages/ChannelDashboard';
 import Profile from './pages/Profile';
 import Editor from './pages/Editor';
@@ -19,8 +20,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+      <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
       <Route path="/verify-access" element={<VerifyAccess />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />

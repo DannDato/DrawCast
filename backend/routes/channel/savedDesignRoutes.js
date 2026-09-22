@@ -3,9 +3,11 @@ import { SavedDesignController } from '../../controllers/channel/savedDesignCont
 import { verifyToken } from '../../middlewares/auth.js';
 import { requireChannelEditor } from '../../middlewares/channelAccess.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
+import { mutationLimiter } from '../../middlewares/security.js';
 
 const router = Router({ mergeParams: true });
 router.use(verifyToken);
+router.use(mutationLimiter);
 router.use(asyncHandler(requireChannelEditor));
 router.get('/', asyncHandler(SavedDesignController.list));
 router.post('/', asyncHandler(SavedDesignController.create));

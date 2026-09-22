@@ -70,7 +70,7 @@ export default function SecuritySettings({ onNotice, embedded = false }) {
       invalidateProfileCache();
       if (data.current) {
         await refresh();
-        navigate('/login');
+        navigate('/');
         return;
       }
       setSessions((current) => current.filter((row) => row.id !== session.id));
@@ -95,7 +95,7 @@ export default function SecuritySettings({ onNotice, embedded = false }) {
   const logoutCurrent = async () => {
     setBusy('logout');
     try { await logout(); }
-    finally { navigate('/login'); }
+    finally { navigate('/'); }
   };
 
   const logoutAll = async () => {
@@ -103,7 +103,7 @@ export default function SecuritySettings({ onNotice, embedded = false }) {
       setBusy('all');
       await api.delete('/user/profile/sessions');
       await refresh();
-    } finally { navigate('/login'); }
+    } finally { navigate('/'); }
   };
 
   return <div className="grid gap-[18px]">

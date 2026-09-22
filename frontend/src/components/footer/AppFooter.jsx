@@ -8,7 +8,7 @@ export default function AppFooter() {
     const year = new Date().getFullYear();
 
     return (
-        <footer className="mx-auto mt-8 w-full max-w-[1440px] border-t border-[var(--dc-line)] px-4 py-5 md:px-0">
+        <footer className="mx-auto w-full max-w-[1440px] border-t border-[var(--dc-line)] px-4 py-5 md:px-0">
             <div className="flex flex-col gap-4 text-[11px] text-[var(--dc-text-muted)] md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-2 font-mono font-bold uppercase tracking-[0.08em]">
                     <span className="text-[var(--dc-text)]">DrawCast</span>

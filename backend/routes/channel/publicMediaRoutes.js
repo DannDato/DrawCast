@@ -3,8 +3,10 @@ import path from 'node:path';
 import { models } from '../../models/index.js';
 import { isPublicUuid } from '../../services/channelAccessService.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
+import { publicMediaLimiter } from '../../middlewares/security.js';
 
 const router = Router();
+router.use(publicMediaLimiter);
 const root = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads', 'channels');
 const filePattern = /^\d{10,}-[0-9a-f]{16}\.(?:png|jpe?g|webp|gif)$/i;
 

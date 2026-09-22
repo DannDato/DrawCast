@@ -1,29 +1,38 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { KeyRound, Send } from 'lucide-react';
 import api from '../api/axios';
 import AuthShell from '../components/auth/AuthShell';
+import TurnstileWidget from '../components/auth/TurnstileWidget';
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef(null);
 
   return <AuthShell eyebrow="RECUPERA TU CUENTA" title="RECUPERAR // ACCESO" description="Te enviaremos un enlace seguro al correo asociado a tu cuenta.">
     <form onSubmit={async (event) => {
       event.preventDefault();
       setError('');
+      setLoading(true);
       try {
-        const { data } = await api.post('/auth/forgot-password', { email });
+        const { data } = await api.post('/auth/forgot-password', { email, turnstileToken });
         setMsg(data.message);
       } catch (err) {
         setError(err.response?.data?.message || 'No pudimos enviar el correo de recuperación.');
+      } finally {
+        turnstileRef.current?.reset();
+        setLoading(false);
       }
     }} className="dc-auth-form">
       <label>CORREO DE TU CUENTA<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="tu@correo.com" required /></label>
       {error && <p className="dc-auth-alert error">{error}</p>}
       {msg && <p className="dc-auth-alert success">{msg}</p>}
-      <button className="dc-auth-primary"><Send size={16} /> ENVIAR ENLACE DE RECUPERACIÓN</button>
+      <TurnstileWidget ref={turnstileRef} action="forgot_password" onTokenChange={setTurnstileToken} />
+      <button className="dc-auth-primary" disabled={loading || !turnstileToken}><Send size={16} /> {loading ? 'ENVIANDO...' : 'ENVIAR ENLACE DE RECUPERACIÓN'}</button>
     </form>
     <div className="dc-auth-links"><Link to="/login">VOLVER AL INICIO DE SESIÓN</Link></div>
   </AuthShell>;

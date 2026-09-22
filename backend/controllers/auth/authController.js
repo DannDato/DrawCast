@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
-import { Op } from 'sequelize';
-import { models } from '../../models/index.js';
+import { Op, UniqueConstraintError } from 'sequelize';
+import { db, models } from '../../models/index.js';
 import { audit } from '../../helpers/audit.js';
 import { randomToken, sha256 } from '../../helpers/security.js';
 import {
@@ -74,9 +74,11 @@ function profileOAuthRedirect(params = {}) {
 
 async function upsertOAuthAccount(req, user, { provider, providerUserId, email, avatarUrl, event }) {
   const occupied = await models.OAuthAccount.findOne({
-    where: { provider, providerUserId, userId: { [Op.ne]: user.id }, active: true }
+    where: { provider, providerUserId, userId: { [Op.ne]: user.id } }
   });
   if (occupied) return { error: `Esa cuenta de ${provider} ya está conectada a otro usuario` };
+  const emailOwner = await models.User.findOne({ where: { email: normalizeEmail(email), id: { [Op.ne]: user.id } }, attributes: ['id'] });
+  if (emailOwner) return { error: 'El correo de esa plataforma ya pertenece a otra cuenta de DrawCast' };
 
   let account = await models.OAuthAccount.findOne({ where: { userId: user.id, provider } });
   const values = { providerUserId: String(providerUserId), email: normalizeEmail(email), avatarUrl: avatarUrl || null, active: true };
@@ -88,29 +90,129 @@ async function upsertOAuthAccount(req, user, { provider, providerUserId, email, 
   return { account };
 }
 
-async function getOrCreateOAuthUser({ provider, providerUserId, email, displayName, usernameBase }) {
-  let account = await models.OAuthAccount.findOne({ where: { provider, providerUserId } });
-  if (account && !account.active) return { account, user: null, inactive: true };
+const OAUTH_PENDING_COOKIE = 'drawcast_oauth_pending';
+const OAUTH_PENDING_MINUTES = 10;
 
-  let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
-  if (!user) {
-    const rawBase = String(usernameBase || email.split('@')[0] || 'user');
-    const base = rawBase.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 60) || `user${Date.now()}`;
-    let username = base;
-    let suffix = 1;
-    while (await models.User.findOne({ where: { username } })) username = `${base}${suffix++}`;
+function normalizeUsername(value) {
+  return String(value || '').trim();
+}
 
-    user = await models.User.create({
-      username,
-      email,
-      displayName: String(displayName || username).slice(0, 120),
-      emailVerifiedAt: new Date(),
-      roleKey: 'USER'
-    });
-    await applyRolePreset(user.id, 'USER');
+function validUsername(value) {
+  return /^[a-zA-Z0-9_.-]{1,80}$/.test(normalizeUsername(value));
+}
+
+function oauthIdentity({ provider, providerUserId, email, displayName, usernameBase, avatarUrl }) {
+  const cleanEmail = normalizeEmail(email);
+  const rawBase = String(usernameBase || cleanEmail.split('@')[0] || 'user');
+  const cleanBase = rawBase.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 80) || 'user';
+  return {
+    provider,
+    providerUserId: String(providerUserId),
+    email: cleanEmail,
+    displayName: String(displayName || cleanBase).slice(0, 120),
+    usernameBase: cleanBase,
+    avatarUrl: avatarUrl || null
+  };
+}
+
+function setPendingOAuthCookie(res, identity) {
+  const token = jwt.sign({ type: 'oauth-registration', ...identity }, env.jwtSecret, { expiresIn: `${OAUTH_PENDING_MINUTES}m` });
+  res.cookie(OAUTH_PENDING_COOKIE, token, {
+    httpOnly: true,
+    secure: env.cookieSecure,
+    sameSite: env.cookieSameSite,
+    maxAge: OAUTH_PENDING_MINUTES * 60 * 1000,
+    path: '/api/auth'
+  });
+}
+
+function clearPendingOAuthCookie(res) {
+  res.clearCookie(OAUTH_PENDING_COOKIE, { httpOnly: true, secure: env.cookieSecure, sameSite: env.cookieSameSite, path: '/api/auth' });
+}
+
+function readPendingOAuthIdentity(req) {
+  const token = String(req.cookies?.[OAUTH_PENDING_COOKIE] || '');
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, env.jwtSecret);
+    if (payload?.type !== 'oauth-registration' || !payload.provider || !payload.providerUserId || !validEmail(payload.email)) return null;
+    return oauthIdentity(payload);
+  } catch {
+    return null;
+  }
+}
+
+async function isUsernameAvailable(username) {
+  if (!validUsername(username)) return false;
+  return !(await models.User.findOne({ where: { username: normalizeUsername(username) }, attributes: ['id'] }));
+}
+
+async function attachOAuthAccount(user, identity, transaction = null) {
+  let account = await models.OAuthAccount.findOne({ where: { provider: identity.provider, providerUserId: identity.providerUserId }, transaction });
+  if (account) return account;
+  return models.OAuthAccount.create({
+    userId: user.id,
+    provider: identity.provider,
+    providerUserId: identity.providerUserId,
+    email: identity.email,
+    avatarUrl: identity.avatarUrl
+  }, { transaction });
+}
+
+async function resolveOAuthIdentity(identity, requestedUsername = null) {
+  let account = await models.OAuthAccount.findOne({ where: { provider: identity.provider, providerUserId: identity.providerUserId } });
+  if (account && !account.active) return { account, user: null, inactive: true, requiresUsername: false };
+  if (account) return { account, user: await models.User.findByPk(account.userId), inactive: false, requiresUsername: false };
+
+  let user = await models.User.findOne({ where: { email: identity.email } });
+  if (user) {
+    try { account = await attachOAuthAccount(user, identity); }
+    catch (error) {
+      if (!(error instanceof UniqueConstraintError)) throw error;
+      account = await models.OAuthAccount.findOne({ where: { provider: identity.provider, providerUserId: identity.providerUserId } });
+      if (!account || account.userId !== user.id) throw error;
+    }
+    return { account, user, inactive: false, requiresUsername: false };
   }
 
-  return { account, user, inactive: false };
+  const username = normalizeUsername(requestedUsername || identity.usernameBase);
+  if (!validUsername(username) || !(await isUsernameAvailable(username))) {
+    return { account: null, user: null, inactive: false, requiresUsername: true };
+  }
+
+  const transaction = await db.transaction();
+  try {
+    user = await models.User.create({
+      username,
+      email: identity.email,
+      displayName: identity.displayName || username,
+      emailVerifiedAt: new Date(),
+      roleKey: 'USER'
+    }, { transaction });
+    await applyRolePreset(user.id, 'USER', transaction);
+    account = await attachOAuthAccount(user, identity, transaction);
+    await transaction.commit();
+    return { account, user, inactive: false, requiresUsername: false };
+  } catch (error) {
+    await transaction.rollback();
+    if (!(error instanceof UniqueConstraintError)) throw error;
+
+    account = await models.OAuthAccount.findOne({ where: { provider: identity.provider, providerUserId: identity.providerUserId } });
+    if (account) return { account, user: await models.User.findByPk(account.userId), inactive: !account.active, requiresUsername: false };
+
+    user = await models.User.findOne({ where: { email: identity.email } });
+    if (user) {
+      account = await attachOAuthAccount(user, identity);
+      return { account, user, inactive: false, requiresUsername: false };
+    }
+    return { account: null, user: null, inactive: false, requiresUsername: true };
+  }
+}
+
+function requireOAuthUsername(req, res, identity, jsonResponse = false) {
+  setPendingOAuthCookie(res, identity);
+  if (jsonResponse) return res.status(202).json({ requiresUsername: true, suggestedUsername: identity.usernameBase, provider: identity.provider });
+  return res.redirect(frontendRedirect('/register', { oauthUsername: '1' }));
 }
 
 async function getOAuthSession(req) {
@@ -156,7 +258,7 @@ class AuthController {
     const cleanUsername = String(username || '').trim();
     const cleanEmail = normalizeEmail(email);
 
-    if (!cleanUsername || !validEmail(cleanEmail)) return res.status(400).json({ message: 'Usuario y correo válido son obligatorios' });
+    if (!validUsername(cleanUsername) || !validEmail(cleanEmail)) return res.status(400).json({ message: 'Usa un usuario de hasta 80 caracteres con letras, números, punto, guion o guion bajo, y un correo válido' });
     const passwordPolicy = validatePasswordPolicy(password);
     if (!passwordPolicy.ok) return res.status(400).json({ message: passwordPolicy.message });
 
@@ -166,19 +268,59 @@ class AuthController {
 
     if (exists) return res.status(409).json({ message: 'Usuario o correo ya registrado' });
 
-    const user = await models.User.create({
-      username: cleanUsername,
-      email: cleanEmail,
-      passwordHash: await hashPassword(password),
-      displayName: String(displayName || '').trim() || cleanUsername,
-      roleKey: 'USER'
-    });
+    let user;
+    try {
+      user = await models.User.create({
+        username: cleanUsername,
+        email: cleanEmail,
+        passwordHash: await hashPassword(password),
+        displayName: String(displayName || '').trim() || cleanUsername,
+        roleKey: 'USER'
+      });
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) return res.status(409).json({ message: 'Usuario o correo ya registrado' });
+      throw error;
+    }
 
     await applyRolePreset(user.id, 'USER');
     await audit(req, { event: 'auth.register', category: 'auth', userId: user.id });
 
     const challenge = await issueOtpChallenge(req, user);
     return res.status(202).json(challenge);
+  };
+
+  usernameAvailability = async (req, res) => {
+    const username = normalizeUsername(req.query.username);
+    if (!validUsername(username)) return res.json({ available: false, valid: false });
+    return res.json({ available: await isUsernameAvailable(username), valid: true });
+  };
+
+  pendingOAuthRegistration = async (req, res) => {
+    const identity = readPendingOAuthIdentity(req);
+    if (!identity) {
+      clearPendingOAuthCookie(res);
+      return res.status(404).json({ message: 'No hay un registro de plataforma pendiente o ya expiró' });
+    }
+    return res.json({ provider: identity.provider, email: identity.email, suggestedUsername: identity.usernameBase });
+  };
+
+  completeOAuthRegistration = async (req, res) => {
+    const identity = readPendingOAuthIdentity(req);
+    if (!identity) {
+      clearPendingOAuthCookie(res);
+      return res.status(400).json({ message: 'El registro de plataforma expiró. Vuelve a iniciar con la plataforma.' });
+    }
+
+    const username = normalizeUsername(req.body.username);
+    if (!validUsername(username)) return res.status(400).json({ message: 'Usa hasta 80 caracteres: letras, números, punto, guion o guion bajo.' });
+
+    const result = await resolveOAuthIdentity(identity, username);
+    if (result.inactive) return res.status(403).json({ message: `Esta cuenta de ${identity.provider} fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.` });
+    if (result.requiresUsername) return res.status(409).json({ message: 'Ese nombre de usuario ya está ocupado', available: false });
+    if (!result.user || result.user.statusKey !== 'ACTIVE') return res.status(403).json({ message: 'Cuenta no disponible' });
+
+    clearPendingOAuthCookie(res);
+    return requireOtp(req, res, result.user, `auth.${identity.provider}`);
   };
 
   login = async (req, res) => {
@@ -268,42 +410,18 @@ class AuthController {
     try { payload = await verifyGoogleCredential(credential); }
     catch { return res.status(401).json({ message: 'Identidad de Google inválida' }); }
 
-    const email = normalizeEmail(payload.email);
-    let account = await models.OAuthAccount.findOne({ where: { provider: 'google', providerUserId: payload.sub } });
-    if (account && !account.active) return res.status(403).json({ message: 'Esta cuenta de Google fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.' });
-    let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
+    const identity = oauthIdentity({
+      provider: 'google', providerUserId: payload.sub, email: payload.email,
+      displayName: payload.name, usernameBase: normalizeEmail(payload.email).split('@')[0], avatarUrl: payload.picture
+    });
+    const result = await resolveOAuthIdentity(identity);
+    if (result.inactive) return res.status(403).json({ message: 'Esta cuenta de Google fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.' });
+    if (result.requiresUsername) return requireOAuthUsername(req, res, identity, true);
+    if (!result.user || result.user.statusKey !== 'ACTIVE') return res.status(403).json({ message: 'Cuenta no disponible' });
 
-    if (!user) {
-      const base = (email.split('@')[0] || 'user').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 60);
-      let username = base || `user${Date.now()}`;
-      let suffix = 1;
-      while (await models.User.findOne({ where: { username } })) username = `${base}${suffix++}`;
-
-      user = await models.User.create({
-        username,
-        email,
-        displayName: payload.name || username,
-        emailVerifiedAt: new Date(),
-        roleKey: 'USER'
-      });
-      await applyRolePreset(user.id, 'USER');
-    }
-
-    if (user.statusKey !== 'ACTIVE') return res.status(403).json({ message: 'Cuenta no disponible' });
-
-    if (!account) {
-      account = await models.OAuthAccount.create({
-        userId: user.id,
-        provider: 'google',
-        providerUserId: payload.sub,
-        email,
-        avatarUrl: payload.picture || null
-      });
-    }
-
-    return requireOtp(req, res, user, 'auth.google');
+    clearPendingOAuthCookie(res);
+    return requireOtp(req, res, result.user, 'auth.google');
   };
-
 
   googleCodeAuth = async (req, res) => {
     if (!googleCodeFlowConfigured()) return res.status(503).json({ message: 'Google OAuth no configurado' });
@@ -313,40 +431,17 @@ class AuthController {
     try { payload = await exchangeGoogleCode(String(req.body.code || '')); }
     catch { return res.status(401).json({ message: 'No se pudo validar la cuenta de Google' }); }
 
-    const email = normalizeEmail(payload.email);
-    let account = await models.OAuthAccount.findOne({ where: { provider: 'google', providerUserId: payload.sub } });
-    if (account && !account.active) return res.status(403).json({ message: 'Esta cuenta de Google fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.' });
-    let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
+    const identity = oauthIdentity({
+      provider: 'google', providerUserId: payload.sub, email: payload.email,
+      displayName: payload.name, usernameBase: normalizeEmail(payload.email).split('@')[0], avatarUrl: payload.picture
+    });
+    const result = await resolveOAuthIdentity(identity);
+    if (result.inactive) return res.status(403).json({ message: 'Esta cuenta de Google fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.' });
+    if (result.requiresUsername) return requireOAuthUsername(req, res, identity, true);
+    if (!result.user || result.user.statusKey !== 'ACTIVE') return res.status(403).json({ message: 'Cuenta no disponible' });
 
-    if (!user) {
-      const base = (email.split('@')[0] || 'user').replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 60);
-      let username = base || `user${Date.now()}`;
-      let suffix = 1;
-      while (await models.User.findOne({ where: { username } })) username = `${base}${suffix++}`;
-
-      user = await models.User.create({
-        username,
-        email,
-        displayName: payload.name || username,
-        emailVerifiedAt: new Date(),
-        roleKey: 'USER'
-      });
-      await applyRolePreset(user.id, 'USER');
-    }
-
-    if (user.statusKey !== 'ACTIVE') return res.status(403).json({ message: 'Cuenta no disponible' });
-
-    if (!account) {
-      account = await models.OAuthAccount.create({
-        userId: user.id,
-        provider: 'google',
-        providerUserId: payload.sub,
-        email,
-        avatarUrl: payload.picture || null
-      });
-    }
-
-    return requireOtp(req, res, user, 'auth.google');
+    clearPendingOAuthCookie(res);
+    return requireOtp(req, res, result.user, 'auth.google');
   };
 
 
@@ -439,52 +534,28 @@ class AuthController {
       const email = normalizeEmail(twitchUser.email);
       if (!validEmail(email)) return res.redirect(oauthErrorRedirect('Twitch no devolvió un correo válido. Revisa que tu cuenta tenga un correo disponible.'));
 
-      let account = await models.OAuthAccount.findOne({ where: { provider: 'twitch', providerUserId: twitchUser.id } });
       if (oauthPayload?.mode === 'connect') {
         const auth = await getOAuthSession(req);
         if (!auth) return res.redirect(profileOAuthRedirect({ oauthError: 'Tu sesión expiró mientras conectabas Twitch.' }));
-        if (account && account.userId !== auth.user.id) return res.redirect(profileOAuthRedirect({ oauthError: 'Esa cuenta de Twitch ya está conectada a otro usuario.' }));
-        if (!account) {
-          account = await models.OAuthAccount.create({ userId: auth.user.id, provider: 'twitch', providerUserId: twitchUser.id, email, avatarUrl: twitchUser.profile_image_url || null, active: true });
-        } else {
-          await account.update({ email, avatarUrl: twitchUser.profile_image_url || null, active: true });
-        }
-        await audit(req, { event: 'profile.twitch_connected', category: 'security', userId: auth.user.id });
-        await notifySecurity(auth.user, 'Cuenta de Twitch conectada', [`Se conectó ${email} como método de acceso.`]);
+        const result = await upsertOAuthAccount(req, auth.user, {
+          provider: 'twitch', providerUserId: twitchUser.id, email,
+          avatarUrl: twitchUser.profile_image_url, event: 'profile.twitch_connected'
+        });
+        if (result.error) return res.redirect(profileOAuthRedirect({ oauthError: result.error }));
         return res.redirect(profileOAuthRedirect({ oauth: 'connected', provider: 'twitch' }));
       }
 
-      if (account && !account.active) return res.redirect(oauthErrorRedirect('Esta cuenta de Twitch fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
-      let user = account ? await models.User.findByPk(account.userId) : await models.User.findOne({ where: { email } });
+      const identity = oauthIdentity({
+        provider: 'twitch', providerUserId: twitchUser.id, email,
+        displayName: twitchUser.display_name, usernameBase: twitchUser.login, avatarUrl: twitchUser.profile_image_url
+      });
+      const result = await resolveOAuthIdentity(identity);
+      if (result.inactive) return res.redirect(oauthErrorRedirect('Esta cuenta de Twitch fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
+      if (result.requiresUsername) return requireOAuthUsername(req, res, identity);
+      const user = result.user;
+      if (!user || user.statusKey !== 'ACTIVE') return res.redirect(oauthErrorRedirect('Cuenta no disponible.'));
 
-      if (!user) {
-        const rawBase = twitchUser.login || email.split('@')[0] || 'user';
-        const base = rawBase.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 60) || `user${Date.now()}`;
-        let username = base;
-        let suffix = 1;
-        while (await models.User.findOne({ where: { username } })) username = `${base}${suffix++}`;
-
-        user = await models.User.create({
-          username,
-          email,
-          displayName: twitchUser.display_name || username,
-          roleKey: 'USER'
-        });
-        await applyRolePreset(user.id, 'USER');
-      }
-
-      if (user.statusKey !== 'ACTIVE') return res.redirect(oauthErrorRedirect('Cuenta no disponible.'));
-
-      if (!account) {
-        account = await models.OAuthAccount.create({
-          userId: user.id,
-          provider: 'twitch',
-          providerUserId: twitchUser.id,
-          email,
-          avatarUrl: twitchUser.profile_image_url || null
-        });
-      }
-
+      clearPendingOAuthCookie(res);
       return finishOAuthRedirect(req, res, user, 'auth.twitch');
     } catch (error) {
       logger.error('Twitch OAuth failed', { error: error.message });
@@ -601,17 +672,17 @@ class AuthController {
         return res.redirect(profileOAuthRedirect({ oauth: 'connected', provider: 'kick' }));
       }
 
-      const result = await getOrCreateOAuthUser({
+      const identity = oauthIdentity({
         provider: 'kick', providerUserId: kickUser.user_id, email,
-        displayName: kickUser.name, usernameBase: email.split('@')[0]
+        displayName: kickUser.name, usernameBase: kickUser.name || email.split('@')[0], avatarUrl: kickUser.profile_picture
       });
+      const result = await resolveOAuthIdentity(identity);
       if (result.inactive) return res.redirect(oauthErrorRedirect('Esta cuenta de Kick fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
+      if (result.requiresUsername) return requireOAuthUsername(req, res, identity);
       const user = result.user;
       if (!user || user.statusKey !== 'ACTIVE') return res.redirect(oauthErrorRedirect('Cuenta no disponible.'));
 
-      if (!result.account) {
-        await models.OAuthAccount.create({ userId: user.id, provider: 'kick', providerUserId: String(kickUser.user_id), email, avatarUrl: kickUser.profile_picture || null });
-      }
+      clearPendingOAuthCookie(res);
       return finishOAuthRedirect(req, res, user, 'auth.kick');
     } catch (error) {
       logger.error('Kick OAuth failed', { error: error.message });
@@ -721,17 +792,17 @@ class AuthController {
         return res.redirect(profileOAuthRedirect({ oauth: 'connected', provider: 'discord' }));
       }
 
-      const result = await getOrCreateOAuthUser({
+      const identity = oauthIdentity({
         provider: 'discord', providerUserId: discordUser.id, email,
-        displayName, usernameBase: discordUser.username
+        displayName, usernameBase: discordUser.username, avatarUrl
       });
+      const result = await resolveOAuthIdentity(identity);
       if (result.inactive) return res.redirect(oauthErrorRedirect('Esta cuenta de Discord fue desconectada. Inicia con contraseña y vuelve a conectarla desde tu perfil.'));
+      if (result.requiresUsername) return requireOAuthUsername(req, res, identity);
       const user = result.user;
       if (!user || user.statusKey !== 'ACTIVE') return res.redirect(oauthErrorRedirect('Cuenta no disponible.'));
 
-      if (!result.account) {
-        await models.OAuthAccount.create({ userId: user.id, provider: 'discord', providerUserId: discordUser.id, email, avatarUrl });
-      }
+      clearPendingOAuthCookie(res);
       return finishOAuthRedirect(req, res, user, 'auth.discord');
     } catch (error) {
       logger.error('Discord OAuth failed', { error: error.message });

@@ -10,6 +10,7 @@ import { verifyToken } from '../../middlewares/auth.js';
 import { requireChannelEditor } from '../../middlewares/channelAccess.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import logger from '../../helpers/winston.js';
+import { externalFetchLimiter, mutationLimiter } from '../../middlewares/security.js';
 
 const router = Router();
 const root = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads', 'channels');
@@ -149,7 +150,7 @@ const upload = multer({
   }
 });
 
-router.get('/:channelUuid/image-search', verifyToken, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
+router.get('/:channelUuid/image-search', verifyToken, externalFetchLimiter, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
   const query = String(req.query.q || '').trim().slice(0, 160);
   if (!query) throw httpError('Consulta vacía');
 
@@ -190,7 +191,7 @@ router.get('/:channelUuid/image-search', verifyToken, asyncHandler(requireChanne
   res.json({ ok: true, provider: 'wikimedia', results });
 }));
 
-router.post('/:channelUuid/upload', verifyToken, asyncHandler(requireChannelEditor), upload.single('image'), asyncHandler(async (req, res) => {
+router.post('/:channelUuid/upload', verifyToken, mutationLimiter, asyncHandler(requireChannelEditor), upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) throw httpError('No se recibió archivo', 400);
 
   const buffer = await fsp.readFile(req.file.path);
@@ -206,7 +207,7 @@ router.post('/:channelUuid/upload', verifyToken, asyncHandler(requireChannelEdit
   res.status(201).json({ url, mimeType: detectedMime, mediaKind, fileName: req.file.originalname });
 }));
 
-router.post('/:channelUuid/import-image-url', verifyToken, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
+router.post('/:channelUuid/import-image-url', verifyToken, externalFetchLimiter, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
   const sourceUrl = await safeUrl(req.body?.url);
   const { buffer, mimeType } = await downloadLimited(sourceUrl);
   const dir = path.join(root, String(req.channel.id));

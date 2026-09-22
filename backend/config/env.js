@@ -13,6 +13,7 @@ export function validateEnv() {
   if ((process.env.JWT_SECRET || '').length < 32) throw new Error('JWT_SECRET debe tener al menos 32 caracteres.');
   if ((process.env.COOKIE_SAME_SITE || 'lax').toLowerCase() === 'none' && process.env.COOKIE_SECURE !== 'true') throw new Error('COOKIE_SAME_SITE=none requiere COOKIE_SECURE=true.');
   if ((process.env.NODE_ENV || 'development') === 'production' && process.env.COOKIE_SECURE !== 'true') throw new Error('En producción COOKIE_SECURE debe ser true.');
+  if ((process.env.NODE_ENV || 'development') === 'production' && (!process.env.CLOUDFLARE_CAPTCHA_KEY || !process.env.CLOUDFLARE_CAPTCHA_SECRET)) throw new Error('En producción CLOUDFLARE_CAPTCHA_KEY y CLOUDFLARE_CAPTCHA_SECRET son obligatorias.');
   const origins = String(process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '').split(',').map((value) => value.trim()).filter(Boolean);
   if (!origins.length) throw new Error('Configura FRONTEND_URL o CORS_ORIGINS con al menos un origen permitido.');
   for (const origin of origins) { try { const url = new URL(origin); if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin.replace(/\/$/, '')) throw new Error(); } catch { throw new Error(`Origen inválido en FRONTEND_URL/CORS_ORIGINS: ${origin}`); } }

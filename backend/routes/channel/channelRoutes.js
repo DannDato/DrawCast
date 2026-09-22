@@ -3,9 +3,11 @@ import { ChannelController } from '../../controllers/channel/channelController.j
 import { verifyToken } from '../../middlewares/auth.js';
 import { requireChannelEditor } from '../../middlewares/channelAccess.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
+import { mutationLimiter } from '../../middlewares/security.js';
 
 const router = Router();
 router.use(verifyToken);
+router.use(mutationLimiter);
 router.get('/mine', asyncHandler(ChannelController.mine));
 router.get('/featured', asyncHandler(ChannelController.featured));
 router.post('/', asyncHandler(ChannelController.create));

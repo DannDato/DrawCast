@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { LogIn } from "lucide-react";
@@ -7,6 +7,7 @@ import GoogleAuthButton from "../components/auth/GoogleAuthButton";
 import TwitchAuthButton from "../components/auth/TwitchAuthButton";
 import ExternalOAuthButton from "../components/auth/ExternalOAuthButton";
 import AuthShell from "../components/auth/AuthShell";
+import TurnstileWidget from "../components/auth/TurnstileWidget";
 import { clearPendingVerifyAccess, setPendingVerifyAccess } from "../utils/verifyAccessStorage";
 
 export default function Login() {
@@ -15,6 +16,8 @@ export default function Login() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState(() => searchParams.get("oauthError") || "");
     const [loading, setLoading] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState("");
+    const turnstileRef = useRef(null);
     const { login: doLogin } = useAuth();
     const navigate = useNavigate();
     const submit = async (event) => {
@@ -23,7 +26,7 @@ export default function Login() {
         setLoading(true);
         clearPendingVerifyAccess();
         try {
-            const data = await doLogin({ login, password });
+            const data = await doLogin({ login, password, turnstileToken });
             if (data.requiresOtp) {
                 setPendingVerifyAccess(data);
                 navigate("/verify-access");
@@ -32,6 +35,7 @@ export default function Login() {
             navigate("/app");
         } catch (err) {
             setError(err.response?.data?.message || "No se pudo iniciar sesión");
+            turnstileRef.current?.reset();
         } finally {
             setLoading(false);
         }
@@ -72,7 +76,8 @@ export default function Login() {
                     />
                 </label>
                 {error ? <p className="dc-auth-alert error">{error}</p> : null}
-                <button className="dc-auth-primary" disabled={loading}>
+                <TurnstileWidget ref={turnstileRef} action="login" onTokenChange={setTurnstileToken} />
+                <button className="dc-auth-primary" disabled={loading || !turnstileToken}>
                     <LogIn size={16} />
                     {loading ? "ENTRANDO..." : "INICIAR SESIÓN"}
                 </button>

@@ -25,6 +25,10 @@ export default function GoogleAuthButton({ mode = 'signin', onError }) {
     try {
       clearPendingVerifyAccess();
       const { data } = await api.post('/auth/google/code', { code }, { headers: { 'X-Requested-With': 'XmlHttpRequest' } });
+      if (data.requiresUsername) {
+        navigate('/register?oauthUsername=1');
+        return;
+      }
       if (data.requiresOtp) {
         setPendingVerifyAccess(data);
         navigate('/verify-access');

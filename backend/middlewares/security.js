@@ -5,6 +5,13 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export const apiLimiter = rateLimit({ windowMs: number('API_RATE_LIMIT_WINDOW_MS', 60000), limit: number('API_RATE_LIMIT_MAX', 300), standardHeaders: true, legacyHeaders: false });
 export const authLimiter = rateLimit({ windowMs: number('AUTH_RATE_LIMIT_WINDOW_MS', 900000), limit: number('AUTH_RATE_LIMIT_MAX', 20), standardHeaders: true, legacyHeaders: false, skipSuccessfulRequests: true });
+export const oauthLimiter = rateLimit({ windowMs: number('OAUTH_RATE_LIMIT_WINDOW_MS', 900000), limit: number('OAUTH_RATE_LIMIT_MAX', 30), standardHeaders: true, legacyHeaders: false });
+export const authReadLimiter = rateLimit({ windowMs: 60000, limit: number('AUTH_READ_RATE_LIMIT_MAX', 120), standardHeaders: true, legacyHeaders: false });
+export const sensitiveAccountLimiter = rateLimit({ windowMs: 900000, limit: number('SENSITIVE_ACCOUNT_RATE_LIMIT_MAX', 20), standardHeaders: true, legacyHeaders: false });
+export const mutationLimiter = rateLimit({ windowMs: 60000, limit: number('MUTATION_RATE_LIMIT_MAX', 120), standardHeaders: true, legacyHeaders: false });
+export const externalFetchLimiter = rateLimit({ windowMs: 60000, limit: number('EXTERNAL_FETCH_RATE_LIMIT_MAX', 30), standardHeaders: true, legacyHeaders: false });
+export const publicMediaLimiter = rateLimit({ windowMs: 60000, limit: number('PUBLIC_MEDIA_RATE_LIMIT_MAX', 180), standardHeaders: true, legacyHeaders: false });
+export const usernameAvailabilityLimiter = rateLimit({ windowMs: 60000, limit: 60, standardHeaders: true, legacyHeaders: false });
 export const otpLimiter = rateLimit({ windowMs: number('OTP_RATE_LIMIT_WINDOW_MS', 600000), limit: number('OTP_RATE_LIMIT_MAX', 12), standardHeaders: true, legacyHeaders: false });
 export const otpResendLimiter = rateLimit({ windowMs: number('OTP_RESEND_RATE_LIMIT_WINDOW_MS', 900000), limit: number('OTP_RESEND_RATE_LIMIT_MAX', 5), standardHeaders: true, legacyHeaders: false });
 

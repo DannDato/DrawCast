@@ -48,7 +48,7 @@ export default function DashboardLayout() {
 
     const exit = async () => {
         await logout();
-        navigate("/login");
+        navigate("/");
     };
 
     const navItem = (item, mobile = false) => {
@@ -76,7 +76,7 @@ export default function DashboardLayout() {
     };
 
     return (
-        <div className="flex min-h-screen flex-col bg-[var(--dc-bg)] text-[var(--dc-text)]">
+        <div className="flex min-h-screen min-h-dvh flex-col bg-[var(--dc-bg)] text-[var(--dc-text)]">
             <header className="sticky top-0 z-40 bg-[var(--dc-nav-bg)] backdrop-blur">
                 <div className="flex h-14 min-w-0 items-center gap-3 px-3 md:px-5">
                     <NavLink to="/app" className="flex min-w-0 shrink-0 items-baseline gap-1.5 no-underline" onClick={(event) => {
@@ -133,11 +133,15 @@ export default function DashboardLayout() {
                 )}
             </header>
 
-            <main className="dc-dashboard-stage min-w-0 flex-1">
+            <main className="dc-dashboard-stage flex min-h-[calc(100vh-3.5rem)] min-h-[calc(100dvh-3.5rem)] min-w-0 flex-1 flex-col">
                 <div className="min-w-0 flex-1">
                     <Outlet />
                 </div>
-                {!isFullEditor && <AppFooter />}
+                {!isFullEditor && (
+                    <div className="mt-auto pt-8">
+                        <AppFooter />
+                    </div>
+                )}
             </main>
         </div>
     );
