@@ -320,6 +320,7 @@ export class ChannelController {
       await models.ChannelInvitation.destroy({ where: { channelId }, transaction });
       await models.ChannelCollaborator.destroy({ where: { channelId }, transaction });
       await models.SavedDesign.destroy({ where: { channelId }, transaction });
+      await models.ChannelGuide.destroy({ where: { channelId }, transaction });
       await models.ChannelUserPreference.destroy({ where: { channelId }, transaction });
       await models.Channel.destroy({ where: { id: channelId, ownerId: req.user.id }, transaction });
     });

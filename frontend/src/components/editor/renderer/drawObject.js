@@ -28,6 +28,15 @@ function getImage(url) {
   return image;
 }
 
+export async function preloadSceneImages(objects) {
+  const urls = [...new Set(Object.values(objects).filter((object) => !object.hidden && getObjectType(object) === 'image').map((object) => object.url))];
+  await Promise.all(urls.map(async (url) => {
+    const image = getImage(url);
+    if (!image) throw new Error('Hay una imagen sin cargar en el lienzo.');
+    try { await image.decode(); } catch { throw new Error('No se pudo cargar una imagen del lienzo para guardar la guía.'); }
+  }));
+}
+
 function drawImage(ctx, object) {
   const image = getImage(object.url);
   if (!image?.complete || !image.naturalWidth) return;
@@ -135,5 +144,10 @@ export function hitObject(object, x, y) {
   const oh = Number(object.h) || 0;
   const frame = transformFrame(object);
   const point = frame && Number(object.rotation) ? unrotatePointAround({ x, y }, boundsCenter(frame), Number(object.rotation) || 0) : { x, y };
+  if (object.shapeType === 'line') {
+    const tolerance = Math.max(6, (Number(object.strokeWidth) || 4) / 2 + 2);
+    const closestX = Math.max(ox, Math.min(ox + ow, point.x));
+    return Math.hypot(point.x - closestX, point.y - (oy + oh / 2)) <= tolerance;
+  }
   return point.x >= ox && point.x <= ox + ow && point.y >= oy && point.y <= oy + oh;
 }

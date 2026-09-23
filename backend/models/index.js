@@ -16,6 +16,7 @@ import TrustedDeviceFactory from './trustedDevice.model.js';
 import EmailChangeFactory from './emailChange.model.js';
 import AuthThrottleFactory from './authThrottle.model.js';
 import ChannelFactory from './channel.model.js';
+import ChannelGuideFactory from './channelGuide.model.js';
 import ChannelCollaboratorFactory from './channelCollaborator.model.js';
 import ChannelInvitationFactory from './channelInvitation.model.js';
 import SavedDesignFactory from './savedDesign.model.js';
@@ -38,6 +39,7 @@ const models = {
   EmailChange: EmailChangeFactory(db),
   AuthThrottle: AuthThrottleFactory(db),
   Channel: ChannelFactory(db),
+  ChannelGuide: ChannelGuideFactory(db),
   ChannelCollaborator: ChannelCollaboratorFactory(db),
   ChannelInvitation: ChannelInvitationFactory(db),
   SavedDesign: SavedDesignFactory(db),
@@ -90,5 +92,8 @@ models.Channel.hasMany(models.SavedDesign, { foreignKey: 'channelId', as: 'saved
 models.SavedDesign.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
 models.User.hasMany(models.SavedDesign, { foreignKey: 'createdBy', as: 'savedDesigns', onDelete: 'CASCADE' });
 models.SavedDesign.belongsTo(models.User, { foreignKey: 'createdBy', as: 'creator' });
+
+models.Channel.hasMany(models.ChannelGuide, { foreignKey: 'channelId', as: 'guides', onDelete: 'CASCADE' });
+models.ChannelGuide.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
 
 export { db, auditDb, models };

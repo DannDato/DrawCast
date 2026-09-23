@@ -13,7 +13,7 @@ export default function Overlay() {
   const [liveStrokes, setLiveStrokes] = useState({});
   const [overlayHidden, setOverlayHidden] = useState(false);
   const canvasRef = useRef(null);
-  const activeAudioRef = useRef(new Set());
+  const activeAudioRef = useRef(new Map());
 
   const stopAllSounds = useCallback(() => {
     activeAudioRef.current.forEach((audio) => {
@@ -23,23 +23,36 @@ export default function Overlay() {
     activeAudioRef.current.clear();
   }, []);
 
-  const playSound = useCallback(({ soundId, version } = {}) => {
-    if (!soundId) return;
-    const audio = new Audio(getSoundUrl(soundId, version));
+  const stopSound = useCallback(({ playbackId } = {}) => {
+    if (!playbackId) return;
+    const audio = activeAudioRef.current.get(playbackId);
+    if (!audio) return;
+    activeAudioRef.current.delete(playbackId);
+    audio.pause();
+    audio.currentTime = 0;
+  }, []);
+
+  const playSound = useCallback(({ soundId, version, scope = 'library', playbackId } = {}) => {
+    if (!soundId || !playbackId) return;
+    const audioUrl = getSoundUrl(soundId, version, scope, publicKey);
+    if (!audioUrl) return;
+    stopSound({ playbackId });
+
+    const audio = new Audio(audioUrl);
     audio.preload = 'auto';
 
     const cleanup = () => {
-      activeAudioRef.current.delete(audio);
+      if (activeAudioRef.current.get(playbackId) === audio) activeAudioRef.current.delete(playbackId);
       audio.removeEventListener('ended', cleanup);
       audio.removeEventListener('error', cleanup);
     };
 
-    activeAudioRef.current.add(audio);
+    activeAudioRef.current.set(playbackId, audio);
     audio.addEventListener('ended', cleanup, { once: true });
     audio.addEventListener('error', cleanup, { once: true });
     const playback = audio.play();
     playback?.catch(cleanup);
-  }, []);
+  }, [publicKey, stopSound]);
 
 
   useEffect(() => {
@@ -61,6 +74,7 @@ export default function Overlay() {
     }),
     'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
     'sound-play': playSound,
+    'sound-stop': stopSound,
     'overlay-visibility': ({ hidden } = {}) => {
       setOverlayHidden(Boolean(hidden));
       if (hidden) {
@@ -69,7 +83,7 @@ export default function Overlay() {
       }
     },
     'clear-all': () => { setObjects({}); setLiveStrokes({}); }
-  }), [playSound, stopAllSounds]);
+  }), [playSound, stopAllSounds, stopSound]);
 
   useChannelSocket(publicKey, 'overlay', handlers);
 

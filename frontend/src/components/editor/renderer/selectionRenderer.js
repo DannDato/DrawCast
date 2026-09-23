@@ -84,7 +84,8 @@ export function getResizeHandles(target) {
     se: { x: x + w, y: y + h }, s: { x: cx, y: y + h }, sw: { x, y: y + h }, w: { x, y: cy }
   };
   const center = { x: cx, y: cy };
-  return RESIZE_HANDLES.map((id) => ({ id, ...rotatePointAround(points[id], center, rotation) }));
+  const handles = target.shapeType === 'line' ? ['w', 'e'] : RESIZE_HANDLES;
+  return handles.map((id) => ({ id, ...rotatePointAround(points[id], center, rotation) }));
 }
 
 export function getRotateHandle(target, distance = 42) {

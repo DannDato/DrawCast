@@ -1,0 +1,36 @@
+.dc-guides-modal{
+  width:min(720px,calc(100vw - 32px));
+  grid-template-rows:auto minmax(0,1fr) auto;
+}
+
+.dc-guides-modal .dc-designs-list{
+  min-height:0;
+  overflow-y:auto;
+}
+
+@media(max-width:520px){
+  .dc-designs-backdrop:has(.dc-guides-modal){
+    padding:0;
+  }
+
+  .dc-guides-modal{
+    width:100%;
+    height:100dvh;
+    max-height:100dvh;
+  }
+
+  .dc-guides-modal .dc-design-card-actions{
+    flex-wrap:wrap;
+  }
+}
+
+@media(max-height:560px){
+  .dc-guides-modal .dc-designs-header{
+    padding-top:10px;
+    padding-bottom:10px;
+  }
+
+  .dc-guides-modal .dc-designs-header p{
+    display:none;
+  }
+}

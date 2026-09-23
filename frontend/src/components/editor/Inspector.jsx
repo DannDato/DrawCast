@@ -23,6 +23,7 @@ const TOOL_NAMES = {
   eraser: 'Borrador',
   image: 'Imagen / GIF',
   shape: 'Formas',
+  line: 'Línea',
   text: 'Texto',
   timer: 'Temporizador'
 };
@@ -42,6 +43,8 @@ export default function Inspector({
   selectedGroupCount = 0,
   drawConfig,
   setDrawConfig,
+  lineConfig,
+  setLineConfig,
   shapeConfig,
   setShapeConfig,
   imageConfig,
@@ -94,12 +97,14 @@ export default function Inspector({
     };
   }, []);
   const isShape = selected?.tipo === 'shape' || selected?.tipo === 'forma';
+  const isLine = isShape && selected.shapeType === 'line';
+  const showLinePanel = tool === 'line' || isLine;
   const isImage = selected?.tipo === 'image' || selected?.tipo === 'imagen';
   const isText = selected?.tipo === 'text' || selected?.tipo === 'texto';
   const isTimer = selected?.tipo === 'timer';
   const isMulti = selectionCount > 1;
   const canGroup = selectedObjects.filter((object) => [object?.x, object?.y, object?.w, object?.h].every((value) => Number.isFinite(Number(value)))).length >= 2;
-  const showShapePanel = tool === 'shape' || isShape;
+  const showShapePanel = tool === 'shape' || (isShape && !isLine);
   const showImagePanel = tool === 'image' || isImage;
   const showTextPanel = tool === 'text' || isText;
   const showTimerPanel = tool === 'timer' || isTimer;
@@ -222,6 +227,14 @@ export default function Inspector({
     return shapeConfig[canonical];
   };
 
+  const updateLine = (patch) => {
+    setLineConfig((current) => ({ ...current, ...patch }));
+    if (isLine) {
+      const height = Math.max(8, patch.strokeWidth ?? selected.h);
+      onPatch({ ...patch, h: height, y: selected.y + (selected.h - height) / 2 });
+    }
+  };
+
   const updateShape = (patch) => {
     setShapeConfig((current) => ({ ...current, ...patch }));
     if (isShape) onPatch(patch);
@@ -298,6 +311,17 @@ export default function Inspector({
           />
         )}
 
+        {showLinePanel && (
+          <section>
+            <h3>LÍNEA</h3>
+            <label>COLOR</label>
+            <input type="color" value={isLine ? selected.strokeColor : lineConfig.strokeColor} onChange={(event) => updateLine({ strokeColor: event.target.value })} />
+            <label>GROSOR <b>{isLine ? selected.strokeWidth : lineConfig.strokeWidth}</b></label>
+            <input type="range" min="1" max="64" value={isLine ? selected.strokeWidth : lineConfig.strokeWidth} onChange={(event) => updateLine({ strokeWidth: Number(event.target.value) })} />
+            <p className="dc-help">Arrastra para dibujar una línea recta. Mantén Shift para ajustar el ángulo a pasos de 45°.</p>
+          </section>
+        )}
+
         {showShapePanel && (
           <section>
             <h3>FORMAS</h3>
@@ -346,7 +370,7 @@ export default function Inspector({
           </section>
         )}
 
-        {!selected && !isMulti && !showShapePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && tool !== 'eraser' && <p className="dc-inspector-empty text-[var(--dc-muted)]">Selecciona una capa para ver sus propiedades.</p>}
+        {!selected && !isMulti && !showShapePanel && !showLinePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && tool !== 'eraser' && <p className="dc-inspector-empty text-[var(--dc-muted)]">Selecciona una capa para ver sus propiedades.</p>}
 
         {selected && (
           <section>

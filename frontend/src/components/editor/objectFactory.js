@@ -36,7 +36,7 @@ export const makeShape = (draft = {}) => {
     y: Number(shape.y) || 0,
     w: Math.max(8, Number(shape.w) || 220),
     h: Math.max(8, Number(shape.h) || 180),
-    rotation: 0,
+    rotation: shapeType === 'line' ? Number(shape.rotation) || 0 : 0,
     fillColor: shape.fillColor ?? shape.fill ?? DEFAULT_SHAPE_CONFIG.fillColor,
     strokeColor: shape.strokeColor ?? shape.stroke ?? DEFAULT_SHAPE_CONFIG.strokeColor,
     strokeWidth: Number(shape.strokeWidth ?? shape.strokeSize) || 0,

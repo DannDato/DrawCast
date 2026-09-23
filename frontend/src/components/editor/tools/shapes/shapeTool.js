@@ -15,6 +15,7 @@ export const DEFAULT_SHAPE_CONFIG = {
 };
 
 export function getShapeLabel(shapeType) {
+  if (shapeType === 'line') return 'Línea';
   return SHAPE_TYPES.find((shape) => shape.value === shapeType)?.label || 'Forma';
 }
 

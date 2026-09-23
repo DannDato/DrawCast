@@ -1,0 +1,203 @@
+/* TRAZIO editor // Patch 90
+   Controles organizados por contexto para uso compacto dentro de OBS. */
+.dc-layers-primary-action{
+  flex:0 0 auto;
+  padding:8px;
+  border-bottom:1px solid var(--dc-line-soft);
+  background:var(--dc-surface-raised);
+}
+
+.dc-layers-tools{
+  display:grid;
+  flex:0 0 auto;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:5px;
+  padding:7px 8px;
+  border-bottom:1px solid var(--dc-line-soft);
+  background:var(--dc-panel);
+}
+
+.dc-layers-tools button{
+  display:flex;
+  min-width:0;
+  min-height:31px;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:0 7px;
+  border:1px solid var(--dc-line);
+  background:var(--dc-surface-raised);
+  color:var(--dc-text-muted);
+  font:700 11px/1 Outfit,sans-serif;
+  cursor:pointer;
+}
+
+.dc-layers-tools button:hover:not(:disabled){
+  border-color:var(--dc-line-hover);
+  background:var(--dc-surface-hover);
+  color:var(--dc-text);
+}
+
+.dc-layers-tools button:disabled,
+.dc-layers .dc-layers-new-layer:disabled{
+  opacity:.38;
+  cursor:not-allowed;
+}
+
+.dc-layers-tools .dc-layers-properties{
+  grid-column:1 / -1;
+}
+
+.dc-layers-tools .dc-layers-properties.active{
+  border-color:var(--dc-accent-four);
+  background:var(--dc-accent-four-soft);
+  color:var(--dc-accent-four);
+}
+
+.dc-layers-bottom-action{
+  flex:0 0 auto;
+  padding:7px 8px;
+  border-top:1px solid var(--dc-line-soft);
+  background:var(--dc-panel);
+}
+
+.dc-layers-bottom-action .dc-layers-clear{
+  display:flex;
+  width:100%;
+  min-height:31px;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:0 7px;
+  border:1px solid var(--dc-line);
+  background:var(--dc-surface-raised);
+  color:var(--dc-danger);
+  font:700 11px/1 Outfit,sans-serif;
+  cursor:pointer;
+}
+
+.dc-layers-bottom-action .dc-layers-clear:hover:not(:disabled){
+  border-color:var(--dc-danger-border);
+  background:var(--dc-danger-bg-soft);
+  color:var(--dc-danger-text);
+}
+
+.dc-layers-bottom-action .dc-layers-clear:disabled{
+  opacity:.38;
+  cursor:not-allowed;
+}
+
+.dc-toolbar-mobile-only{
+  display:none!important;
+}
+
+.dc-file-live-toggle.is-live{
+  color:var(--dc-success-text)!important;
+}
+
+.dc-file-live-toggle.is-studio{
+  color:var(--dc-warning-text)!important;
+}
+
+.dc-file-live-toggle.is-required{
+  cursor:pointer;
+}
+
+.dc-file-live-toggle.is-live .dc-live-switch-track i{
+  transform:translateX(13px);
+}
+
+.dc-status{
+  gap:8px;
+}
+
+.dc-status-history{
+  display:flex;
+  flex:0 0 auto;
+  align-items:center;
+  gap:4px;
+}
+
+.dc-status-action{
+  display:grid;
+  width:26px;
+  height:24px;
+  flex:0 0 auto;
+  place-items:center;
+  padding:0;
+  border:1px solid var(--dc-line);
+  background:transparent;
+  color:var(--dc-text-muted);
+  cursor:pointer;
+}
+
+.dc-status-action:hover:not(:disabled){
+  border-color:var(--dc-accent-four);
+  color:var(--dc-accent-four);
+}
+
+.dc-status-action:disabled{
+  opacity:.3;
+  cursor:not-allowed;
+}
+
+.dc-status-info{
+  display:flex;
+  min-width:0;
+  flex:1 1 auto;
+  align-items:center;
+  gap:7px;
+  overflow:hidden;
+}
+
+.dc-status-hotkeys{
+  margin-left:auto;
+}
+
+.dc-workspace.is-launchpad .dc-launchpad-workspace{
+  bottom:58px;
+}
+
+@media(max-width:760px){
+  .dc-status{
+    right:8px;
+    left:8px;
+    bottom:8px;
+    width:auto;
+    max-width:none!important;
+  }
+  .dc-status-info{
+    display:none;
+  }
+  .dc-status-history,
+  .dc-status-hotkeys{
+    display:flex;
+  }
+  .dc-toolbar-mode-toggle{
+    width:34px;
+    padding:0;
+  }
+  .dc-toolbar-mode-toggle span{
+    display:none;
+  }
+  .dc-toolbar-mobile-hidden,
+  .dc-toolbar-mobile-collapse{
+    display:none!important;
+  }
+  .dc-toolbar-popover .dc-toolbar-mobile-only{
+    display:grid!important;
+  }
+  .dc-workspace.is-launchpad .dc-launchpad-workspace{
+    bottom:54px;
+  }
+}
+
+.dc-toolbar-file-menu button.dc-toolbar-save-option{
+  width:calc(100% - 14px);
+  margin-left:14px;
+  padding-left:8px;
+}
+
+.dc-toolbar-file-menu button.dc-toolbar-save-option>svg{
+  opacity:.72;
+}

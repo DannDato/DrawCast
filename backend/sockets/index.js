@@ -21,6 +21,7 @@ import {
   setOverlayHidden
 } from '../services/channelRuntimeService.js';
 import { getSound } from '../services/soundLibraryService.js';
+import { getChannelSound } from '../services/channelSoundService.js';
 import logger from '../helpers/winston.js';
 
 const room = (channelId) => `channel:${channelId}`;
@@ -283,24 +284,62 @@ export function configureSockets(io) {
           return;
         }
 
-        const sound = await getSound(payload?.soundId);
+        let sound = await getSound(payload?.soundId);
+        if (!sound) sound = await getChannelSound(joined.channelId, payload?.soundId);
         if (!sound) {
           reply?.({ ok: false, message: 'Ese sonido ya no existe en la biblioteca.' });
           return;
         }
 
+        const playbackId = `${socket.id}:${now}`;
+        const activeSounds = socket.data.activeSounds instanceof Map ? socket.data.activeSounds : new Map();
+        const previousPlaybackId = activeSounds.get(sound.id);
+        if (previousPlaybackId) io.to(overlayRoom(joined.channelId)).emit('sound-stop', { playbackId: previousPlaybackId });
+        activeSounds.set(sound.id, playbackId);
+        socket.data.activeSounds = activeSounds;
+
         const event = {
           soundId: sound.id,
           version: sound.version,
-          playbackId: `${socket.id}:${now}`
+          scope: sound.scope || 'library',
+          playbackId
         };
 
-
         io.to(overlayRoom(joined.channelId)).emit('sound-play', event);
-        reply?.({ ok: true });
+        reply?.({ ok: true, playbackId });
       } catch (error) {
         logger.error('Falló el disparo de sonido por socket', { socketId: socket.id, userId: joined?.userId, channelId: joined?.channelId, error: error.message });
         reply?.({ ok: false, message: 'No fue posible reproducir el sonido.' });
+      }
+    });
+
+    socket.on('sound-stop', async (payload, ack) => {
+      const reply = typeof ack === 'function' ? ack : null;
+      if (!joined || joined.role !== 'editor') {
+        socket.emit('access-denied');
+        reply?.({ ok: false, message: 'Acceso denegado' });
+        return;
+      }
+
+      try {
+        if (!(await revalidateInteractiveAccess(joined))) {
+          socket.emit('access-revoked', { publicKey: joined.publicKey, reason: 'authorization-changed' });
+          socket.disconnect(true);
+          reply?.({ ok: false, message: 'Tu acceso ya no es válido' });
+          return;
+        }
+
+        const soundId = typeof payload?.soundId === 'string' ? payload.soundId : '';
+        const activeSounds = socket.data.activeSounds instanceof Map ? socket.data.activeSounds : new Map();
+        const playbackId = activeSounds.get(soundId);
+        if (playbackId) {
+          activeSounds.delete(soundId);
+          io.to(overlayRoom(joined.channelId)).emit('sound-stop', { playbackId });
+        }
+        reply?.({ ok: true });
+      } catch (error) {
+        logger.error('Falló la detención de sonido por socket', { socketId: socket.id, userId: joined?.userId, channelId: joined?.channelId, error: error.message });
+        reply?.({ ok: false, message: 'No fue posible detener el sonido.' });
       }
     });
 
@@ -324,8 +363,8 @@ export function configureSockets(io) {
       const enabled = Boolean(payload?.enabled);
       const previous = getChannelControl(context.channelId);
 
-      if (!enabled && previous.editorCount > 1) {
-        reply?.({ ok: false, message: 'Modo Live es obligatorio mientras haya más de un editor conectado.' });
+      if (!enabled && previous.liveRequired) {
+        reply?.({ ok: false, message: 'Modo Live es obligatorio mientras haya otro colaborador conectado.' });
         return;
       }
 

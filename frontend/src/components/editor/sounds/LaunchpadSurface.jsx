@@ -8,7 +8,14 @@ function soundLabel(sound) {
   return value || 'Sin asignar';
 }
 
-export default function LaunchpadSurface({ sounds = [], slots = [], connected = false, disabled = false, onPlaySound }) {
+function soundColor(sound) {
+  const name = soundLabel(sound).normalize('NFC').toLowerCase();
+  let hash = 2166136261;
+  for (const character of name) hash = Math.imul(hash ^ character.codePointAt(0), 16777619);
+  return `hsl(${(hash >>> 0) % 360} 62% 48%)`;
+}
+
+export default function LaunchpadSurface({ sounds = [], slots = [], connected = false, disabled = false, onPlaySound, soundPlayback = {} }) {
   const soundMap = useMemo(() => new Map(sounds.map((sound) => [sound.id, sound])), [sounds]);
   const pads = useMemo(() => Array.from({ length: PAD_COUNT }, (_, index) => soundMap.get(slots[index]) || null), [slots, soundMap]);
 
@@ -30,21 +37,26 @@ export default function LaunchpadSurface({ sounds = [], slots = [], connected = 
   return (
     <div className="dc-launchpad-workspace" aria-label="Launchpad de sonidos">
       <div className="dc-launchpad-pad-grid">
-        {pads.map((sound, index) => (
-          <button
-            key={index}
-            type="button"
-            className="dc-launchpad-pad"
-            disabled={!sound || !connected || disabled}
-            onPointerDown={(event) => {
-              if (event.button !== 0 || !sound || !connected || disabled) return;
-              onPlaySound?.(sound.id);
-            }}
-            title={sound ? soundLabel(sound) : 'Sin asignar'}
-          >
-            <span>{soundLabel(sound)}</span>
-          </button>
-        ))}
+        {pads.map((sound, index) => {
+          const playback = sound ? soundPlayback[sound.id] : null;
+          return (
+            <button
+              key={index}
+              type="button"
+              className={`dc-launchpad-pad ${playback ? 'is-playing' : ''}`}
+              style={{ '--dc-pad-color': sound ? soundColor(sound) : undefined, '--dc-sound-duration': playback?.durationMs ? `${playback.durationMs}ms` : undefined }}
+              aria-pressed={Boolean(playback)}
+              disabled={!sound || !connected || disabled}
+              onPointerDown={(event) => {
+                if (event.button !== 0 || !sound || !connected || disabled) return;
+                onPlaySound?.(sound.id);
+              }}
+              title={sound ? soundLabel(sound) : 'Sin asignar'}
+            >
+              <span>{soundLabel(sound)}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

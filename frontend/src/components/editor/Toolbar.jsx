@@ -19,9 +19,11 @@ import {
   Settings2,
   Power,
   Shapes,
+  Slash,
   Timer,
   Type,
-  Volume2
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { GUIDE_SHORTCUTS, TOOL_SHORTCUTS } from './hotkeys/shortcuts';
 import { PresenceStack } from '../ui/PresenceAvatar';
@@ -37,14 +39,8 @@ const directTools = [
 const insertTools = [
   { id: 'image', label: 'Imagen / GIF', icon: Image },
   { id: 'shape', label: 'Forma', icon: Shapes },
+  { id: 'line', label: 'Línea', icon: Slash },
   { id: 'timer', label: 'Temporizador', icon: Timer }
-];
-
-const guides = [
-  { id: 'none', label: 'Sin guía', text: null },
-  { id: 'canva-guide.png', label: 'Guía 1', text: 'G1' },
-  { id: 'canva-guide2.png', label: 'Guía 2', text: 'G2' },
-  { id: 'canva-guide3.png', label: 'Guía 3', text: 'G3' }
 ];
 
 function IconButton({ label, icon, onClick, disabled = false, active = false, danger = false, className = '' }) {
@@ -59,7 +55,9 @@ export default function Toolbar({
   tool,
   setTool,
   guide,
+  guides = [],
   setGuide,
+  onSaveGuide,
   onSaveDesign,
   onLoadDesigns,
   onLoadRecent,
@@ -86,6 +84,9 @@ export default function Toolbar({
   onToggleWorkspaceMode,
   soundSlots = [],
   onPlaySound,
+  soundPlayback = {},
+  soundMonitorEnabled = true,
+  onToggleSoundMonitor,
   onAssignSounds,
   onAssignLaunchpadSounds
 }) {
@@ -97,7 +98,7 @@ export default function Toolbar({
   const workspaceDisabled = controlDisabled || editorLocked;
   const audioDisabled = controlDisabled;
   const launchpadMode = workspaceMode === 'launchpad';
-  const liveSwitchDisabled = controlDisabled || editorLocked || (liveEnabled && liveRequired);
+  const liveSwitchDisabled = controlDisabled || editorLocked;
 
   useEffect(() => {
     if (!imagePickerRequest || workspaceDisabled) return;
@@ -165,15 +166,20 @@ export default function Toolbar({
         </button>
       ) : <>
       <div className="dc-toolbar-group dc-toolbar-menu-wrap">
-        <button type="button" className={`dc-toolbar-menu-trigger ${openMenu === 'file' ? 'active' : ''}`} onClick={() => toggleMenu('file')} aria-expanded={openMenu === 'file'} disabled={workspaceDisabled}>
+        <button type="button" className={`dc-toolbar-menu-trigger ${openMenu === 'file' || openMenu === 'save-as' ? 'active' : ''}`} onClick={() => toggleMenu('file')} aria-expanded={openMenu === 'file' || openMenu === 'save-as'} disabled={workspaceDisabled}>
           <File size={15} />
           <span>Archivo</span>
           <ChevronDown size={13} />
         </button>
 
-        {openMenu === 'file' && (
+        {(openMenu === 'file' || openMenu === 'save-as') && (
           <div className="dc-toolbar-popover dc-toolbar-file-menu">
-            <button type="button" onClick={() => { onSaveDesign?.(); setOpenMenu(null); }}><Save size={15} /><span>Guardar diseño...</span></button>
+            <button type="button" onClick={() => setOpenMenu((current) => current === 'save-as' ? 'file' : 'save-as')} aria-expanded={openMenu === 'save-as'}><Save size={15} /><span>Guardar como</span><ChevronDown size={13} /></button>
+            {openMenu === 'save-as' && <>
+              <button type="button" className="dc-toolbar-save-option" onClick={() => { onSaveDesign?.(); setOpenMenu(null); }}><Save size={15} /><span>Lienzo</span></button>
+              <button type="button" className="dc-toolbar-save-option" onClick={() => { onSaveGuide?.(); setOpenMenu(null); }}><Grid3X3 size={15} /><span>Guía</span></button>
+              <span className="dc-toolbar-popover-separator" />
+            </>}
             <button type="button" onClick={() => { onLoadDesigns?.(); setOpenMenu(null); }}><FolderOpen size={15} /><span>Cargar diseño...</span></button>
             <span className="dc-toolbar-popover-separator" />
             <button
@@ -182,7 +188,7 @@ export default function Toolbar({
               onClick={() => { onToggleLive?.(); setOpenMenu(null); }}
               disabled={liveSwitchDisabled}
               aria-pressed={liveEnabled}
-              title={liveEnabled && liveRequired ? 'Live es obligatorio mientras haya más de un editor conectado' : liveEnabled ? 'Live activado: los cambios se reflejan al instante en el overlay' : 'Modo Estudio: prepara cambios sin mostrarlos hasta publicar'}
+              title={liveEnabled && liveRequired ? 'Live es obligatorio mientras haya otro colaborador conectado' : liveEnabled ? 'Live activado: los cambios se reflejan al instante en el overlay' : 'Modo Estudio: prepara cambios sin mostrarlos hasta publicar'}
             >
               <Radio size={15} />
               <span>{liveEnabled ? 'Live' : 'Estudio'}</span>
@@ -210,8 +216,11 @@ export default function Toolbar({
         </button>
         {openMenu === 'guides' && (
           <div className="dc-toolbar-popover dc-toolbar-guides-menu">
-            {guides.map((item) => (
-              <button key={item.id} type="button" className={guide === item.id ? 'active' : ''} onClick={() => { setGuide(item.id); setOpenMenu(null); }}>
+            {[{ id: 'none', label: 'Sin guía', text: null }, ...[1, 2, 3].map((slot) => {
+              const saved = guides.find((item) => item.slot === slot);
+              return { id: String(slot), label: saved ? `Guía ${slot}` : `Guía ${slot} · Sin guardar`, text: `G${slot}`, disabled: !saved };
+            })].map((item) => (
+              <button key={item.id} type="button" className={guide === item.id ? 'active' : ''} disabled={item.disabled} onClick={() => { setGuide(item.id); setOpenMenu(null); }}>
                 <span className="dc-toolbar-guide-mark">{item.text || '—'}</span>
                 <span>{item.label}</span>
                 <kbd>{GUIDE_SHORTCUTS[item.id]}</kbd>
@@ -231,8 +240,17 @@ export default function Toolbar({
           <div className="dc-toolbar-popover dc-toolbar-sounds-menu">
             {Array.from({ length: 5 }, (_, index) => {
               const sound = soundSlots[index];
+              const playback = sound ? soundPlayback[sound.id] : null;
               return (
-                <button key={index} type="button" disabled={!sound} onClick={() => { if (sound) onPlaySound?.(sound.id); setOpenMenu(null); }}>
+                <button
+                  key={index}
+                  type="button"
+                  className={playback ? 'is-playing' : ''}
+                  style={playback?.durationMs ? { '--dc-sound-duration': `${playback.durationMs}ms` } : undefined}
+                  aria-pressed={Boolean(playback)}
+                  disabled={!sound}
+                  onClick={() => { if (sound) onPlaySound?.(sound.id); }}
+                >
                   <span className="dc-toolbar-sound-mark">{index + 1}</span>
                   <span>{sound?.name || 'Sin asignar'}</span>
                   <Volume2 size={13} />
@@ -318,6 +336,14 @@ export default function Toolbar({
       ) : null}
 
       <div className="dc-toolbar-spacer" />
+
+      <IconButton
+        label={soundMonitorEnabled ? 'Monitoreo activado // Click para silenciar el audio local' : 'Monitoreo silenciado // Click para escuchar el audio local'}
+        icon={soundMonitorEnabled ? Volume2 : VolumeX}
+        active={soundMonitorEnabled}
+        onClick={onToggleSoundMonitor}
+        className="dc-toolbar-monitor-toggle"
+      />
 
       <button type="button" className={`dc-toolbar-mode-toggle ${launchpadMode ? 'active' : ''}`} onClick={toggleWorkspaceMode} disabled={!connected} title={launchpadMode ? 'Volver al lienzo' : 'Abrir Launchpad'}>
         {launchpadMode ? <Pencil size={15} /> : <Grid3X3 size={15} />}

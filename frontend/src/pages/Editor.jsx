@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Redo2, Undo2 } from 'lucide-react';
-import { importChannelImageUrl, uploadChannelImage } from '../api/media';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
 import { getChannels, markChannelUsed } from '../api/channels';
-import { getUserSettings, saveLaunchpadSlots as saveUserLaunchpadSlots, saveSoundSlots as saveUserSoundSlots } from '../api/settings';
-import { getSoundLibrary } from '../api/sounds';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
 import Inspector from '../components/editor/Inspector';
@@ -17,80 +14,48 @@ import SoundSlotsModal from '../components/editor/sounds/SoundSlotsModal';
 import LaunchpadConfigModal from '../components/editor/sounds/LaunchpadConfigModal';
 import LaunchpadSurface from '../components/editor/sounds/LaunchpadSurface';
 import { useSystemAlert } from '../components/ui/SystemAlert';
-import { makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
+import { makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
 import { moveSelectionOneLevel, reorderLayerUnitToIndex } from '../components/editor/layers/layerUtils';
-import { DEFAULT_SHAPE_CONFIG } from '../components/editor/tools/shapes/shapeTool';
-import { DEFAULT_IMAGE_CONFIG, fitImageSize, getImageKind, loadImageMetadata, validateImageFile } from '../components/editor/tools/images/imageTool';
-import { DEFAULT_TEXT_CONFIG, applyTextStyle, resolveTextFontFamily, updateTextContent } from '../components/editor/tools/text/textTool';
-import { DEFAULT_TIMER_CONFIG, adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
-import { DEFAULT_DRAW_CONFIG, appendStrokeToLayer, clearDrawLayer, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
+import { applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
+import { adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
+import { appendStrokeToLayer, clearDrawLayer, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { applyHistoryEntry, cloneValue, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
-import { createClipboardPayload, materializeClipboardPayload, parseClipboardText, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
+import { createClipboardPayload, materializeClipboardPayload, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
 import { getCursorThemeColor } from '../utils/theme';
-import { normalizeEditorPreferences } from '../components/editor/editorDefaults';
-
-const TOOL_LABELS = { select: 'Selección', hand: 'Manita', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', text: 'Texto', timer: 'Temporizador' };
-
-function decodeDesignSnapshot(value) {
-  let current = value;
-  for (let i = 0; i < 3 && typeof current === 'string'; i += 1) {
-    try { current = JSON.parse(current); } catch { throw new Error('La copia guardada no contiene un estado válido.'); }
-  }
-
-  if (Array.isArray(current)) return { version: 1, scene: { objects: current }, editor: {} };
-  if (!current || typeof current !== 'object' || Array.isArray(current)) throw new Error('La copia guardada no contiene un estado válido.');
-  if (Array.isArray(current.scene?.objects)) return current;
-  if (Array.isArray(current.objects)) return { version: Number(current.version || 1), scene: { objects: current.objects }, editor: current.editor || {} };
-  throw new Error('La copia guardada no contiene una escena válida.');
-}
-
-function ensureSceneDrawLayer(scene = {}) {
-  const drawLayer = Object.values(scene)
-    .filter(isDrawLayer)
-    .sort((a, b) => (Number(b.zIndex) || 0) - (Number(a.zIndex) || 0))[0];
-  if (drawLayer) return { scene, drawLayer, created: false };
-
-  const fallback = makeDrawLayer(scene);
-  return {
-    scene: { ...scene, [fallback.id]: fallback },
-    drawLayer: fallback,
-    created: true
-  };
-}
+import useEditorPreferences from '../components/editor/preferences/useEditorPreferences';
+import useEditorSounds from '../components/editor/sounds/useEditorSounds';
+import useEditorGuides from '../components/editor/guides/useEditorGuides';
+import GuidesModal from '../components/editor/guides/GuidesModal';
+import useEditorHotkeys from '../components/editor/hotkeys/useEditorHotkeys';
+import useEditorMedia from '../components/editor/tools/images/useEditorMedia';
+import { decodeDesignSnapshot, ensureSceneDrawLayer } from '../components/editor/scene/sceneUtils';
+import { TOOL_LABELS } from '../components/editor/hotkeys/shortcuts';
+import { DEFAULT_LINE_CONFIG } from '../components/editor/tools/lines/lineTool';
 
 export default function Editor() {
   const { publicKey } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { confirmDialog, showAlert } = useSystemAlert();
+  const {
+    userSettings, drawConfig, setDrawConfig, shapeConfig, setShapeConfig, imageConfig, setImageConfig,
+    textConfig, setTextConfig, timerConfig, setTimerConfig
+  } = useEditorPreferences();
   const [channelUuid, setChannelUuid] = useState(null);
   const [objects, setObjects] = useState({});
   const [selectedId, setSelectedId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [tool, setTool] = useState('select');
+  const [lineConfig, setLineConfig] = useState(DEFAULT_LINE_CONFIG);
   const [imagePickerRequest, setImagePickerRequest] = useState(0);
-  const [guide, setGuide] = useState(() => {
-    try { return localStorage.getItem('TRAZIO.editor.guide') || 'none'; } catch { return 'none'; }
-  });
-  const [drawConfig, setDrawConfig] = useState(DEFAULT_DRAW_CONFIG);
   const [activeDrawLayerId, setActiveDrawLayerId] = useState(null);
   const [liveStrokes, setLiveStrokes] = useState({});
-  const [shapeConfig, setShapeConfig] = useState(DEFAULT_SHAPE_CONFIG);
-  const [imageConfig, setImageConfig] = useState(DEFAULT_IMAGE_CONFIG);
-  const [textConfig, setTextConfig] = useState(DEFAULT_TEXT_CONFIG);
-  const [timerConfig, setTimerConfig] = useState(DEFAULT_TIMER_CONFIG);
   const [history, setHistory] = useState({ past: [], future: [] });
   const [clipboardPayload, setClipboardPayload] = useState(null);
   const [pasteSerial, setPasteSerial] = useState(1);
   const [mediaStatus, setMediaStatus] = useState('');
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
-  const [workspaceMode, setWorkspaceMode] = useState('canvas');
-  const [soundsOpen, setSoundsOpen] = useState(false);
-  const [launchpadConfigOpen, setLaunchpadConfigOpen] = useState(false);
-  const [soundLibrary, setSoundLibrary] = useState([]);
-  const [soundSlots, setSoundSlots] = useState([null, null, null, null, null]);
-  const [soundSlotsConfigured, setSoundSlotsConfigured] = useState(false);
-  const [launchpadSlots, setLaunchpadSlots] = useState(Array(24).fill(null));
-  const [launchpadSlotsConfigured, setLaunchpadSlotsConfigured] = useState(false);
+  const workspaceMode = searchParams.get('view') === 'launchpad' ? 'launchpad' : 'canvas';
   const [designsOpen, setDesignsOpen] = useState(false);
   const [designsIntent, setDesignsIntent] = useState('load');
   const [recentDesigns, setRecentDesigns] = useState([]);
@@ -115,51 +80,6 @@ export default function Editor() {
   const pendingCursorRef = useRef(null);
   const cursorLastSentRef = useRef(0);
   const pendingDrawFallbackSelectionRef = useRef(false);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadEditorSettings = async () => {
-      let settings = null;
-      try {
-        settings = await getUserSettings();
-        if (!active) return;
-        const preferences = normalizeEditorPreferences(settings.editor);
-        setDrawConfig({ ...DEFAULT_DRAW_CONFIG, ...preferences.drawing });
-        setShapeConfig({ ...DEFAULT_SHAPE_CONFIG, ...preferences.shape });
-        setImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...preferences.image });
-        setTextConfig({ ...DEFAULT_TEXT_CONFIG, ...preferences.text, fontFamily: resolveTextFontFamily(preferences.text.fontKey) });
-        setTimerConfig({ ...DEFAULT_TIMER_CONFIG, ...preferences.timer, fontFamily: resolveTextFontFamily(preferences.timer.fontKey) });
-      } catch {
-        // El editor puede seguir funcionando con sus defaults aunque falle la configuración de cuenta.
-      }
-
-      try {
-        const sounds = await getSoundLibrary();
-        if (!active) return;
-        setSoundLibrary(sounds);
-        const available = new Set(sounds.map((sound) => sound.id));
-
-        const quickConfigured = Array.isArray(settings?.soundSlots);
-        setSoundSlotsConfigured(quickConfigured);
-        setSoundSlots(quickConfigured
-          ? Array.from({ length: 5 }, (_, index) => available.has(settings.soundSlots[index]) ? settings.soundSlots[index] : null)
-          : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null));
-
-        const launchpadConfigured = Array.isArray(settings?.launchpadSlots);
-        setLaunchpadSlotsConfigured(launchpadConfigured);
-        setLaunchpadSlots(launchpadConfigured
-          ? Array.from({ length: 24 }, (_, index) => available.has(settings.launchpadSlots[index]) ? settings.launchpadSlots[index] : null)
-          : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
-      } catch {
-        if (active) setSoundLibrary([]);
-      }
-    };
-
-    loadEditorSettings();
-    return () => { active = false; };
-  }, []);
-
 
   const setScene = (next) => {
     objectsRef.current = next;
@@ -285,8 +205,9 @@ export default function Editor() {
   }), [showAlert]);
 
   const { socket, presence, connected, denied } = useChannelSocket(publicKey, 'editor', handlers);
+  const { guide, setGuide, guides, guideImageUrl, guidesOpen, setGuidesOpen, refreshGuides, saveGuide, deleteGuide } = useEditorGuides({ channelUuid, publicKey, socket, objectsRef, setMediaStatus });
   const editingLocked = editorAccess.canEdit === false;
-  const liveRequired = presence.editors > 1;
+  const liveRequired = Boolean(editorAccess.liveRequired);
   const studioEditor = !liveEnabled ? (presence.editorList || []).find((editor) => editor.canEdit) : null;
   const remoteCursorList = useMemo(() => Object.values(remoteCursors).map((cursor) => {
     const editor = (presence.editorList || []).find((item) => item.socketId === cursor.socketId);
@@ -297,24 +218,6 @@ export default function Editor() {
       cursorLabel: username ? `@${username}` : 'Editor'
     };
   }), [remoteCursors, presence.editorList]);
-
-  const soundSlotItems = useMemo(() => {
-    const byId = new Map(soundLibrary.map((sound) => [sound.id, sound]));
-    return Array.from({ length: 5 }, (_, index) => byId.get(soundSlots[index]) || null);
-  }, [soundLibrary, soundSlots]);
-
-  const refreshSoundLibrary = async () => {
-    const sounds = await getSoundLibrary();
-    setSoundLibrary(sounds);
-    const available = new Set(sounds.map((sound) => sound.id));
-    setSoundSlots((current) => soundSlotsConfigured
-      ? Array.from({ length: 5 }, (_, index) => available.has(current[index]) ? current[index] : null)
-      : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null));
-    setLaunchpadSlots((current) => launchpadSlotsConfigured
-      ? Array.from({ length: 24 }, (_, index) => available.has(current[index]) ? current[index] : null)
-      : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
-    return sounds;
-  };
 
   const applyControlState = (control = {}) => {
     if (typeof control.liveEnabled === 'boolean') setLiveEnabled(control.liveEnabled);
@@ -340,6 +243,14 @@ export default function Editor() {
       resolve(response);
     });
   });
+
+  const {
+    soundsOpen, setSoundsOpen, launchpadConfigOpen, setLaunchpadConfigOpen,
+    soundLibrary, customSoundLibrary, soundSlots, launchpadSlots, allSounds, soundSlotItems,
+    soundPlayback, soundMonitorEnabled, setSoundMonitorEnabled, playSound,
+    openSoundAssignments, saveSoundAssignments, openLaunchpadAssignments, saveLaunchpadAssignments,
+    refreshSoundLibrary, uploadOwnSound, deleteOwnSound, resolveSoundUrl
+  } = useEditorSounds({ userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus });
 
   const broadcastCursor = (point) => {
     if (editingLocked || !socket.connected || !point) return;
@@ -381,7 +292,7 @@ export default function Editor() {
     if (controlBusy || !connected || editingLocked) return;
     const nextLive = !liveEnabled;
     if (!nextLive && liveRequired) {
-      setMediaStatus('Live es obligatorio mientras haya más de un editor conectado.');
+      setMediaStatus('Live es obligatorio mientras haya otro colaborador conectado.');
       return;
     }
 
@@ -433,63 +344,12 @@ export default function Editor() {
     }
   };
 
-  const playSound = async (soundId) => {
-    if (!connected) return;
-    if (overlayHidden) {
-      setMediaStatus('El overlay está apagado. Enciéndelo antes de reproducir sonidos.');
-      return;
-    }
-
-    const sound = soundLibrary.find((item) => item.id === soundId);
-    if (!sound) {
-      setMediaStatus('Ese sonido ya no está disponible. Actualiza la biblioteca.');
-      return;
-    }
-
-    try {
-      await emitChannelAction('sound-play', { soundId });
-      setMediaStatus(presence.overlays > 0 ? `Sonido enviado: ${sound.name}` : `Sonido listo: ${sound.name}. No hay un overlay conectado.`);
-    } catch (error) {
-      setMediaStatus(error.message || 'No se pudo reproducir el sonido.');
-    }
-  };
-
-  const openSoundAssignments = async () => {
-    setSoundsOpen(true);
-    try {
-      await refreshSoundLibrary();
-    } catch {
-      setMediaStatus('No se pudo actualizar la biblioteca de sonidos.');
-    }
-  };
-
-  const saveSoundAssignments = async (nextSlots) => {
-    const available = new Set(soundLibrary.map((sound) => sound.id));
-    const cleanSlots = Array.from({ length: 5 }, (_, index) => available.has(nextSlots[index]) ? nextSlots[index] : null);
-    const saved = await saveUserSoundSlots(cleanSlots);
-    setSoundSlots(Array.from({ length: 5 }, (_, index) => saved[index] || null));
-    setSoundSlotsConfigured(true);
-    setSoundsOpen(false);
-    setMediaStatus('Asignación de sonidos guardada.');
-  };
-
-  const openLaunchpadAssignments = async () => {
-    setLaunchpadConfigOpen(true);
-    try {
-      await refreshSoundLibrary();
-    } catch {
-      setMediaStatus('No se pudo actualizar la biblioteca de sonidos.');
-    }
-  };
-
-  const saveLaunchpadAssignments = async (nextSlots) => {
-    const available = new Set(soundLibrary.map((sound) => sound.id));
-    const cleanSlots = Array.from({ length: 24 }, (_, index) => available.has(nextSlots[index]) ? nextSlots[index] : null);
-    const saved = await saveUserLaunchpadSlots(cleanSlots);
-    setLaunchpadSlots(Array.from({ length: 24 }, (_, index) => saved[index] || null));
-    setLaunchpadSlotsConfigured(true);
-    setLaunchpadConfigOpen(false);
-    setMediaStatus('Launchpad actualizado.');
+  const handleToggleWorkspaceMode = () => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('view', workspaceMode === 'canvas' ? 'launchpad' : 'canvas');
+      return next;
+    }, { replace: true });
   };
 
   const refreshRecentDesigns = async () => {
@@ -976,10 +836,6 @@ export default function Editor() {
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem('TRAZIO.editor.guide', guide); } catch { /* noop */ }
-  }, [guide]);
-
-  useEffect(() => {
     try { localStorage.setItem('TRAZIO.editor.snap', snapEnabled ? 'on' : 'off'); } catch { /* noop */ }
   }, [snapEnabled]);
 
@@ -1011,245 +867,14 @@ export default function Editor() {
     return () => { active = false; };
   }, [publicKey]);
 
-  useEffect(() => {
-    const isEditableTarget = (target) => target instanceof HTMLElement && (target.matches('input, textarea, select') || target.isContentEditable);
-    const guideByKey = {
-      '0': 'none',
-      '1': 'canva-guide.png',
-      '2': 'canva-guide2.png',
-      '3': 'canva-guide3.png'
-    };
-    const toolByKey = {
-      v: 'select',
-      h: 'hand',
-      p: 'draw',
-      e: 'eraser',
-      s: 'shape',
-      g: 'shape',
-      t: 'text',
-      r: 'timer'
-    };
-
-    const toggleHotkeys = (event) => {
-      event.preventDefault();
-      setHotkeysOpen((value) => !value);
-    };
-
-    const onKeyDown = (event) => {
-      if (document.querySelector('.dc-system-alert-backdrop')) return;
-      if (isEditableTarget(event.target)) return;
-      if (workspaceMode === 'launchpad') return;
-      if (editingLocked) return;
-
-      const modifier = event.ctrlKey || event.metaKey;
-      const key = event.key.toLowerCase();
-
-      if (event.key === 'F1' || (!modifier && !event.altKey && event.key === '?')) {
-        toggleHotkeys(event);
-        return;
-      }
-
-      if (hotkeysOpen) {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          setHotkeysOpen(false);
-        }
-        return;
-      }
-
-      if (modifier && event.shiftKey && (event.key === 'Delete' || event.key === 'Backspace')) {
-        event.preventDefault();
-        requestClear();
-        return;
-      }
-      if (modifier && key === 'z') {
-        event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (modifier && key === 'y') {
-        event.preventDefault();
-        redo();
-        return;
-      }
-      if (modifier && key === 'a') {
-        event.preventDefault();
-        selectAllLayers();
-        return;
-      }
-      if (modifier && event.key === 'ArrowUp') {
-        event.preventDefault();
-        moveSelectedLayer('up');
-        return;
-      }
-      if (modifier && event.key === 'ArrowDown') {
-        event.preventDefault();
-        moveSelectedLayer('down');
-        return;
-      }
-      if (modifier && key === 'g') {
-        event.preventDefault();
-        if (event.shiftKey) ungroupSelection();
-        else groupSelection();
-        return;
-      }
-      if (modifier && key === 'd') {
-        event.preventDefault();
-        duplicateSelected();
-        return;
-      }
-
-      if (!modifier && !event.altKey && Object.prototype.hasOwnProperty.call(guideByKey, event.key)) {
-        event.preventDefault();
-        setGuide(guideByKey[event.key]);
-        setMediaStatus(guideByKey[event.key] === 'none' ? 'Guías desactivadas.' : `Guía ${event.key} activada.`);
-        return;
-      }
-
-      if (!modifier && !event.altKey && !event.shiftKey && key === 'i') {
-        event.preventDefault();
-        setImagePickerRequest((current) => current + 1);
-        setMediaStatus('Selecciona una imagen o GIF para agregar.');
-        return;
-      }
-
-      if (!modifier && !event.altKey && !event.shiftKey && toolByKey[key]) {
-        event.preventDefault();
-        setTool(toolByKey[key]);
-        setMediaStatus(`Herramienta: ${TOOL_LABELS[toolByKey[key]] || toolByKey[key]}.`);
-        return;
-      }
-
-      if (!modifier && !event.altKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-        const step = event.shiftKey ? 10 : 1;
-        const delta = {
-          ArrowUp: [0, -step],
-          ArrowDown: [0, step],
-          ArrowLeft: [-step, 0],
-          ArrowRight: [step, 0]
-        }[event.key];
-        if (nudgeSelection(delta[0], delta[1])) event.preventDefault();
-        return;
-      }
-
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault();
-        removeLayers();
-        return;
-      }
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        if (tool !== 'select') {
-          setTool('select');
-          setMediaStatus('Herramienta: Selección');
-        } else {
-          setSelection([]);
-        }
-      }
-    };
-
-    const onKeyUp = (event) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) finishNudge();
-    };
-
-    const onCopy = (event) => {
-      if (isEditableTarget(event.target) || hotkeysOpen) return;
-      copySelection(event);
-    };
-
-    const onCut = (event) => {
-      if (isEditableTarget(event.target) || hotkeysOpen) return;
-      cutSelection(event);
-    };
-
-    const onPaste = (event) => {
-      if (isEditableTarget(event.target) || hotkeysOpen) return;
-      const parsed = parseClipboardText(event.clipboardData?.getData('text/plain') || '');
-      if (!parsed) return;
-      event.preventDefault();
-      setClipboardPayload(parsed);
-      pasteClipboard(parsed, 1);
-    };
-
-    const onWindowBlur = () => finishNudge();
-
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    window.addEventListener('copy', onCopy);
-    window.addEventListener('cut', onCut);
-    window.addEventListener('paste', onPaste);
-    window.addEventListener('blur', onWindowBlur);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-      window.removeEventListener('copy', onCopy);
-      window.removeEventListener('cut', onCut);
-      window.removeEventListener('paste', onPaste);
-      window.removeEventListener('blur', onWindowBlur);
-    };
+  useEditorHotkeys({
+    guides, workspaceMode, editingLocked, hotkeysOpen, setHotkeysOpen, tool, setTool, setGuide, setMediaStatus,
+    setImagePickerRequest, requestClear, redo, undo, selectAllLayers, moveSelectedLayer,
+    ungroupSelection, groupSelection, duplicateSelected, nudgeSelection, removeLayers, setSelection,
+    finishNudge, copySelection, cutSelection, setClipboardPayload, pasteClipboard
   });
 
-  const addMediaObject = async ({ url, name, mimeType, point }) => {
-    const metadata = await loadImageMetadata(url);
-    const size = fitImageSize(metadata.naturalWidth, metadata.naturalHeight);
-    const x = point && Number.isFinite(point.x) ? point.x : 200;
-    const y = point && Number.isFinite(point.y) ? point.y : 200;
-    const object = makeImage(x, y, url, name, {
-      ...imageConfig,
-      ...size,
-      ...metadata,
-      mimeType,
-      mediaKind: getImageKind(mimeType, name)
-    });
-
-    add(object);
-    setTool('select');
-    openPropertiesAt();
-    return object;
-  };
-
-  const uploadFile = async (file, point = null) => {
-    if (editingLocked) return;
-    if (!channelUuid) {
-      setMediaStatus('El canal todavía no está listo.');
-      return;
-    }
-
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      setMediaStatus(validationError);
-      return;
-    }
-
-    setMediaStatus(`Subiendo ${file.name}...`);
-    try {
-      const data = await uploadChannelImage(channelUuid, file);
-      await addMediaObject({ url: data.url, name: file.name, mimeType: data.mimeType || file.type, point });
-      setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'Imagen'} lista: ${file.name}`);
-    } catch (error) {
-      setMediaStatus(error.response?.data?.message || error.response?.data?.error || 'No se pudo subir la imagen.');
-    }
-  };
-
-  const importRemote = async (url, point = null) => {
-    if (editingLocked) return;
-    if (!channelUuid) {
-      setMediaStatus('El canal todavía no está listo.');
-      return;
-    }
-
-    setMediaStatus('Importando imagen desde la web...');
-    try {
-      const data = await importChannelImageUrl(channelUuid, url);
-      const name = data.fileName || 'Imagen web';
-      await addMediaObject({ url: data.url, name, mimeType: data.mimeType || '', point });
-      setMediaStatus(`${data.mediaKind === 'gif' ? 'GIF' : 'Imagen'} importada.`);
-    } catch (error) {
-      setMediaStatus(error.response?.data?.message || error.response?.data?.error || 'No se pudo importar la imagen.');
-    }
-  };
+  const { uploadFile, importRemote } = useEditorMedia({ channelUuid, editingLocked, imageConfig, add, setTool, openPropertiesAt, setMediaStatus });
 
   const commitText = ({ id, x, y, text, config }) => {
     if (id && objectsRef.current[id]) {
@@ -1382,7 +1007,9 @@ export default function Editor() {
           tool={tool}
           setTool={setTool}
           guide={guide}
+          guides={guides}
           setGuide={setGuide}
+          onSaveGuide={() => { setGuidesOpen(true); void refreshGuides(); }}
           onSaveDesign={() => openDesigns('save')}
           onLoadDesigns={() => openDesigns('load')}
           onLoadRecent={loadRecentDesign}
@@ -1406,9 +1033,12 @@ export default function Editor() {
           editorLocked={editingLocked}
           editors={presence.editorList || []}
           workspaceMode={workspaceMode}
-          onToggleWorkspaceMode={() => setWorkspaceMode((current) => current === 'canvas' ? 'launchpad' : 'canvas')}
+          onToggleWorkspaceMode={handleToggleWorkspaceMode}
           soundSlots={soundSlotItems}
           onPlaySound={playSound}
+          soundPlayback={soundPlayback}
+          soundMonitorEnabled={soundMonitorEnabled}
+          onToggleSoundMonitor={() => setSoundMonitorEnabled((value) => !value)}
           onAssignSounds={openSoundAssignments}
           onAssignLaunchpadSounds={openLaunchpadAssignments}
         />
@@ -1419,11 +1049,12 @@ export default function Editor() {
 
         {workspaceMode === 'launchpad' ? (
           <LaunchpadSurface
-            sounds={soundLibrary}
+            sounds={allSounds}
             slots={launchpadSlots}
             connected={connected}
             disabled={overlayHidden || launchpadConfigOpen}
             onPlaySound={playSound}
+            soundPlayback={soundPlayback}
           />
         ) : <>
         <CanvasStage
@@ -1444,6 +1075,7 @@ export default function Editor() {
           onDrawStart={startDrawStroke}
           onDrawPoint={continueDrawStroke}
           onDrawCommit={commitDrawStroke}
+          lineConfig={lineConfig}
           shapeConfig={shapeConfig}
           onShapeCreate={(draft) => {
             add(makeShape(draft));
@@ -1453,7 +1085,7 @@ export default function Editor() {
           onTextCommit={commitText}
           onTimerCreate={createTimer}
           onMediaDrop={({ file, url, point }) => file ? uploadFile(file, point) : importRemote(url, point)}
-          guide={guide}
+          guideImageUrl={guideImageUrl}
           remoteCursors={remoteCursorList}
           onCursorMove={broadcastCursor}
           onCursorLeave={broadcastCursorLeave}
@@ -1474,6 +1106,8 @@ export default function Editor() {
           setDrawConfig={setDrawConfig}
           shapeConfig={shapeConfig}
           setShapeConfig={setShapeConfig}
+          lineConfig={lineConfig}
+          setLineConfig={setLineConfig}
           imageConfig={imageConfig}
           setImageConfig={setImageConfig}
           textConfig={textConfig}
@@ -1558,9 +1192,10 @@ export default function Editor() {
         />
       </div>}
 
+      {guidesOpen && <GuidesModal guides={guides} onSave={saveGuide} onDelete={deleteGuide} onClose={() => setGuidesOpen(false)} disabled={!channelUuid || editingLocked} />}
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-      {soundsOpen && <SoundSlotsModal sounds={soundLibrary} slots={soundSlots} onClose={() => setSoundsOpen(false)} onRefresh={refreshSoundLibrary} onSave={saveSoundAssignments} />}
-      {launchpadConfigOpen && <LaunchpadConfigModal sounds={soundLibrary} slots={launchpadSlots} onClose={() => setLaunchpadConfigOpen(false)} onRefresh={refreshSoundLibrary} onSave={saveLaunchpadAssignments} />}
+      {soundsOpen && <SoundSlotsModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={soundSlots} onClose={() => setSoundsOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveSoundAssignments} />}
+      {launchpadConfigOpen && <LaunchpadConfigModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={launchpadSlots} onClose={() => setLaunchpadConfigOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveLaunchpadAssignments} />}
       {designsOpen && <SavedDesignsModal initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelUuid={channelUuid} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
     </div>
   );

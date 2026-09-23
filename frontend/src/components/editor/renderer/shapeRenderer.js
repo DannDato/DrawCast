@@ -117,6 +117,19 @@ export function traceShapePath(ctx, shape) {
 }
 
 export function drawShape(ctx, shape) {
+  if (shape.shapeType === 'line') {
+    const x = Number(shape.x) || 0;
+    const y = (Number(shape.y) || 0) + (Number(shape.h) || 8) / 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (Number(shape.w) || 0), y);
+    ctx.strokeStyle = shape.strokeColor || getThemeColor('--dc-object-text', '--dc-text');
+    ctx.lineWidth = Math.max(1, Number(shape.strokeWidth) || 4);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    return;
+  }
+
   traceShapePath(ctx, shape);
 
   const fillColor = shape.fillColor ?? shape.fill ?? getThemeColor('--dc-object-fill', '--dc-text');

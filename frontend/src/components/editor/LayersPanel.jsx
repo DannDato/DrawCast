@@ -11,6 +11,7 @@ function layerLabel(object) {
   if (object.layerName) return object.layerName;
   if (object.tipo === 'text' || object.tipo === 'texto') return textValue(object).replace(/\s+/g, ' ').trim() || 'TEXTO';
   if (object.tipo === 'timer') return 'TEMPORIZADOR';
+  if (object.shapeType === 'line') return 'LÍNEA';
   if (object.tipo === 'shape' || object.tipo === 'forma') return object.shapeType || object.shape || 'FORMA';
   return object.fileName || object.name || object.tipo || object.id.slice(-6);
 }
@@ -19,6 +20,7 @@ function layerType(object) {
   if (object.mediaKind === 'gif') return 'GIF';
   if (object.tipo === 'text' || object.tipo === 'texto') return 'TEXTO';
   if (object.tipo === 'timer') return 'TEMPORIZADOR';
+  if (object.shapeType === 'line') return 'LÍNEA';
   if (object.tipo === 'shape' || object.tipo === 'forma') return 'FORMA';
   if (object.tipo === 'draw' || object.tipo === 'trazo') return 'DIBUJO';
   if (object.tipo === 'image' || object.tipo === 'imagen') return 'IMAGEN';

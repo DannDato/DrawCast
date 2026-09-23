@@ -78,6 +78,12 @@ function editorCanEdit(r, socketId) {
   return Boolean(r.studioEditorSocketId && r.studioEditorSocketId === socketId);
 }
 
+function distinctEditorUsers(r) {
+  const users = new Set();
+  r.editors.forEach((editor, socketId) => users.add(editor.userUuid || `socket:${socketId}`));
+  return users.size;
+}
+
 
 export function destroyChannelRuntime(channelId) {
   const r = runtimes.get(channelId);
@@ -100,7 +106,7 @@ function controlFromRuntime(r) {
     overlayHidden: r.overlayHidden,
     hasDraftChanges: r.hasDraftChanges,
     editorCount: r.editors.size,
-    liveRequired: r.editors.size > 1
+    liveRequired: distinctEditorUsers(r) > 1
   };
 }
 
@@ -149,7 +155,7 @@ export function getEditorAccess(channelId, socketId) {
   return {
     canEdit: Boolean(editor && editorCanEdit(r, socketId)),
     liveEnabled: r.liveEnabled,
-    liveRequired: r.editors.size > 1,
+    liveRequired: distinctEditorUsers(r) > 1,
     editorCount: r.editors.size,
     isStudioEditor: Boolean(editor && !r.liveEnabled && r.studioEditorSocketId === socketId)
   };

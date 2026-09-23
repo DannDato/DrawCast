@@ -1,3 +1,5 @@
+export const TOOL_LABELS = { select: 'Selección', hand: 'Manita', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', line: 'Línea', text: 'Texto', timer: 'Temporizador' };
+
 export const TOOL_SHORTCUTS = {
   select: 'V',
   hand: 'H / CLICK RUEDA',
@@ -5,15 +7,16 @@ export const TOOL_SHORTCUTS = {
   eraser: 'E',
   image: 'I',
   shape: 'S / G',
+  line: 'L',
   text: 'T',
   timer: 'R'
 };
 
 export const GUIDE_SHORTCUTS = {
   none: '0',
-  'canva-guide.png': '1',
-  'canva-guide2.png': '2',
-  'canva-guide3.png': '3'
+  '1': '1',
+  '2': '2',
+  '3': '3'
 };
 
 export const HOTKEY_SECTIONS = [
@@ -27,6 +30,7 @@ export const HOTKEY_SECTIONS = [
       ['E', 'Borrador'],
       ['I', 'Imagen / GIF'],
       ['S / G', 'Formas'],
+      ['L', 'Línea recta · Shift ajusta el ángulo a 45°'],
       ['T', 'Texto'],
       ['R', 'Temporizador']
     ]

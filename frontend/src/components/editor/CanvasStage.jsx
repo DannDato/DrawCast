@@ -3,9 +3,10 @@ import { drawObject, hitObject } from './renderer/drawObject';
 import { orderedObjects, renderScene } from './renderer/sceneRenderer';
 import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getObjectFrame, getSelectionBounds, hitResizeHandle, hitRotateHandle, resizeCursorForHandle, resizeSelectionFromHandle, rotateSelection } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
+import { buildLineFromDrag } from './tools/lines/lineTool';
 import InlineTextEditor from './tools/text/InlineTextEditor';
 import { normalizeTextConfig, textConfigFromObject } from './tools/text/textTool';
-import { appendStrokePoint, hitDrawLayer, isDrawLayer, makeStroke } from './tools/drawing/drawingTool';
+import { appendStrokePoint, hitDrawLayer, isDrawLayer, makeStroke, normalizeDrawConfig } from './tools/drawing/drawingTool';
 import { boundsCenter, unrotatePointAround } from './renderer/transformUtils';
 import { buildSnapTargets, drawSnapGuides, SNAP_THRESHOLD_PX, snapMove, snapResizePointer } from './renderer/snapUtils';
 import { getThemeColor } from '../../utils/theme';
@@ -37,12 +38,13 @@ export default function CanvasStage({
   onDrawPoint,
   onDrawCommit,
   shapeConfig,
+  lineConfig,
   onShapeCreate,
   textConfig,
   onTextCommit,
   onTimerCreate,
   onMediaDrop,
-  guide,
+  guideImageUrl,
   remoteCursors = [],
   onCursorMove,
   onCursorLeave,
@@ -59,6 +61,7 @@ export default function CanvasStage({
   const guideImage = useRef(null);
   const remoteCursorsRef = useRef(remoteCursors);
   const panInteraction = useRef(null);
+  const brushCursor = useRef(null);
   const lastFitViewRequest = useRef(-1);
   const fitScaleRef = useRef(1);
   const zoomRef = useRef(1);
@@ -72,6 +75,10 @@ export default function CanvasStage({
   const [panning, setPanning] = useState(false);
 
   useEffect(() => { remoteCursorsRef.current = remoteCursors; }, [remoteCursors]);
+
+  useEffect(() => {
+    if (!['draw', 'eraser'].includes(tool) || interactionDisabled) brushCursor.current = null;
+  }, [tool, interactionDisabled]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -220,15 +227,15 @@ export default function CanvasStage({
   };
 
   useEffect(() => {
-    if (!guide || guide === 'none') {
+    if (!guideImageUrl) {
       guideImage.current = null;
       return;
     }
 
     const image = new Image();
-    image.src = `/img/${guide}`;
+    image.src = guideImageUrl;
     guideImage.current = image;
-  }, [guide]);
+  }, [guideImageUrl]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -276,7 +283,7 @@ export default function CanvasStage({
           ctx.strokeStyle = getThemeColor('--dc-accent-three');
           ctx.lineWidth = 2;
           ctx.setLineDash([10, 8]);
-          ctx.strokeRect(shapePreview.current.x - 4, shapePreview.current.y - 4, shapePreview.current.w + 8, shapePreview.current.h + 8);
+          if (shapePreview.current.shapeType !== 'line') ctx.strokeRect(shapePreview.current.x - 4, shapePreview.current.y - 4, shapePreview.current.w + 8, shapePreview.current.h + 8);
           ctx.restore();
         }
 
@@ -292,6 +299,30 @@ export default function CanvasStage({
         const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
         drawMultiSelection(ctx, selection.map((id) => objects[id]).filter((object) => object && object.id !== editingTextId), selectionAccent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
         drawSnapGuides(ctx, snapGuides.current, guideAccent, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
+
+        if (brushCursor.current && ['draw', 'eraser'].includes(tool) && !interactionDisabled && !panning) {
+          const config = normalizeDrawConfig(drawConfig);
+          const layer = activeDrawLayer;
+          const sourceWidth = Math.max(1, Number(layer?.sourceWidth) || CANVAS_WIDTH);
+          const sourceHeight = Math.max(1, Number(layer?.sourceHeight) || CANVAS_HEIGHT);
+          const layerScaleX = Math.max(0.0001, (Number(layer?.w) || sourceWidth) / sourceWidth);
+          const layerScaleY = Math.max(0.0001, (Number(layer?.h) || sourceHeight) / sourceHeight);
+          const brushDiameter = config.size * ((layerScaleX + layerScaleY) / 2);
+          const radius = Math.max(1, brushDiameter / 2);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(brushCursor.current.x, brushCursor.current.y, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.82)';
+          ctx.lineWidth = 3 / cssScale;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(brushCursor.current.x, brushCursor.current.y, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+          ctx.lineWidth = 1 / cssScale;
+          ctx.stroke();
+          ctx.restore();
+        }
 
         const cursorScale = 1 / cssScale;
         const now = Date.now();
@@ -348,7 +379,7 @@ export default function CanvasStage({
       active = false;
       cancelAnimationFrame(animationFrame);
     };
-  }, [objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, textEditor]);
+  }, [objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, textEditor, tool, drawConfig, interactionDisabled, panning]);
 
   const pointFromEvent = (event) => {
     const bounds = canvasRef.current.getBoundingClientRect();
@@ -427,6 +458,12 @@ export default function CanvasStage({
         point: localPoint
       });
       onDrawStart?.(drawing.current, activeDrawLayer);
+      return;
+    }
+
+    if (tool === 'line') {
+      interaction.current = { type: 'line', start: point };
+      shapePreview.current = null;
       return;
     }
 
@@ -552,6 +589,8 @@ export default function CanvasStage({
 
   const onPointerMove = (event) => {
     const point = pointFromEvent(event);
+    if (['draw', 'eraser'].includes(tool) && !interactionDisabled && !panning) brushCursor.current = point;
+    else brushCursor.current = null;
     if (!interactionDisabled) onCursorMove?.(point);
     if (interactionDisabled) return;
 
@@ -598,6 +637,11 @@ export default function CanvasStage({
         && point.y <= selectionBounds.y + selectionBounds.h + padding;
       const nextCursor = insideSelection ? 'move' : '';
       if (pointerCursor !== nextCursor) setPointerCursor(nextCursor);
+      return;
+    }
+
+    if (active.type === 'line') {
+      shapePreview.current = buildLineFromDrag(active.start, point, lineConfig, event.shiftKey);
       return;
     }
 
@@ -684,7 +728,7 @@ export default function CanvasStage({
       drawing.current = null;
     }
 
-    if (interaction.current?.type === 'shape' && shapePreview.current) {
+    if (['shape', 'line'].includes(interaction.current?.type) && shapePreview.current) {
       onShapeCreate(shapePreview.current);
       shapePreview.current = null;
     }
@@ -818,12 +862,12 @@ export default function CanvasStage({
       <canvas
         ref={canvasRef}
         className={`dc-canvas tool-${tool} ${mediaDragging ? 'is-media-dragging' : ''}`}
-        style={panning ? { cursor: 'grabbing' } : pointerCursor ? { cursor: pointerCursor } : undefined}
+        style={panning ? { cursor: 'grabbing' } : pointerCursor ? { cursor: pointerCursor } : ['draw', 'eraser'].includes(tool) && !interactionDisabled ? { cursor: 'none' } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishInteraction}
         onPointerCancel={finishInteraction}
-        onPointerLeave={() => { if (!interaction.current) setPointerCursor(''); onCursorLeave?.(); }}
+        onPointerLeave={() => { brushCursor.current = null; if (!interaction.current) setPointerCursor(''); onCursorLeave?.(); }}
         onDoubleClick={onDoubleClick}
         onContextMenu={onContextMenu}
         onDragEnter={(event) => { if (interactionDisabled) return; event.preventDefault(); setMediaDragging(true); }}
