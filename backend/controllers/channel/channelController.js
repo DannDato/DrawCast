@@ -112,7 +112,7 @@ async function disconnectInteractiveSocketsForUser(req, channel, userId, reason)
   if (!io) return;
   const sockets = await io.in(`user:${userId}`).fetchSockets();
   for (const editorSocket of sockets) {
-    if (!['editor', 'soundboard'].includes(editorSocket.data?.role) || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
+    if (editorSocket.data?.role !== 'editor' || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
     editorSocket.emit('access-revoked', { channelUuid: channel.uuid, publicKey: channel.publicKey, reason });
     editorSocket.disconnect(true);
   }
@@ -329,7 +329,7 @@ export class ChannelController {
       for (const channelSocket of sockets) {
         channelSocket.data.channelDeleted = true;
         channelSocket.emit('channel-deleted', { channelUuid, publicKey, message: 'Este lienzo fue eliminado por su propietario.' });
-        if (['editor', 'soundboard'].includes(channelSocket.data?.role)) channelSocket.emit('access-revoked', { channelUuid, publicKey, reason: 'channel-deleted' });
+        if (channelSocket.data?.role === 'editor') channelSocket.emit('access-revoked', { channelUuid, publicKey, reason: 'channel-deleted' });
         channelSocket.disconnect(true);
       }
     }
@@ -363,7 +363,7 @@ export class ChannelController {
     if (io) {
       const sockets = await io.in(`user:${req.user.id}`).fetchSockets();
       for (const editorSocket of sockets) {
-        if (!['editor', 'soundboard'].includes(editorSocket.data?.role) || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
+        if (editorSocket.data?.role !== 'editor' || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
         editorSocket.emit('access-revoked', { channelUuid: channel.uuid, publicKey: channel.publicKey, reason: 'collaboration-left' });
         editorSocket.disconnect(true);
       }

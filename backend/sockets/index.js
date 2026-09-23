@@ -26,8 +26,6 @@ import logger from '../helpers/winston.js';
 const room = (channelId) => `channel:${channelId}`;
 const editorRoom = (channelId) => `channel:${channelId}:editors`;
 const overlayRoom = (channelId) => `channel:${channelId}:overlays`;
-const soundboardRoom = (channelId) => `channel:${channelId}:soundboards`;
-const soundOutputRoom = (channelId) => `channel:${channelId}:sound-output`;
 const EDITOR_CURSOR_LIMIT = 100000;
 const SOUND_EVENT_MIN_INTERVAL_MS = 120;
 
@@ -102,11 +100,6 @@ async function revalidateInteractiveAccess(joined) {
   return true;
 }
 
-async function emitSoundOutputPresence(io, channelId) {
-  const sockets = await io.in(soundOutputRoom(channelId)).fetchSockets();
-  io.to(soundboardRoom(channelId)).emit('sound-output-presence', { count: sockets.length });
-  return sockets.length;
-}
 
 export function configureSockets(io) {
   io.on('connection', (socket) => {
@@ -126,38 +119,6 @@ export function configureSockets(io) {
     });
 
 
-    socket.on('join-sound-output', async ({ publicKey } = {}) => {
-      const channel = await models.Channel.findOne({ where: { publicKey: String(publicKey || '') } });
-      if (!channel) return socket.emit('access-denied');
-
-      joined = { channelId: channel.id, role: 'sound-output' };
-      socket.data.channelId = channel.id;
-      socket.data.role = 'sound-output';
-      socket.join(room(channel.id));
-      socket.join(soundOutputRoom(channel.id));
-      await emitSoundOutputPresence(io, channel.id);
-    });
-
-    socket.on('join-soundboard', async ({ publicKey } = {}) => {
-      const auth = await socketUser(socket);
-      if (!auth) return socket.emit('access-denied');
-      const { user, session } = auth;
-
-      const channel = await getEditableChannelByPublicKey(user.id, String(publicKey || ''));
-      if (!channel) return socket.emit('access-denied');
-
-      joined = { channelId: channel.id, channelUuid: channel.uuid, publicKey: channel.publicKey, role: 'soundboard', userId: user.id, sessionId: session.id, authorizedAt: Date.now() };
-      socket.data.channelId = channel.id;
-      socket.data.userId = user.id;
-      socket.data.role = 'soundboard';
-      socket.join(room(channel.id));
-      socket.join(soundboardRoom(channel.id));
-      socket.join(`user:${user.id}`);
-      socket.join(`session:${session.id}`);
-      const count = await emitSoundOutputPresence(io, channel.id);
-      socket.emit('sound-output-presence', { count });
-      logger.info('Launchpad conectado al canal', { channelId: channel.id, userId: user.id });
-    });
 
     socket.on('join-editor', async ({ publicKey } = {}) => {
       const auth = await socketUser(socket);
@@ -295,7 +256,7 @@ export function configureSockets(io) {
 
     socket.on('sound-play', async (payload, ack) => {
       const reply = typeof ack === 'function' ? ack : null;
-      if (!joined || !['editor', 'soundboard'].includes(joined.role)) {
+      if (!joined || joined.role !== 'editor') {
         socket.emit('access-denied');
         reply?.({ ok: false, message: 'Acceso denegado' });
         return;
@@ -309,8 +270,6 @@ export function configureSockets(io) {
           return;
         }
 
-        if (joined.role === 'editor' && !canUseWorkspace(joined, socket, reply)) return;
-
         const now = Date.now();
         const previous = Number(socket.data.lastSoundAt || 0);
         if (now - previous < SOUND_EVENT_MIN_INTERVAL_MS) {
@@ -319,7 +278,7 @@ export function configureSockets(io) {
         }
         socket.data.lastSoundAt = now;
 
-        if (joined.role === 'editor' && getChannelControl(joined.channelId).overlayHidden) {
+        if (getChannelControl(joined.channelId).overlayHidden) {
           reply?.({ ok: false, message: 'El overlay está apagado. Enciéndelo antes de reproducir sonidos.' });
           return;
         }
@@ -336,11 +295,6 @@ export function configureSockets(io) {
           playbackId: `${socket.id}:${now}`
         };
 
-        if (joined.role === 'soundboard') {
-          io.to(soundOutputRoom(joined.channelId)).emit('sound-play', event);
-          reply?.({ ok: true });
-          return;
-        }
 
         io.to(overlayRoom(joined.channelId)).emit('sound-play', event);
         reply?.({ ok: true });
@@ -413,12 +367,6 @@ export function configureSockets(io) {
 
     socket.on('disconnect', () => {
       if (!joined || socket.data?.channelDeleted) return;
-      if (joined.role === 'sound-output') {
-        void emitSoundOutputPresence(io, joined.channelId);
-        return;
-      }
-      if (joined.role === 'soundboard') return;
-
       const result = disconnectRole(joined.channelId, socket.id, io);
       if (joined.role === 'editor') {
         socket.to(editorRoom(joined.channelId)).emit('cursor-leave', { socketId: socket.id });

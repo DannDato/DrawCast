@@ -19,7 +19,7 @@ export default function DashboardLayout() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [invitationCount, setInvitationCount] = useState(0);
     const [navigationPending, startNavigation] = useTransition();
-    const isFullEditor = /^\/app\/editor\/[^/]+(?:\/launchpad)?$/.test(location.pathname);
+    const isFullEditor = /^\/app\/editor\/[^/]+$/.test(location.pathname);
 
     useEffect(() => {
         let active = true;

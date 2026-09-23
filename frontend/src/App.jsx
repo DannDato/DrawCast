@@ -11,8 +11,6 @@ import ChannelDashboard from './pages/ChannelDashboard';
 import Profile from './pages/Profile';
 import Editor from './pages/Editor';
 import Overlay from './pages/Overlay';
-import Launchpad from './pages/Launchpad';
-import LaunchpadOutput from './pages/LaunchpadOutput';
 import AcceptInvite from './pages/AcceptInvite';
 import EditorHub from './pages/EditorHub';
 import Settings from './pages/Settings';
@@ -33,14 +31,12 @@ export default function App() {
       <Route path="/faq" element={<FaqPage />} />
       <Route path="/seguridad" element={<SecurityPage />} />
       <Route path="/overlay/:publicKey" element={<Overlay />} />
-      <Route path="/launchpad/:publicKey/output" element={<LaunchpadOutput />} />
       <Route path="/invite/:token" element={<ProtectedRoute><AcceptInvite /></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
         <Route path="/app" element={<ChannelDashboard />} />
         <Route path="/app/editor" element={<EditorHub />} />
         <Route path="/app/editor/:publicKey" element={<Editor />} />
-        <Route path="/app/editor/:publicKey/launchpad" element={<Launchpad />} />
         <Route path="/app/profile" element={<Profile />} />
         <Route path="/app/settings" element={<Settings />} />
         <Route path="/app/diagnostico" element={<Navigate to="/app/settings?section=diagnostics" replace />} />

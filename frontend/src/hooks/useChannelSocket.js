@@ -4,9 +4,7 @@ import { io } from 'socket.io-client';
 const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 const joinEventByRole = {
   editor: 'join-editor',
-  overlay: 'join-overlay',
-  soundboard: 'join-soundboard',
-  'sound-output': 'join-sound-output'
+  overlay: 'join-overlay'
 };
 
 export function useChannelSocket(publicKey, role, handlers = {}) {
@@ -28,7 +26,7 @@ export function useChannelSocket(publicKey, role, handlers = {}) {
     const onDisconnect = () => { if (active) setConnected(false); };
     const onDenied = () => { if (active) setDenied(true); };
     const onRevoked = (payload) => {
-      if (!active || !['editor', 'soundboard'].includes(role) || payload?.publicKey !== publicKey) return;
+      if (!active || role !== 'editor' || payload?.publicKey !== publicKey) return;
       setDenied(true);
     };
     const onPresence = (value) => { if (active) setPresence(value); };

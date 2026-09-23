@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { Redo2, Undo2 } from 'lucide-react';
 import { importChannelImageUrl, uploadChannelImage } from '../api/media';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
 import { getChannels, markChannelUsed } from '../api/channels';
-import { getUserSettings, saveSoundSlots as saveUserSoundSlots } from '../api/settings';
+import { getUserSettings, saveLaunchpadSlots as saveUserLaunchpadSlots, saveSoundSlots as saveUserSoundSlots } from '../api/settings';
 import { getSoundLibrary } from '../api/sounds';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
@@ -13,6 +14,8 @@ import Toolbar from '../components/editor/Toolbar';
 import HotkeysModal from '../components/editor/hotkeys/HotkeysModal';
 import SavedDesignsModal from '../components/editor/SavedDesignsModal';
 import SoundSlotsModal from '../components/editor/sounds/SoundSlotsModal';
+import LaunchpadConfigModal from '../components/editor/sounds/LaunchpadConfigModal';
+import LaunchpadSurface from '../components/editor/sounds/LaunchpadSurface';
 import { useSystemAlert } from '../components/ui/SystemAlert';
 import { makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
@@ -58,7 +61,6 @@ function ensureSceneDrawLayer(scene = {}) {
 
 export default function Editor() {
   const { publicKey } = useParams();
-  const navigate = useNavigate();
   const { confirmDialog, showAlert } = useSystemAlert();
   const [channelUuid, setChannelUuid] = useState(null);
   const [objects, setObjects] = useState({});
@@ -81,10 +83,14 @@ export default function Editor() {
   const [pasteSerial, setPasteSerial] = useState(1);
   const [mediaStatus, setMediaStatus] = useState('');
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState('canvas');
   const [soundsOpen, setSoundsOpen] = useState(false);
+  const [launchpadConfigOpen, setLaunchpadConfigOpen] = useState(false);
   const [soundLibrary, setSoundLibrary] = useState([]);
   const [soundSlots, setSoundSlots] = useState([null, null, null, null, null]);
   const [soundSlotsConfigured, setSoundSlotsConfigured] = useState(false);
+  const [launchpadSlots, setLaunchpadSlots] = useState(Array(24).fill(null));
+  const [launchpadSlotsConfigured, setLaunchpadSlotsConfigured] = useState(false);
   const [designsOpen, setDesignsOpen] = useState(false);
   const [designsIntent, setDesignsIntent] = useState('load');
   const [recentDesigns, setRecentDesigns] = useState([]);
@@ -133,12 +139,18 @@ export default function Editor() {
         if (!active) return;
         setSoundLibrary(sounds);
         const available = new Set(sounds.map((sound) => sound.id));
-        const configured = Array.isArray(settings?.soundSlots);
-        setSoundSlotsConfigured(configured);
-        const nextSlots = configured
+
+        const quickConfigured = Array.isArray(settings?.soundSlots);
+        setSoundSlotsConfigured(quickConfigured);
+        setSoundSlots(quickConfigured
           ? Array.from({ length: 5 }, (_, index) => available.has(settings.soundSlots[index]) ? settings.soundSlots[index] : null)
-          : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null);
-        setSoundSlots(nextSlots);
+          : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null));
+
+        const launchpadConfigured = Array.isArray(settings?.launchpadSlots);
+        setLaunchpadSlotsConfigured(launchpadConfigured);
+        setLaunchpadSlots(launchpadConfigured
+          ? Array.from({ length: 24 }, (_, index) => available.has(settings.launchpadSlots[index]) ? settings.launchpadSlots[index] : null)
+          : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
       } catch {
         if (active) setSoundLibrary([]);
       }
@@ -298,6 +310,9 @@ export default function Editor() {
     setSoundSlots((current) => soundSlotsConfigured
       ? Array.from({ length: 5 }, (_, index) => available.has(current[index]) ? current[index] : null)
       : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null));
+    setLaunchpadSlots((current) => launchpadSlotsConfigured
+      ? Array.from({ length: 24 }, (_, index) => available.has(current[index]) ? current[index] : null)
+      : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
     return sounds;
   };
 
@@ -419,7 +434,7 @@ export default function Editor() {
   };
 
   const playSound = async (soundId) => {
-    if (!connected || editingLocked) return;
+    if (!connected) return;
     if (overlayHidden) {
       setMediaStatus('El overlay está apagado. Enciéndelo antes de reproducir sonidos.');
       return;
@@ -456,6 +471,25 @@ export default function Editor() {
     setSoundSlotsConfigured(true);
     setSoundsOpen(false);
     setMediaStatus('Asignación de sonidos guardada.');
+  };
+
+  const openLaunchpadAssignments = async () => {
+    setLaunchpadConfigOpen(true);
+    try {
+      await refreshSoundLibrary();
+    } catch {
+      setMediaStatus('No se pudo actualizar la biblioteca de sonidos.');
+    }
+  };
+
+  const saveLaunchpadAssignments = async (nextSlots) => {
+    const available = new Set(soundLibrary.map((sound) => sound.id));
+    const cleanSlots = Array.from({ length: 24 }, (_, index) => available.has(nextSlots[index]) ? nextSlots[index] : null);
+    const saved = await saveUserLaunchpadSlots(cleanSlots);
+    setLaunchpadSlots(Array.from({ length: 24 }, (_, index) => saved[index] || null));
+    setLaunchpadSlotsConfigured(true);
+    setLaunchpadConfigOpen(false);
+    setMediaStatus('Launchpad actualizado.');
   };
 
   const refreshRecentDesigns = async () => {
@@ -1004,6 +1038,7 @@ export default function Editor() {
     const onKeyDown = (event) => {
       if (document.querySelector('.dc-system-alert-backdrop')) return;
       if (isEditableTarget(event.target)) return;
+      if (workspaceMode === 'launchpad') return;
       if (editingLocked) return;
 
       const modifier = event.ctrlKey || event.metaKey;
@@ -1340,7 +1375,7 @@ export default function Editor() {
   if (denied) return <div className="fixed inset-0 grid place-content-center bg-[var(--dc-bg)] text-center text-[var(--dc-text)]">NO TIENES ACCESO A ESTE CANAL // <Link className="text-[var(--dc-accent-four)]" to="/app">VOLVER AL INICIO</Link></div>;
 
   return (
-    <div className={`dc-editor ${editingLocked ? 'is-collab-locked' : ''}`}>
+    <div className={`dc-editor ${editingLocked ? 'is-collab-locked' : ''} ${workspaceMode === 'launchpad' ? 'is-launchpad-mode' : ''}`}>
       <div className="dc-editor-toolbar">
         <Toolbar
           key={editingLocked ? 'locked' : 'active'}
@@ -1348,22 +1383,16 @@ export default function Editor() {
           setTool={setTool}
           guide={guide}
           setGuide={setGuide}
-          onClear={requestClear}
-          onUndo={undo}
-          onRedo={redo}
           onSaveDesign={() => openDesigns('save')}
           onLoadDesigns={() => openDesigns('load')}
           onLoadRecent={loadRecentDesign}
           onFileOpen={refreshRecentDesigns}
           recentDesigns={recentDesigns}
-          onProperties={toggleProperties}
           onInsertTool={openInsertProperties}
           onImageFile={uploadFile}
           imagePickerRequest={imagePickerRequest}
-          propertiesOpen={propertiesOpen}
           snapEnabled={snapEnabled}
           onToggleSnap={() => setSnapEnabled((value) => !value)}
-          onMoveLayer={moveSelectedLayer}
           liveEnabled={liveEnabled}
           liveRequired={liveRequired}
           hasDraftChanges={hasDraftChanges}
@@ -1373,22 +1402,30 @@ export default function Editor() {
           overlayHidden={overlayHidden}
           onTogglePanic={togglePanic}
           controlBusy={controlBusy}
-          canUndo={history.past.length > 0}
-          canRedo={history.future.length > 0}
-          canMoveLayer={selectedIds.length > 0}
           connected={connected}
           editorLocked={editingLocked}
           editors={presence.editorList || []}
+          workspaceMode={workspaceMode}
+          onToggleWorkspaceMode={() => setWorkspaceMode((current) => current === 'canvas' ? 'launchpad' : 'canvas')}
           soundSlots={soundSlotItems}
           onPlaySound={playSound}
           onAssignSounds={openSoundAssignments}
-          onOpenLaunchpad={() => navigate(`/app/editor/${publicKey}/launchpad`)}
+          onAssignLaunchpadSounds={openLaunchpadAssignments}
         />
       </div>
 
-      <main className="dc-workspace">
+      <main className={`dc-workspace ${workspaceMode === 'launchpad' ? 'is-launchpad' : ''}`}>
         {/* <div className="dc-watermark">TRAZIO <span>// DannDato</span></div> */}
 
+        {workspaceMode === 'launchpad' ? (
+          <LaunchpadSurface
+            sounds={soundLibrary}
+            slots={launchpadSlots}
+            connected={connected}
+            disabled={overlayHidden || launchpadConfigOpen}
+            onPlaySound={playSound}
+          />
+        ) : <>
         <CanvasStage
           objects={objects}
           selectedId={selectedId}
@@ -1475,22 +1512,30 @@ export default function Editor() {
           </div>
         )}
 
+        </>}
+
         <div className="dc-status">
-          {/* <span className={`dc-status-chip connection ${connected ? 'online' : 'offline'}`}>{connected ? 'EN LÍNEA' : 'SIN CONEXIÓN'}</span> */}
-          {TOOL_LABELS[tool] && (
-            <span className="dc-status-presence">Herramienta: {TOOL_LABELS[tool]} //</span>
-          )}
-          {selectedIds.length > 0 && (
-            <span className="dc-status-presence">Seleccionada: {selectedIds.length} //</span>
-          )}
-          <span className="dc-status-presence">Conectados: {presence.clients} // Editores: {presence.editors} // OBS: {presence.overlays}</span>
-          {mediaStatus && <span className="dc-media-status">{mediaStatus}</span>}
-          
+          <div className="dc-status-history" aria-label="Historial">
+            <button type="button" className="dc-status-action" onClick={undo} disabled={!connected || editingLocked || history.past.length === 0} title="Deshacer // Ctrl+Z" aria-label="Deshacer">
+              <Undo2 size={14} />
+            </button>
+            <button type="button" className="dc-status-action" onClick={redo} disabled={!connected || editingLocked || history.future.length === 0} title="Rehacer // Ctrl+Shift+Z / Ctrl+Y" aria-label="Rehacer">
+              <Redo2 size={14} />
+            </button>
+          </div>
+
+          <div className="dc-status-info">
+            {workspaceMode === 'canvas' && TOOL_LABELS[tool] && <span className="dc-status-presence">Herramienta: {TOOL_LABELS[tool]} //</span>}
+            {workspaceMode === 'canvas' && selectedIds.length > 0 && <span className="dc-status-presence">Seleccionada: {selectedIds.length} //</span>}
+            <span className="dc-status-presence">Conectados: {presence.clients} // Editores: {presence.editors} // OBS: {presence.overlays}</span>
+            {mediaStatus && <span className="dc-media-status">{mediaStatus}</span>}
+          </div>
+
           <button type="button" className="dc-status-hotkeys" onClick={() => setHotkeysOpen(true)}>ATAJOS [?]</button>
         </div>
       </main>
 
-      <div className="dc-editor-layers-sidebar">
+      {workspaceMode === 'canvas' && <div className="dc-editor-layers-sidebar">
         <LayersPanel
           objects={objects}
           selectedIds={selectedIds}
@@ -1501,14 +1546,21 @@ export default function Editor() {
           onRemove={removeLayers}
           onReorder={reorderLayers}
           onNewDrawLayer={createDrawLayer}
+          onMoveLayer={moveSelectedLayer}
+          canMoveLayer={selectedIds.length > 0}
+          onProperties={toggleProperties}
+          propertiesOpen={propertiesOpen}
+          onClearAll={requestClear}
+          disabled={!connected || editingLocked}
           onGroup={groupSelection}
           onUngroup={ungroupSelection}
           onDuplicate={duplicateSelected}
         />
-      </div>
+      </div>}
 
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
       {soundsOpen && <SoundSlotsModal sounds={soundLibrary} slots={soundSlots} onClose={() => setSoundsOpen(false)} onRefresh={refreshSoundLibrary} onSave={saveSoundAssignments} />}
+      {launchpadConfigOpen && <LaunchpadConfigModal sounds={soundLibrary} slots={launchpadSlots} onClose={() => setLaunchpadConfigOpen(false)} onRefresh={refreshSoundLibrary} onSave={saveLaunchpadAssignments} />}
       {designsOpen && <SavedDesignsModal initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelUuid={channelUuid} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
     </div>
   );

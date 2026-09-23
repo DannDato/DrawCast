@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Copy, Eye, EyeOff, GripVertical, Group, Layers3, Plus, Trash2, Ungroup } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Eye, EyeOff, GripVertical, Group, LayerArrowDown, LayerArrowUp, Layers3, Plus, SlidersHorizontal, Trash2, Ungroup } from 'lucide-react';
 import { getGroupName } from './groups/groupUtils';
 import { layerUnits, orderedLayerObjects } from './layers/layerUtils';
 import { textValue } from './tools/text/textTool';
@@ -90,6 +90,12 @@ export default function LayersPanel({
   onRemove,
   onReorder,
   onNewDrawLayer,
+  onMoveLayer,
+  canMoveLayer = false,
+  onProperties,
+  propertiesOpen = false,
+  onClearAll,
+  disabled = false,
   onGroup,
   onUngroup,
   onDuplicate
@@ -382,6 +388,28 @@ export default function LayersPanel({
         </div>
       </header>
 
+      <div className="dc-layers-primary-action">
+        <button type="button" className="dc-layers-new-layer" onClick={onNewDrawLayer} disabled={disabled} title="Nueva capa de dibujo" aria-label="Nueva capa de dibujo">
+          <span className="dc-layers-new-layer-icon"><Plus size={15} /></span>
+          <span className="dc-layers-new-layer-copy"><b>Nueva capa</b><small>Dibujo</small></span>
+        </button>
+      </div>
+
+      <div className="dc-layers-tools" aria-label="Herramientas de capas">
+        <button type="button" onClick={() => onMoveLayer?.('up')} disabled={disabled || !canMoveLayer} title="Subir capa">
+          <LayerArrowUp size={14} />
+          <span>Subir</span>
+        </button>
+        <button type="button" onClick={() => onMoveLayer?.('down')} disabled={disabled || !canMoveLayer} title="Bajar capa">
+          <LayerArrowDown size={14} />
+          <span>Bajar</span>
+        </button>
+        <button type="button" className={`dc-layers-properties ${propertiesOpen ? 'active' : ''}`} onClick={onProperties} disabled={disabled} title={propertiesOpen ? 'Ocultar propiedades' : 'Mostrar propiedades'} aria-pressed={propertiesOpen}>
+          <SlidersHorizontal size={14} />
+          <span>Propiedades</span>
+        </button>
+      </div>
+
       {selectedIds.length > 0 && (
         <div className="dc-layer-selection-actions">
           <span>{selectedIds.length} seleccionada{selectedIds.length === 1 ? '' : 's'}</span>
@@ -396,13 +424,12 @@ export default function LayersPanel({
         {!units.length && <div className="dc-layers-empty">No hay capas.</div>}
         {unitNodes}
       </div>
-      <div className="dc-layers-new-footer">
-        <button type="button" className="dc-layers-new-layer" onClick={onNewDrawLayer} title="Nueva capa de dibujo" aria-label="Nueva capa de dibujo">
-          <span className="dc-layers-new-layer-icon"><Plus size={15} /></span>
-          <span className="dc-layers-new-layer-copy"><b>Nueva capa</b><small>Dibujo</small></span>
+      <div className="dc-layers-bottom-action">
+        <button type="button" className="dc-layers-clear danger" onClick={onClearAll} disabled={disabled} title="Eliminar todas las capas">
+          <Trash2 size={14} />
+          <span>Eliminar todo</span>
         </button>
       </div>
-
       {dragState && (
         <div
           ref={ghostRef}
