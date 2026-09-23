@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+const joinEventByRole = {
+  editor: 'join-editor',
+  overlay: 'join-overlay',
+  soundboard: 'join-soundboard',
+  'sound-output': 'join-sound-output'
+};
 
 export function useChannelSocket(publicKey, role, handlers = {}) {
   const socket = useMemo(() => io(socketUrl, { withCredentials: true, autoConnect: false }), []);
@@ -17,12 +23,12 @@ export function useChannelSocket(publicKey, role, handlers = {}) {
       if (!active) return;
       setDenied(false);
       setConnected(true);
-      socket.emit(role === 'overlay' ? 'join-overlay' : 'join-editor', { publicKey });
+      socket.emit(joinEventByRole[role] || 'join-editor', { publicKey });
     };
     const onDisconnect = () => { if (active) setConnected(false); };
     const onDenied = () => { if (active) setDenied(true); };
     const onRevoked = (payload) => {
-      if (!active || role !== 'editor' || payload?.publicKey !== publicKey) return;
+      if (!active || !['editor', 'soundboard'].includes(role) || payload?.publicKey !== publicKey) return;
       setDenied(true);
     };
     const onPresence = (value) => { if (active) setPresence(value); };

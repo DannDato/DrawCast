@@ -107,12 +107,12 @@ async function getChannelVisibleToUser(userId, channelUuid) {
   return collaboration ? channel : null;
 }
 
-async function disconnectEditorSocketsForUser(req, channel, userId, reason) {
+async function disconnectInteractiveSocketsForUser(req, channel, userId, reason) {
   const io = req.app.get('io');
   if (!io) return;
   const sockets = await io.in(`user:${userId}`).fetchSockets();
   for (const editorSocket of sockets) {
-    if (editorSocket.data?.role !== 'editor' || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
+    if (!['editor', 'soundboard'].includes(editorSocket.data?.role) || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
     editorSocket.emit('access-revoked', { channelUuid: channel.uuid, publicKey: channel.publicKey, reason });
     editorSocket.disconnect(true);
   }
@@ -299,7 +299,7 @@ export class ChannelController {
     if (!row) return res.status(404).json({ message: 'Colaborador no encontrado' });
 
     await row.update({ canEdit: req.body.canEdit });
-    if (!req.body.canEdit) await disconnectEditorSocketsForUser(req, req.channel, row.userId, 'collaboration-suspended');
+    if (!req.body.canEdit) await disconnectInteractiveSocketsForUser(req, req.channel, row.userId, 'collaboration-suspended');
     logger.info(req.body.canEdit ? 'Colaborador reactivado' : 'Colaborador suspendido', { channelId: req.channel.id, userId: row.userId, ownerId: req.user.id });
     res.json(publicCollaborator(row, user));
   }
@@ -329,7 +329,7 @@ export class ChannelController {
       for (const channelSocket of sockets) {
         channelSocket.data.channelDeleted = true;
         channelSocket.emit('channel-deleted', { channelUuid, publicKey, message: 'Este lienzo fue eliminado por su propietario.' });
-        if (channelSocket.data?.role === 'editor') channelSocket.emit('access-revoked', { channelUuid, publicKey, reason: 'channel-deleted' });
+        if (['editor', 'soundboard'].includes(channelSocket.data?.role)) channelSocket.emit('access-revoked', { channelUuid, publicKey, reason: 'channel-deleted' });
         channelSocket.disconnect(true);
       }
     }
@@ -363,7 +363,7 @@ export class ChannelController {
     if (io) {
       const sockets = await io.in(`user:${req.user.id}`).fetchSockets();
       for (const editorSocket of sockets) {
-        if (editorSocket.data?.role !== 'editor' || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
+        if (!['editor', 'soundboard'].includes(editorSocket.data?.role) || Number(editorSocket.data?.channelId) !== Number(channel.id)) continue;
         editorSocket.emit('access-revoked', { channelUuid: channel.uuid, publicKey: channel.publicKey, reason: 'collaboration-left' });
         editorSocket.disconnect(true);
       }
@@ -385,7 +385,7 @@ export class ChannelController {
       await collaboration.destroy({ transaction });
       await models.ChannelUserPreference.destroy({ where: { channelId: req.channel.id, userId: user.id }, transaction });
     });
-    await disconnectEditorSocketsForUser(req, req.channel, user.id, 'collaboration-removed');
+    await disconnectInteractiveSocketsForUser(req, req.channel, user.id, 'collaboration-removed');
     logger.info('Colaborador eliminado de un lienzo', { channelId: req.channel.id, userId: user.id, ownerId: req.user.id });
     res.status(204).end();
   }

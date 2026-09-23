@@ -15,6 +15,18 @@ export async function saveEditorSettings(editor) {
   return data;
 }
 
+export async function saveSoundSlots(slots) {
+  const { data } = await api.patch('/user/settings/sounds', { slots });
+  invalidateRequestCache(SETTINGS_KEY);
+  return Array.isArray(data?.soundSlots) ? data.soundSlots : [];
+}
+
+export async function saveLaunchpadSlots(slots) {
+  const { data } = await api.patch('/user/settings/launchpad', { slots });
+  invalidateRequestCache(SETTINGS_KEY);
+  return Array.isArray(data?.launchpadSlots) ? data.launchpadSlots : [];
+}
+
 export async function resetEditorSettings() {
   const { data } = await api.delete('/user/settings/editor');
   invalidateRequestCache(SETTINGS_KEY);

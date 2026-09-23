@@ -229,14 +229,14 @@ export default function ConnectionDiagnostics() {
 
   return (
     <section className="overflow-hidden bg-[var(--dc-panel)] text-[13px] shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-      <div className="flex items-center justify-between gap-5 px-[22px] pb-2.5 pt-5 max-[680px]:flex-col max-[680px]:items-start">
-        <h1 className="m-0 font-['Bebas_Neue'] text-[1.9rem] font-normal uppercase leading-none tracking-[.015em] text-[var(--dc-text)] max-[980px]:text-[1.75rem] max-[680px]:text-[1.55rem]">
+      <div className="flex flex-row-reverse items-end justify-between gap-5 px-[22px] pb-1 pt-4 max-[680px]:flex-col max-[680px]:items-stretch max-[680px]:pt-3">
+        <h1 className="m-0 text-right font-['Bebas_Neue'] text-[clamp(2.4rem,4vw,3.15rem)] font-normal uppercase leading-[.86] tracking-[-.01em] text-[var(--dc-text)] max-[680px]:text-[2.1rem]">
             DIAGNOSTICO <span className="text-[var(--dc-accent-four)]">DE RENDIMIENTO</span>
         </h1>
         <button type="button" className="inline-flex min-h-9 shrink-0 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-1)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] hover:border-[var(--dc-accent-three)] hover:bg-[var(--dc-accent-three-soft)] disabled:cursor-wait disabled:opacity-60 max-[680px]:w-full" onClick={runCheck} disabled={checking} title="Actualizar diagnóstico"><RefreshCw size={15} className={checking ? 'animate-spin' : ''} /> {checking ? 'Midiendo...' : 'Actualizar'}</button>
       </div>
 
-      <div className={`mx-5 mt-3.5 flex items-center gap-[11px] border p-3 px-3.5 max-[680px]:items-start ${VERDICT_TONE[diagnosis.tone] || VERDICT_TONE.good}`}>
+      <div className={`mx-5 mt-2.5 flex items-center gap-[11px] border p-3 px-3.5 max-[680px]:items-start ${VERDICT_TONE[diagnosis.tone] || VERDICT_TONE.good}`}>
         <span className="grid h-8 w-8 shrink-0 place-items-center border border-current">{diagnosis.tone === 'bad' && !online ? <WifiOff size={18} /> : <Activity size={18} />}</span>
         <div className="grid min-w-0 gap-0.5"><strong className="text-[13px]">{diagnosis.title}</strong><span className="text-[13px] leading-[1.4] text-current opacity-80">{diagnosis.message}</span></div>
       </div>

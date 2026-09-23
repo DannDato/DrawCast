@@ -10,6 +10,8 @@ r.use(verifyToken);
 r.use(mutationLimiter);
 r.get('/', asyncHandler(ctrlSettings.get));
 r.patch('/editor', asyncHandler(ctrlSettings.updateEditor));
+r.patch('/sounds', asyncHandler(ctrlSettings.updateSoundSlots));
+r.patch('/launchpad', asyncHandler(ctrlSettings.updateLaunchpadSlots));
 r.delete('/editor', asyncHandler(ctrlSettings.resetEditor));
 
 export default r;

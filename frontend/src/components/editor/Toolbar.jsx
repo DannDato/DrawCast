@@ -6,6 +6,7 @@ import {
   EyeOff,
   File,
   FolderOpen,
+  Grid3X3,
   Hand,
   Image,
   Magnet,
@@ -16,6 +17,7 @@ import {
   Redo2,
   Save,
   Play,
+  Settings2,
   Power,
   SlidersHorizontal,
   Shapes,
@@ -23,6 +25,7 @@ import {
   Trash2,
   Type,
   Undo2,
+  Volume2,
   X,
   LayerArrowUp,
   LayerArrowDown
@@ -94,7 +97,11 @@ export default function Toolbar({
   canMoveLayer,
   connected,
   editorLocked = false,
-  editors = []
+  editors = [],
+  soundSlots = [],
+  onPlaySound,
+  onAssignSounds,
+  onOpenLaunchpad
 }) {
   const [openMenu, setOpenMenu] = useState(null);
   const rootRef = useRef(null);
@@ -200,6 +207,37 @@ export default function Toolbar({
                 <kbd>{GUIDE_SHORTCUTS[item.id]}</kbd>
               </button>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div className="dc-toolbar-group dc-toolbar-menu-wrap">
+        <button type="button" className={`dc-toolbar-menu-trigger ${openMenu === 'sounds' ? 'active' : ''}`} onClick={() => toggleMenu('sounds')} aria-expanded={openMenu === 'sounds'} disabled={workspaceDisabled}>
+          <Volume2 size={15} />
+          <span>Sonidos</span>
+          <ChevronDown size={13} />
+        </button>
+        {openMenu === 'sounds' && (
+          <div className="dc-toolbar-popover dc-toolbar-sounds-menu">
+            {Array.from({ length: 5 }, (_, index) => {
+              const sound = soundSlots[index];
+              return (
+                <button key={index} type="button" disabled={!sound} onClick={() => { if (sound) onPlaySound?.(sound.id); setOpenMenu(null); }}>
+                  <span className="dc-toolbar-sound-mark">{index + 1}</span>
+                  <span>{sound?.name || 'Sin asignar'}</span>
+                  <Volume2 size={13} />
+                </button>
+              );
+            })}
+            <span className="dc-toolbar-popover-separator" />
+            <button type="button" onClick={() => { onAssignSounds?.(); setOpenMenu(null); }}>
+              <Settings2 size={15} />
+              <span>Asignar sonidos</span>
+            </button>
+            <button type="button" onClick={() => { onOpenLaunchpad?.(); setOpenMenu(null); }}>
+              <Grid3X3 size={15} />
+              <span>Abrir Launchpad</span>
+            </button>
           </div>
         )}
       </div>

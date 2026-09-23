@@ -74,16 +74,16 @@ export default function Settings() {
 
     const current = sections.find((section) => section.id === activeSection) || sections[0];
 
-    return <div className="mx-auto w-full max-w-[1440px] py-8 pt-7">
+    return <div className="mx-auto w-full max-w-[1440px] py-6 pt-4">
         {notice && <div className={`mb-4 flex items-center gap-2 border px-3.5 py-3 font-semibold ${notice.type === 'error' ? 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]' : 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]'}`}>{notice.type === 'success' ? <Check size={17} /> : <X size={17} />}{notice.text}</div>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] md:grid-cols-[250px_minmax(0,1fr)]">
-            <aside className="grid gap-2 bg-[var(--dc-panel)] p-3 shadow-[0_8px_24px_var(--dc-shadow-soft)] md:sticky md:top-[84px]">
-                <div className="mb-1 flex items-center gap-2 px-2 py-2 text-[11px] font-black uppercase tracking-[.1em] text-[var(--dc-text-muted)]"><Settings2 size={15} /> Secciones</div>
+            <aside className="grid gap-1.5 bg-[var(--dc-panel)] p-3 shadow-[0_8px_24px_var(--dc-shadow-soft)] md:sticky md:top-[84px]">
+                <div className="mb-0.5 flex items-center gap-2 px-2 py-1.5 text-[11px] font-black uppercase tracking-[.1em] text-[var(--dc-text-muted)]"><Settings2 size={15} /> Secciones</div>
                 {sections.map((section) => {
                     const SectionIcon = section.icon;
                     const selected = section.id === activeSection;
-                    return <button key={section.id} type="button" onClick={() => selectSection(section.id)} style={{ '--dc-section-accent': section.accent, '--dc-section-soft': section.soft }} className={`grid grid-cols-[28px_minmax(0,1fr)] gap-2 px-2 py-2.5 text-left transition ${selected ? 'bg-[var(--dc-section-soft)] text-[var(--dc-section-accent)]' : 'text-[var(--dc-text)] hover:bg-[var(--dc-button-secondary-hover)]'}`} aria-current={selected ? 'page' : undefined}>
+                    return <button key={section.id} type="button" onClick={() => selectSection(section.id)} style={{ '--dc-section-accent': section.accent, '--dc-section-soft': section.soft }} className={`grid grid-cols-[28px_minmax(0,1fr)] gap-2 px-2 py-2 text-left transition ${selected ? 'bg-[var(--dc-section-soft)] text-[var(--dc-section-accent)]' : 'text-[var(--dc-text)] hover:bg-[var(--dc-button-secondary-hover)]'}`} aria-current={selected ? 'page' : undefined}>
                         <SectionIcon size={18} className="mt-0.5" />
                         <strong className="block text-sm">{section.label}</strong>
                     </button>;
@@ -92,10 +92,10 @@ export default function Settings() {
 
             <main className="min-w-0">
                 {activeSection !== 'diagnostics' && <section className="overflow-hidden bg-[var(--dc-panel)] shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-                    <div className="flex justify-end px-5 py-4 max-[680px]:px-4">
-                        <h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[2rem] font-normal uppercase leading-none tracking-[.02em] text-[var(--dc-text)] max-[680px]:text-[1.75rem]"><span>{current.title[0]}</span><span style={{ color: current.accent }}>{current.title[1]}</span></h1>
+                    <div className="flex justify-end px-5 pb-1 pt-4 max-[680px]:px-4 max-[680px]:pt-3">
+                        <h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[clamp(2.4rem,4vw,3.15rem)] font-normal uppercase leading-[.86] tracking-[-.01em] text-[var(--dc-text)] max-[680px]:text-[1.75rem]"><span>{current.title[0]}</span><span style={{ color: current.accent }}>{current.title[1]}</span></h1>
                     </div>
-                    <div className="p-5 max-[680px]:p-4">
+                    <div className="px-5 pb-5 pt-2 max-[680px]:px-4 max-[680px]:pb-4 max-[680px]:pt-2">
                         {activeSection === 'editor' && (loadingEditor ? <div>Cargando configuración…</div> : <EditorPreferencesSettings embedded value={editorPreferences} onChange={setEditorPreferences} onSave={saveEditor} onReset={resetEditor} saving={saving} />)}
                         {activeSection === 'email' && <EmailSettings embedded onNotice={showNotice} />}
                         {activeSection === 'security' && <SecuritySettings embedded onNotice={showNotice} />}

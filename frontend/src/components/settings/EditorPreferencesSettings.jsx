@@ -13,18 +13,18 @@ function ColorField({ label, value, onChange }) {
 }
 
 function RangeField({ label, value, min, max, step = 1, suffix = '', onChange }) {
-  return <label className={labelClass}><span>{label} <b className="text-[var(--dc-accent-four)]">{step < 1 ? Math.round(value * 100) : value}{suffix}</b></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
+  return <label className={labelClass}><span>{label} <b className="text-[var(--dc-accent-four)]">{step < 1 ? Math.round(value * 100) : value}{suffix}</b></span><input className="dc-settings-range" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
 }
 
 function Card({ title, description, children }) {
-  return <section className="bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]"><div className="mb-5"><h3 className="m-0 font-['Bebas_Neue'] text-[1.3rem] font-normal uppercase leading-none tracking-[.025em] text-[var(--dc-text-muted)]">{title}</h3><p className="mt-1 text-[13px] text-[var(--dc-text-muted)]">{description}</p></div><div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{children}</div></section>;
+  return <section className="border border-[var(--dc-line-soft)] bg-[var(--dc-surface-1)] p-4"><div className="mb-4"><h3 className="m-0 font-['Bebas_Neue'] text-[1.3rem] font-normal uppercase leading-none tracking-[.025em] text-[var(--dc-text-muted)]">{title}</h3><p className="mt-1 text-[13px] text-[var(--dc-text-muted)]">{description}</p></div><div className="grid grid-cols-1 gap-4 lg:grid-cols-2">{children}</div></section>;
 }
 
 export default function EditorPreferencesSettings({ value, onChange, onSave, onReset, saving }) {
   const preferences = normalizeEditorPreferences(value);
   const patch = (section, next) => onChange({ ...preferences, [section]: { ...preferences[section], ...next } });
 
-  return <div className="grid gap-[18px]">
+  return <div className="dc-editor-preferences grid gap-[14px]">
     <div className="flex flex-col justify-between gap-3 bg-[var(--dc-surface-raised)] p-4 md:flex-row md:items-center"><div className="order-2 text-right md:order-2"><strong className="block">Predeterminados de herramientas</strong><span className="text-sm text-[var(--dc-text-muted)]">Se aplican al crear elementos nuevos. Nunca se guardan dentro de un diseño ni modifican capas que ya existen.</span></div><div className="order-1 flex shrink-0 flex-wrap gap-2"><button className="inline-flex items-center gap-2 border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-sm font-bold" onClick={onReset} disabled={saving}><RotateCcw size={15} /> Restaurar</button><button className="inline-flex items-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-sm font-bold text-[var(--dc-button-primary-text)] disabled:opacity-50" onClick={onSave} disabled={saving}><Save size={15} /> {saving ? 'Guardando…' : 'Guardar configuración'}</button></div></div>
 
     <Card title="Dibujo" description="Valores que recibe el pincel cuando abres una nueva sesión del editor.">

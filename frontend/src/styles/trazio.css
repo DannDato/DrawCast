@@ -1492,3 +1492,15 @@
 *::-webkit-scrollbar-thumb:hover {
     background: var(--dc-accent-three);
 }
+
+
+/* SETTINGS / PROFILE // compact editorial rhythm */
+.dc-settings-range {
+    width: 100%;
+    accent-color: var(--dc-accent-four);
+    cursor: pointer;
+}
+.dc-settings-range:focus-visible {
+    outline: 2px solid var(--dc-accent-four-soft);
+    outline-offset: 3px;
+}

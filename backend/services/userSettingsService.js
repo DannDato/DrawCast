@@ -1,6 +1,10 @@
 import { models } from '../models/index.js';
 
 const EDITOR_KEY = 'editor.defaults';
+const SOUND_SLOTS_KEY = 'editor.soundSlots';
+const LAUNCHPAD_SLOTS_KEY = 'editor.launchpadSlots';
+const SOUND_SLOT_COUNT = 5;
+const LAUNCHPAD_SLOT_COUNT = 24;
 const SOFT_WHITE = '#e7e7e7';
 const MAX_TIMER_SECONDS = (99 * 3600) + (59 * 60) + 59;
 
@@ -67,6 +71,19 @@ export function normalizeEditorPreferences(preferences = {}) {
   };
 }
 
+
+function normalizeSoundSlotArray(value = [], count = SOUND_SLOT_COUNT) {
+  const source = Array.isArray(value) ? value : [];
+  return Array.from({ length: count }, (_, index) => {
+    const id = typeof source[index] === 'string' ? source[index].trim() : '';
+    if (!id || id.length > 180 || !id.toLowerCase().endsWith('.mp3') || id.includes('/') || id.includes('\\') || /[\0-\x1f\x7f]/.test(id)) return null;
+    return id;
+  });
+}
+
+const normalizeSoundSlots = (value = []) => normalizeSoundSlotArray(value, SOUND_SLOT_COUNT);
+const normalizeLaunchpadSlots = (value = []) => normalizeSoundSlotArray(value, LAUNCHPAD_SLOT_COUNT);
+
 function parseValue(value, fallback = {}) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
@@ -74,7 +91,11 @@ function parseValue(value, fallback = {}) {
 export async function getUserSettings(userId) {
   const rows = await models.UserSetting.findAll({ where: { userId } });
   const byKey = new Map(rows.map((row) => [row.key, parseValue(row.value)]));
-  return { editor: normalizeEditorPreferences(byKey.get(EDITOR_KEY) || {}) };
+  return {
+    editor: normalizeEditorPreferences(byKey.get(EDITOR_KEY) || {}),
+    soundSlots: byKey.has(SOUND_SLOTS_KEY) ? normalizeSoundSlots(byKey.get(SOUND_SLOTS_KEY)) : null,
+    launchpadSlots: byKey.has(LAUNCHPAD_SLOTS_KEY) ? normalizeLaunchpadSlots(byKey.get(LAUNCHPAD_SLOTS_KEY)) : null
+  };
 }
 
 export async function saveEditorPreferences(userId, preferences) {
@@ -86,4 +107,18 @@ export async function saveEditorPreferences(userId, preferences) {
 export async function resetEditorPreferences(userId) {
   await models.UserSetting.destroy({ where: { userId, key: EDITOR_KEY } });
   return normalizeEditorPreferences({});
+}
+
+
+export async function saveSoundSlots(userId, slots) {
+  const soundSlots = normalizeSoundSlots(slots);
+  await models.UserSetting.upsert({ userId, key: SOUND_SLOTS_KEY, value: JSON.stringify(soundSlots) });
+  return soundSlots;
+}
+
+
+export async function saveLaunchpadSlots(userId, slots) {
+  const launchpadSlots = normalizeLaunchpadSlots(slots);
+  await models.UserSetting.upsert({ userId, key: LAUNCHPAD_SLOTS_KEY, value: JSON.stringify(launchpadSlots) });
+  return launchpadSlots;
 }

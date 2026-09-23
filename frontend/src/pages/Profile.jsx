@@ -131,11 +131,11 @@ export default function Profile() {
   const shown = profile || user;
   const initial = (shown?.displayName || shown?.username || 'U').slice(0, 1).toUpperCase();
 
-  return <div className="mx-auto w-full max-w-[1440px] py-8 pt-7">
+  return <div className="mx-auto w-full max-w-[1440px] py-6 pt-4">
     {(oauthNotice || notice) && <div className={`mb-4 flex items-center gap-2 border px-3.5 py-3 font-semibold ${(oauthNotice || notice).type === 'error' ? 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]' : 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]'}`}><span>{(oauthNotice || notice).type === 'success' ? <Check size={17} /> : <X size={17} />}</span>{(oauthNotice || notice).text}</div>}
 
-    <div className="grid grid-cols-1 items-stretch gap-[18px] xl:grid-cols-[300px_minmax(0,1fr)_300px]">
-      <section className="flex min-h-[440px] h-full flex-col items-center justify-center bg-[var(--dc-panel)] p-5 text-center shadow-[0_8px_24px_var(--dc-shadow-soft)]">
+    <div className="grid grid-cols-1 items-stretch gap-[18px] xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+      <section className="flex min-h-[400px] h-full flex-col items-center justify-center bg-[var(--dc-panel)] p-5 text-center shadow-[0_8px_24px_var(--dc-shadow-soft)]">
         <div className="relative h-[150px] w-[150px]">
           {shown?.avatarUrl ? <img className="h-[150px] w-[150px] rounded-full border border-[var(--dc-accent-three)] bg-[var(--dc-button-secondary-hover)] object-cover" src={shown.avatarUrl} alt="Foto de perfil" /> : <div className="grid h-[150px] w-[150px] place-items-center rounded-full border border-[var(--dc-accent-three)] bg-[var(--dc-button-secondary-hover)] text-[48px] font-black">{initial}</div>}
           <button className="absolute bottom-1 right-0.5 grid h-9 w-9 place-items-center rounded-full border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] text-[var(--dc-button-primary-text)] shadow-md disabled:opacity-50" onClick={() => avatarInput.current?.click()} disabled={busy === 'avatar'} aria-label="Cambiar foto"><Camera size={17} /></button>
@@ -147,8 +147,8 @@ export default function Profile() {
         <small className="text-[var(--dc-text-muted)]">JPG, PNG o WEBP · máximo 5 MB</small>
       </section>
 
-      <section className="min-h-[440px] h-full bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-        <div className="mb-[22px] flex justify-end"><h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[2rem] font-normal uppercase leading-none tracking-[.02em] text-[var(--dc-text)] max-[680px]:text-[1.75rem]"><span>TU</span><span className="text-[var(--dc-accent-four)]">PERFIL</span></h1></div>
+      <section className="min-h-[400px] h-full bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
+        <div className="mb-4 flex justify-end"><h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[clamp(2.4rem,4vw,3.15rem)] font-normal uppercase leading-[.86] tracking-[-.01em] text-[var(--dc-text)] max-[680px]:text-[2.1rem]"><span>TU</span><span className="text-[var(--dc-accent-four)]">PERFIL</span></h1></div>
         <div className="grid gap-3.5">
           <label className="grid gap-1.5 text-sm font-bold">Nombre para mostrar<input className="w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none transition focus:border-[var(--dc-accent-three)] disabled:cursor-not-allowed disabled:bg-[var(--dc-surface-hover)] disabled:text-[var(--dc-text-disabled)]" value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={120} /></label>
           <label className="grid gap-1.5 text-sm font-bold">Correo electrónico<input className="w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[11px] text-[var(--dc-text)] outline-none transition focus:border-[var(--dc-accent-three)] disabled:cursor-not-allowed disabled:bg-[var(--dc-surface-hover)] disabled:text-[var(--dc-text-disabled)]" value={shown?.email || ''} disabled /></label>
@@ -157,10 +157,10 @@ export default function Profile() {
         <div className="mt-[18px] flex flex-col items-stretch justify-between gap-4 border-t border-[var(--dc-line)] pt-4 md:flex-row md:items-center"><span className="text-[13px] text-[var(--dc-text-muted)]">El nombre de usuario no se cambia aquí.</span><button className="inline-flex items-center justify-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-[var(--dc-button-primary-text)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" onClick={saveProfile} disabled={busy === 'profile'}>{busy === 'profile' ? 'Guardando…' : 'Guardar cambios'}</button></div>
       </section>
 
-      <div className="flex h-full min-h-[440px] flex-col gap-[18px]">
-        <section className="flex min-h-[330px] flex-col bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-          <div className="mb-3"><h2 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[1.8rem] font-normal uppercase leading-none tracking-[.02em] text-[var(--dc-text)] max-[680px]:text-[1.6rem]"><span>MÉTODOS DE</span><span className="text-[var(--dc-accent-one)]">ACCESO</span></h2><p className="mt-2 text-right text-[13px] leading-5 text-[var(--dc-text-muted)]">Administra las cuentas externas que puedes usar para iniciar sesión en TRAZIO.</p></div>
-          <div className="flex flex-1 items-center justify-center"><div className="flex flex-wrap justify-center gap-2">
+      <div className="h-full min-h-[400px]">
+        <section className="flex h-full min-h-[400px] flex-col bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
+          <div className="mb-2"><h2 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[2rem] font-normal uppercase leading-none tracking-[.02em] text-[var(--dc-text)] max-[680px]:text-[1.6rem]"><span>MÉTODOS DE</span><span className="text-[var(--dc-accent-one)]">ACCESO</span></h2><p className="mt-2 text-right text-[13px] leading-5 text-[var(--dc-text-muted)]">Administra las cuentas externas que puedes usar para iniciar sesión en TRAZIO.</p></div>
+          <div className="my-4 flex items-center justify-center"><div className="flex flex-wrap justify-center gap-2">
             {accessProviders.map((provider) => {
               const account = connectedAccounts.find((item) => item.provider === provider.id && item.active !== false);
               const connected = Boolean(account);
@@ -173,10 +173,6 @@ export default function Profile() {
             })}
           </div></div>
           <p className="m-0 text-center text-[12px] leading-5 text-[var(--dc-text-muted)]">{hasPassword ? 'Puedes desconectar una cuenta cuando quieras. Si vuelves a conectarla, se reactiva como método de acceso.' : 'Configura una contraseña en Configuración → Seguridad para poder desconectar una cuenta social.'}</p>
-        </section>
-
-        <section className="flex min-h-[92px] flex-1 flex-col justify-center bg-[var(--dc-panel)] p-5 shadow-[0_8px_24px_var(--dc-shadow-soft)]">
-          <div className="flex items-center justify-between gap-4"><div><h2 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[1.35rem] font-normal uppercase leading-none tracking-[.02em] text-[var(--dc-text)]"><span>DATOS DE LA</span><span className="text-[var(--dc-accent-three)]">CUENTA</span></h2><p className="mt-1 text-[12px] text-[var(--dc-text-muted)]">Identificadores asociados a tu cuenta de TRAZIO.</p></div><div className="text-right text-[12px] text-[var(--dc-text-muted)]"><strong className="block break-all text-[13px] text-[var(--dc-text)]">{shown?.email}</strong><span>@{shown?.username}</span></div></div>
         </section>
       </div>
     </div>

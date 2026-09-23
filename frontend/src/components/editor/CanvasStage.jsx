@@ -13,7 +13,7 @@ import { getThemeColor } from '../../utils/theme';
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
 const FRAME_MS = 1000 / 30;
-const MIN_ZOOM = 0.01;
+const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.1;
 const VIEWPORT_GUTTER = 24;

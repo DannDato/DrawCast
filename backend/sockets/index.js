@@ -20,12 +20,16 @@ import {
   setObject,
   setOverlayHidden
 } from '../services/channelRuntimeService.js';
+import { getSound } from '../services/soundLibraryService.js';
 import logger from '../helpers/winston.js';
 
 const room = (channelId) => `channel:${channelId}`;
 const editorRoom = (channelId) => `channel:${channelId}:editors`;
 const overlayRoom = (channelId) => `channel:${channelId}:overlays`;
+const soundboardRoom = (channelId) => `channel:${channelId}:soundboards`;
+const soundOutputRoom = (channelId) => `channel:${channelId}:sound-output`;
 const EDITOR_CURSOR_LIMIT = 100000;
+const SOUND_EVENT_MIN_INTERVAL_MS = 120;
 
 async function socketUser(socket) {
   try {
@@ -84,6 +88,26 @@ function canUseWorkspace(context, socket, reply) {
   return false;
 }
 
+
+async function revalidateInteractiveAccess(joined) {
+  if (!joined?.sessionId || !joined?.userId || !joined?.channelUuid) return false;
+  if (Date.now() - joined.authorizedAt <= 1000) return true;
+
+  const [session, channel] = await Promise.all([
+    models.Session.findOne({ where: { id: joined.sessionId, userId: joined.userId, revokedAt: null } }),
+    getEditableChannel(joined.userId, joined.channelUuid)
+  ]);
+  if (!session || session.expiresAt <= new Date() || !channel) return false;
+  joined.authorizedAt = Date.now();
+  return true;
+}
+
+async function emitSoundOutputPresence(io, channelId) {
+  const sockets = await io.in(soundOutputRoom(channelId)).fetchSockets();
+  io.to(soundboardRoom(channelId)).emit('sound-output-presence', { count: sockets.length });
+  return sockets.length;
+}
+
 export function configureSockets(io) {
   io.on('connection', (socket) => {
     let joined = null;
@@ -101,6 +125,40 @@ export function configureSockets(io) {
       socket.emit('sync-state', { objects: getPublishedChannelState(channel.id) });
     });
 
+
+    socket.on('join-sound-output', async ({ publicKey } = {}) => {
+      const channel = await models.Channel.findOne({ where: { publicKey: String(publicKey || '') } });
+      if (!channel) return socket.emit('access-denied');
+
+      joined = { channelId: channel.id, role: 'sound-output' };
+      socket.data.channelId = channel.id;
+      socket.data.role = 'sound-output';
+      socket.join(room(channel.id));
+      socket.join(soundOutputRoom(channel.id));
+      await emitSoundOutputPresence(io, channel.id);
+    });
+
+    socket.on('join-soundboard', async ({ publicKey } = {}) => {
+      const auth = await socketUser(socket);
+      if (!auth) return socket.emit('access-denied');
+      const { user, session } = auth;
+
+      const channel = await getEditableChannelByPublicKey(user.id, String(publicKey || ''));
+      if (!channel) return socket.emit('access-denied');
+
+      joined = { channelId: channel.id, channelUuid: channel.uuid, publicKey: channel.publicKey, role: 'soundboard', userId: user.id, sessionId: session.id, authorizedAt: Date.now() };
+      socket.data.channelId = channel.id;
+      socket.data.userId = user.id;
+      socket.data.role = 'soundboard';
+      socket.join(room(channel.id));
+      socket.join(soundboardRoom(channel.id));
+      socket.join(`user:${user.id}`);
+      socket.join(`session:${session.id}`);
+      const count = await emitSoundOutputPresence(io, channel.id);
+      socket.emit('sound-output-presence', { count });
+      logger.info('Launchpad conectado al canal', { channelId: channel.id, userId: user.id });
+    });
+
     socket.on('join-editor', async ({ publicKey } = {}) => {
       const auth = await socketUser(socket);
       if (!auth) return socket.emit('access-denied');
@@ -115,7 +173,7 @@ export function configureSockets(io) {
       const username = user.username || `editor${user.id}`;
       const displayName = user.displayName || username || 'Editor';
 
-      joined = { channelId: channel.id, channelUuid: channel.uuid, role: 'editor', userId: user.id, sessionId: session.id, isOwner, authorizedAt: Date.now() };
+      joined = { channelId: channel.id, channelUuid: channel.uuid, publicKey: channel.publicKey, role: 'editor', userId: user.id, sessionId: session.id, isOwner, authorizedAt: Date.now() };
       socket.data.channelId = channel.id;
       socket.data.userId = user.id;
       socket.data.role = 'editor';
@@ -163,18 +221,11 @@ export function configureSockets(io) {
         // Revalida sesión y permisos durante la conexión. La ventana corta evita
         // golpear la BD en cada movimiento de cursor; revocaciones normales además
         // desconectan el socket inmediatamente desde sus controladores HTTP.
-        if (Date.now() - joined.authorizedAt > 1000) {
-          const [session, channel] = await Promise.all([
-            models.Session.findOne({ where: { id: joined.sessionId, userId: joined.userId, revokedAt: null } }),
-            getEditableChannel(joined.userId, joined.channelUuid)
-          ]);
-          if (!session || session.expiresAt <= new Date() || !channel) {
-            socket.emit('access-revoked', { reason: 'authorization-changed' });
-            socket.disconnect(true);
-            reply?.({ ok: false, message: 'Tu acceso ya no es válido' });
-            return;
-          }
-          joined.authorizedAt = Date.now();
+        if (!(await revalidateInteractiveAccess(joined))) {
+          socket.emit('access-revoked', { publicKey: joined.publicKey, reason: 'authorization-changed' });
+          socket.disconnect(true);
+          reply?.({ ok: false, message: 'Tu acceso ya no es válido' });
+          return;
         }
       } catch (error) {
         logger.warn('No fue posible revalidar un socket de editor', { socketId: socket.id, userId: joined.userId, error: error.message });
@@ -184,7 +235,12 @@ export function configureSockets(io) {
       }
 
       if (!options.allowWhenBlocked && !canUseWorkspace(joined, socket, reply)) return;
-      handler(joined, payload, reply);
+      try {
+        await handler(joined, payload, reply);
+      } catch (error) {
+        logger.error('Falló una acción del editor por socket', { event, socketId: socket.id, userId: joined.userId, channelId: joined.channelId, error: error.message });
+        reply?.({ ok: false, message: 'No fue posible procesar la acción.' });
+      }
     });
 
     edit('obj-upsert', (context, object) => {
@@ -235,6 +291,63 @@ export function configureSockets(io) {
       if (JSON.stringify(payload || {}).length > 50000) return;
       socket.to(editorRoom(context.channelId)).emit('draw-live', payload);
       if (getChannelControl(context.channelId).liveEnabled) io.to(overlayRoom(context.channelId)).emit('draw-live', payload);
+    });
+
+    socket.on('sound-play', async (payload, ack) => {
+      const reply = typeof ack === 'function' ? ack : null;
+      if (!joined || !['editor', 'soundboard'].includes(joined.role)) {
+        socket.emit('access-denied');
+        reply?.({ ok: false, message: 'Acceso denegado' });
+        return;
+      }
+
+      try {
+        if (!(await revalidateInteractiveAccess(joined))) {
+          socket.emit('access-revoked', { publicKey: joined.publicKey, reason: 'authorization-changed' });
+          socket.disconnect(true);
+          reply?.({ ok: false, message: 'Tu acceso ya no es válido' });
+          return;
+        }
+
+        if (joined.role === 'editor' && !canUseWorkspace(joined, socket, reply)) return;
+
+        const now = Date.now();
+        const previous = Number(socket.data.lastSoundAt || 0);
+        if (now - previous < SOUND_EVENT_MIN_INTERVAL_MS) {
+          reply?.({ ok: false, message: 'Espera un instante antes de disparar otro sonido.' });
+          return;
+        }
+        socket.data.lastSoundAt = now;
+
+        if (joined.role === 'editor' && getChannelControl(joined.channelId).overlayHidden) {
+          reply?.({ ok: false, message: 'El overlay está apagado. Enciéndelo antes de reproducir sonidos.' });
+          return;
+        }
+
+        const sound = await getSound(payload?.soundId);
+        if (!sound) {
+          reply?.({ ok: false, message: 'Ese sonido ya no existe en la biblioteca.' });
+          return;
+        }
+
+        const event = {
+          soundId: sound.id,
+          version: sound.version,
+          playbackId: `${socket.id}:${now}`
+        };
+
+        if (joined.role === 'soundboard') {
+          io.to(soundOutputRoom(joined.channelId)).emit('sound-play', event);
+          reply?.({ ok: true });
+          return;
+        }
+
+        io.to(overlayRoom(joined.channelId)).emit('sound-play', event);
+        reply?.({ ok: true });
+      } catch (error) {
+        logger.error('Falló el disparo de sonido por socket', { socketId: socket.id, userId: joined?.userId, channelId: joined?.channelId, error: error.message });
+        reply?.({ ok: false, message: 'No fue posible reproducir el sonido.' });
+      }
     });
 
     edit('cursor-move', (context, payload) => {
@@ -300,6 +413,12 @@ export function configureSockets(io) {
 
     socket.on('disconnect', () => {
       if (!joined || socket.data?.channelDeleted) return;
+      if (joined.role === 'sound-output') {
+        void emitSoundOutputPresence(io, joined.channelId);
+        return;
+      }
+      if (joined.role === 'soundboard') return;
+
       const result = disconnectRole(joined.channelId, socket.id, io);
       if (joined.role === 'editor') {
         socket.to(editorRoom(joined.channelId)).emit('cursor-leave', { socketId: socket.id });

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { importChannelImageUrl, uploadChannelImage } from '../api/media';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
 import { getChannels, markChannelUsed } from '../api/channels';
-import { getUserSettings } from '../api/settings';
+import { getUserSettings, saveSoundSlots as saveUserSoundSlots } from '../api/settings';
+import { getSoundLibrary } from '../api/sounds';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
 import Inspector from '../components/editor/Inspector';
@@ -11,6 +12,7 @@ import LayersPanel from '../components/editor/LayersPanel';
 import Toolbar from '../components/editor/Toolbar';
 import HotkeysModal from '../components/editor/hotkeys/HotkeysModal';
 import SavedDesignsModal from '../components/editor/SavedDesignsModal';
+import SoundSlotsModal from '../components/editor/sounds/SoundSlotsModal';
 import { useSystemAlert } from '../components/ui/SystemAlert';
 import { makeImage, makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
@@ -56,6 +58,7 @@ function ensureSceneDrawLayer(scene = {}) {
 
 export default function Editor() {
   const { publicKey } = useParams();
+  const navigate = useNavigate();
   const { confirmDialog, showAlert } = useSystemAlert();
   const [channelUuid, setChannelUuid] = useState(null);
   const [objects, setObjects] = useState({});
@@ -78,6 +81,10 @@ export default function Editor() {
   const [pasteSerial, setPasteSerial] = useState(1);
   const [mediaStatus, setMediaStatus] = useState('');
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [soundsOpen, setSoundsOpen] = useState(false);
+  const [soundLibrary, setSoundLibrary] = useState([]);
+  const [soundSlots, setSoundSlots] = useState([null, null, null, null, null]);
+  const [soundSlotsConfigured, setSoundSlotsConfigured] = useState(false);
   const [designsOpen, setDesignsOpen] = useState(false);
   const [designsIntent, setDesignsIntent] = useState('load');
   const [recentDesigns, setRecentDesigns] = useState([]);
@@ -105,19 +112,42 @@ export default function Editor() {
 
   useEffect(() => {
     let active = true;
-    getUserSettings()
-      .then((data) => {
+
+    const loadEditorSettings = async () => {
+      let settings = null;
+      try {
+        settings = await getUserSettings();
         if (!active) return;
-        const preferences = normalizeEditorPreferences(data.editor);
+        const preferences = normalizeEditorPreferences(settings.editor);
         setDrawConfig({ ...DEFAULT_DRAW_CONFIG, ...preferences.drawing });
         setShapeConfig({ ...DEFAULT_SHAPE_CONFIG, ...preferences.shape });
         setImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...preferences.image });
         setTextConfig({ ...DEFAULT_TEXT_CONFIG, ...preferences.text, fontFamily: resolveTextFontFamily(preferences.text.fontKey) });
         setTimerConfig({ ...DEFAULT_TIMER_CONFIG, ...preferences.timer, fontFamily: resolveTextFontFamily(preferences.timer.fontKey) });
-      })
-      .catch(() => {});
+      } catch {
+        // El editor puede seguir funcionando con sus defaults aunque falle la configuración de cuenta.
+      }
+
+      try {
+        const sounds = await getSoundLibrary();
+        if (!active) return;
+        setSoundLibrary(sounds);
+        const available = new Set(sounds.map((sound) => sound.id));
+        const configured = Array.isArray(settings?.soundSlots);
+        setSoundSlotsConfigured(configured);
+        const nextSlots = configured
+          ? Array.from({ length: 5 }, (_, index) => available.has(settings.soundSlots[index]) ? settings.soundSlots[index] : null)
+          : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null);
+        setSoundSlots(nextSlots);
+      } catch {
+        if (active) setSoundLibrary([]);
+      }
+    };
+
+    loadEditorSettings();
     return () => { active = false; };
   }, []);
+
 
   const setScene = (next) => {
     objectsRef.current = next;
@@ -256,6 +286,21 @@ export default function Editor() {
     };
   }), [remoteCursors, presence.editorList]);
 
+  const soundSlotItems = useMemo(() => {
+    const byId = new Map(soundLibrary.map((sound) => [sound.id, sound]));
+    return Array.from({ length: 5 }, (_, index) => byId.get(soundSlots[index]) || null);
+  }, [soundLibrary, soundSlots]);
+
+  const refreshSoundLibrary = async () => {
+    const sounds = await getSoundLibrary();
+    setSoundLibrary(sounds);
+    const available = new Set(sounds.map((sound) => sound.id));
+    setSoundSlots((current) => soundSlotsConfigured
+      ? Array.from({ length: 5 }, (_, index) => available.has(current[index]) ? current[index] : null)
+      : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null));
+    return sounds;
+  };
+
   const applyControlState = (control = {}) => {
     if (typeof control.liveEnabled === 'boolean') setLiveEnabled(control.liveEnabled);
     if (typeof control.overlayHidden === 'boolean') setOverlayHidden(control.overlayHidden);
@@ -371,6 +416,46 @@ export default function Editor() {
     } finally {
       setControlBusy('');
     }
+  };
+
+  const playSound = async (soundId) => {
+    if (!connected || editingLocked) return;
+    if (overlayHidden) {
+      setMediaStatus('El overlay está apagado. Enciéndelo antes de reproducir sonidos.');
+      return;
+    }
+
+    const sound = soundLibrary.find((item) => item.id === soundId);
+    if (!sound) {
+      setMediaStatus('Ese sonido ya no está disponible. Actualiza la biblioteca.');
+      return;
+    }
+
+    try {
+      await emitChannelAction('sound-play', { soundId });
+      setMediaStatus(presence.overlays > 0 ? `Sonido enviado: ${sound.name}` : `Sonido listo: ${sound.name}. No hay un overlay conectado.`);
+    } catch (error) {
+      setMediaStatus(error.message || 'No se pudo reproducir el sonido.');
+    }
+  };
+
+  const openSoundAssignments = async () => {
+    setSoundsOpen(true);
+    try {
+      await refreshSoundLibrary();
+    } catch {
+      setMediaStatus('No se pudo actualizar la biblioteca de sonidos.');
+    }
+  };
+
+  const saveSoundAssignments = async (nextSlots) => {
+    const available = new Set(soundLibrary.map((sound) => sound.id));
+    const cleanSlots = Array.from({ length: 5 }, (_, index) => available.has(nextSlots[index]) ? nextSlots[index] : null);
+    const saved = await saveUserSoundSlots(cleanSlots);
+    setSoundSlots(Array.from({ length: 5 }, (_, index) => saved[index] || null));
+    setSoundSlotsConfigured(true);
+    setSoundsOpen(false);
+    setMediaStatus('Asignación de sonidos guardada.');
   };
 
   const refreshRecentDesigns = async () => {
@@ -1294,6 +1379,10 @@ export default function Editor() {
           connected={connected}
           editorLocked={editingLocked}
           editors={presence.editorList || []}
+          soundSlots={soundSlotItems}
+          onPlaySound={playSound}
+          onAssignSounds={openSoundAssignments}
+          onOpenLaunchpad={() => navigate(`/app/editor/${publicKey}/launchpad`)}
         />
       </div>
 
@@ -1419,6 +1508,7 @@ export default function Editor() {
       </div>
 
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
+      {soundsOpen && <SoundSlotsModal sounds={soundLibrary} slots={soundSlots} onClose={() => setSoundsOpen(false)} onRefresh={refreshSoundLibrary} onSave={saveSoundAssignments} />}
       {designsOpen && <SavedDesignsModal initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelUuid={channelUuid} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
     </div>
   );
