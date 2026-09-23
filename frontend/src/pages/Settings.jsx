@@ -9,10 +9,10 @@ import SecuritySettings from '../components/settings/SecuritySettings';
 import ConnectionDiagnostics from '../components/dashboard/ConnectionDiagnostics';
 
 const sections = [
-    { id: 'editor', label: 'Editor', title: ['PREFERENCIAS', 'DEL EDITOR'], icon: Palette, accent: 'var(--dc-accent-one)', soft: 'var(--dc-accent-one-soft)' },
+    { id: 'editor', label: 'Editor', title: ['PREFERENCIAS', 'DEL EDITOR'], icon: Palette, accent: 'var(--dc-accent-four)', soft: 'var(--dc-accent-four-soft)' },
     { id: 'email', label: 'Correo', title: ['CORREO', 'DE ACCESO'], icon: Mail, accent: 'var(--dc-accent-four)', soft: 'var(--dc-accent-four-soft)' },
-    { id: 'security', label: 'Seguridad', title: ['SEGURIDAD', 'DE CUENTA'], icon: LockKeyhole, accent: 'var(--dc-accent-three)', soft: 'var(--dc-accent-three-soft)' },
-    { id: 'diagnostics', label: 'Diagnóstico', title: ['DIAGNÓSTICO', 'DE RENDIMIENTO'], icon: Activity, accent: 'var(--dc-accent-four)', soft: 'var(--dc-accent-two-soft)' },
+    { id: 'security', label: 'Seguridad', title: ['SEGURIDAD', 'DE CUENTA'], icon: LockKeyhole, accent: 'var(--dc-accent-four)', soft: 'var(--dc-accent-four-soft)' },
+    { id: 'diagnostics', label: 'Diagnóstico', title: ['DIAGNÓSTICO', 'DE RENDIMIENTO'], icon: Activity, accent: 'var(--dc-accent-four)', soft: 'var(--dc-accent-four-soft)' },
 ];
 
 const diagnosticNotes = [

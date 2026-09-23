@@ -87,7 +87,7 @@ export default function Landing() {
 
                     <nav className="flex flex-col gap-5 border-b border-[var(--dc-text)]/15 py-5 sm:flex-row sm:items-center sm:justify-between">
                         <strong className="font-['Bebas_Neue'] text-2xl font-normal tracking-[0.06em] md:text-[28px]">
-                            TRAZIO <span className="text-[var(--dc-accent-four)]"><span className="text-[var(--dc-accent-two)]">//</span> OVERLAY</span>
+                            <strong>TRAZIO </strong><span className="text-[var(--dc-accent-four)]"> //</span>
                         </strong>
 
                         <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export default function Landing() {
                                 Iniciar Sesión
                             </Link>
 
-                            <Link className="border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-4 py-3 font-mono text-[10px] font-bold tracking-wide text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-5 sm:text-xs md:px-6" to="/register">
+                            <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-4 py-3 font-mono text-[10px] font-bold tracking-wide text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-5 sm:text-xs md:px-6" to="/register">
                                 Crear cuenta
                             </Link>
                         </div>
@@ -103,10 +103,11 @@ export default function Landing() {
 
                     <div className="flex flex-col pt-10 md:pt-40 justify-between gap-10">
                         <div>
-                            <h2 className="max-w-[800px] font-['Bebas_Neue'] text-[clamp(4rem,17vw,9rem)] font-normal uppercase leading-[0.74] tracking-[-0.025em] md:text-[clamp(5rem,10vw,12rem)]">
-                                TRAZIO.
+                            <h2 className="max-w-[800px] font-['Bebas_Neue'] text-[clamp(4rem,17vw,9rem)] font-normal uppercase leading-[0.74] tracking-[0.02em] md:text-[clamp(5rem,10vw,12rem)] m-0 p-0">
+                                <strong>TRAZIO.</strong>
                             </h2>
-                            
+                            <br></br>
+                            <br></br>
                             <h2 className="max-w-[800px] font-['Bebas_Neue'] text-[clamp(3rem,17vw,9rem)] font-normal uppercase leading-[0.74] tracking-[-0.025em] md:text-[clamp(3rem,10vw,5.5rem)] mt-3">
                                 <span className="text-[var(--dc-accent-four)]">DIBUJA.</span>
                                 <br />
@@ -117,13 +118,13 @@ export default function Landing() {
                         </div>
 
                         <div className="flex flex-col justify-between text-right items-center">
-                            <p className=" text-base leading-7 text-[var(--dc-text)]/85 md:text-lg md:leading-8 text-right ">
-                                TRAZIO es la plataforma para crear y controlar overlays dinámicos durante tus transmisiones en vivo.
+                            <p className=" text-base leading-7 text-[var(--dc-text)] md:text-lg md:leading-8 text-right ">
+                                Trazio es la plataforma para crear y controlar overlays dinámicos durante tus transmisiones en vivo.
                                 Tus moderadores ahora pueden diseñar sobre tu escena, compartir el control con tu equipo de producción y mostrar cada cambio al instante en OBS Studio, sin reiniciar tu stream ni tu Browser Source.
                             </p>
 
                             <div className="mt-10 flex flex-wrap items-center gap-3">
-                                <Link className="border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
+                                <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
                                     CREA TU CUENTA YA!
                                 </Link>
                             </div>
@@ -159,10 +160,10 @@ export default function Landing() {
 
                         <h2 className="mt-5 font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
                             TÚ CONTROLAS AQUÍ <span className="text-[var(--dc-accent-two)]">//</span>
-                            <span className="text-[var(--dc-accent)]"> SALE ALLÁ.</span>
+                            <span className="text-[var(--dc-accent-four)]"> SALE ALLÁ.</span>
                         </h2>
 
-                        <p className="mt-8  text-base leading-7 text-[var(--dc-text)]/85 md:text-lg md:leading-8">
+                        <p className="mt-8  text-base leading-7 text-[var(--dc-text)] md:text-lg md:leading-8">
                             Permite que tus moderadores operen tu transmisión en vivo directamente desde TRAZIO. Modifica textos, activa temporizadores y actualiza elementos gráficos sin reconstruir tu escena en OBS ni tocar el software de streaming a mitad de directo.
                         </p>
 
@@ -274,7 +275,7 @@ export default function Landing() {
                                                 <span>●</span>
                                             </div>
 
-                                            <div className="flex justify-between bg-[var(--dc-accent-two)] px-2 py-1 text-[var(--dc-accent-four)]">
+                                            <div className="flex justify-between bg-[var(--dc-accent-two)] px-2 py-1 text-[var(--dc-text-inverse)]">
                                                 <span>Overlay TRAZIO</span>
                                                 <span>●</span>
                                             </div>
@@ -369,7 +370,7 @@ export default function Landing() {
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,6rem)]">
                             <span className="text-[var(--dc-accent-three)]"> UNA URL <span className="text-[var(--dc-text-muted)]">|</span> </span>
                             <span className="text-[var(--dc-text)]"> UNA FUENTE <span className="text-[var(--dc-text-muted)]">|</span> </span> 
-                            <span className="text-[var(--dc-accent)]"> CONTROL TOTAL</span>
+                            <span className="text-[var(--dc-accent-four)]"> CONTROL TOTAL</span>
                         </h2>
 
                         <div className="mt-14 flex flex-col  gap-10 ">
@@ -401,7 +402,7 @@ export default function Landing() {
                                     </div>
 
                                     <div className="flex items-center gap-3 border-b border-[var(--dc-text)]/10 pb-3">
-                                        <span className="text-[var(--dc-accent)]">03</span>
+                                        <span className="text-[var(--dc-accent-four)]">03</span>
                                         AGRÉGALA COMO BROWSER SOURCE
                                     </div>
 
@@ -649,11 +650,11 @@ export default function Landing() {
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(5rem,18vw,10rem)] uppercase leading-[0.75] md:text-[clamp(5rem,11vw,10rem)]">
                             ¿LISTO PARA
                             <br />
-                            <span className="text-[var(--dc-accent)]">TRANSMITIR?</span>
+                            <span className="text-[var(--dc-accent-two)]">TRANSMITIR?</span>
                         </h2>
 
-                        <p className="mx-auto mt-10 ] text-base leading-7 text-[var(--dc-text)]/45 md:text-lg md:leading-8">
-                            Construye tu primer overlay, invita a tu equipo y conecta TRAZIO a OBS en minutos. Sin tarjeta de crédito, sin complicaciones.
+                        <p className="mx-auto mt-10 ] text-base leading-7 text-[var(--dc-text)] md:text-lg md:leading-8">
+                            Construye tu primer overlay, invita a tu equipo y conecta Trazio a OBS en minutos. Sin tarjeta de crédito, sin complicaciones.
                         </p>
 
                         <Link className="mt-10 inline-flex items-center gap-3 border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-8 py-5 font-mono text-xs font-bold tracking-[0.1em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-10" to="/register">

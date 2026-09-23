@@ -7,9 +7,9 @@ export default function AuthShell({ eyebrow = 'ACCESO SEGURO', title, descriptio
     <div className="dc-auth-stage">
       <DoodleBackground className="dc-auth-doodle blur-xs" />
       <div className="dc-auth-grid" aria-hidden="true" />
-      <Link className="dc-auth-brand" to="/"><strong>TRAZIO</strong><span>//</span></Link>
+      <Link className="dc-auth-brand" to="/"><strong>TRAZIO</strong><span className="text-[var(--dc-accent-four)]"> //</span></Link>
       <section className="dc-auth-card">
-        <div className="dc-auth-card-line" />
+        {/* <div className="dc-auth-card-line" /> */}
         <div className="dc-auth-eyebrow">{eyebrow}</div>
         <h1>{title}</h1>
         {description ? <p className="dc-auth-description">{description}</p> : null}

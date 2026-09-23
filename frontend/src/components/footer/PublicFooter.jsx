@@ -30,7 +30,7 @@ export default function PublicFooter({ legal = false }) {
                 <div className={legal ? "grid gap-8 border-b border-white/10 pb-8 md:grid-cols-[1.4fr_repeat(3,1fr)]" : "grid gap-10 border-b border-[var(--dc-text)]/10 pb-12 md:grid-cols-[1.4fr_repeat(3,1fr)]"}>
                     <div className="max-w-[360px]">
                         <strong className="font-['Bebas_Neue'] text-4xl font-normal tracking-[0.04em]">
-                            TRAZIO // OVERLAY
+                            <strong>TRAZIO </strong> <span className="text-[var(--dc-accent-four)]"> //</span>
                         </strong>
                         <p className={legal ? "mt-4 text-sm leading-6 text-white/65" : "mt-5 text-sm leading-6 text-[var(--dc-text)]/50"}>
                             Crea, organiza y opera overlays colaborativos para transmisiones en vivo desde un solo espacio de trabajo.
@@ -66,9 +66,9 @@ export default function PublicFooter({ legal = false }) {
                     </div>
                 </div>
 
-                <div className={legal ? "flex flex-col gap-3 pt-6 font-mono text-[10px] uppercase tracking-[0.08em] text-white/45 md:flex-row md:items-center md:justify-between" : "flex flex-col gap-4 pt-7 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--dc-text)]/30 md:flex-row md:items-center md:justify-between"}>
+                <div className={legal ? "flex flex-col gap-3 pt-6 font-mono text-[10px] tracking-[0.08em] text-white md:flex-row md:items-center md:justify-between" : "flex flex-col gap-4 pt-7 font-mono text-[10px] tracking-[0.1em] text-[var(--dc-text)] md:flex-row md:items-center md:justify-between"}>
                     <span>© {year} TRAZIO. Todos los derechos reservados.</span>
-                    <span className="inline-flex items-center gap-2">Seguridad y privacidad por diseño.</span>
+                    <span className="inline-flex items-center gap-2">Tu espacio creativo.</span>
                     <span>Sitio desarrollado por <a className={legal ? "transition hover:text-[var(--dc-accent-four)] hover:underline" : "transition hover:text-[var(--dc-accent-four)]"} href="https://datech.dannprod.com/" target="_blank" rel="noopener noreferrer">Datech</a>.</span>
                 </div>
             </div>

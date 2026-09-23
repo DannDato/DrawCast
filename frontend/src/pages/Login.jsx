@@ -85,7 +85,7 @@ export default function Login() {
             <div className="dc-auth-divider">
                 <span>O continua con</span>
             </div>
-            <div className="grid grid-cols-2 gap-3 max-[560px]:grid-cols-1">
+            <div className="grid grid-cols-4 gap-3 max-[560px]:grid-cols-1">
                 <GoogleAuthButton mode="signin" onError={setError} />
                 <TwitchAuthButton onError={setError} />
                 <ExternalOAuthButton provider="kick" onError={setError} />
