@@ -396,8 +396,9 @@ function DashboardSummary({ user, channels, used, limit }) {
         (channel) => (channel.runtime?.overlayCount || 0) > 0 && !channel.runtime?.overlayHidden
     ).length;
     const editors = channels.reduce((total, channel) => total + Number(channel.runtime?.editorCount || 0), 0);
+    const username = user?.username ? `@${user.username}` : user?.displayName || "tu cuenta";
 
-    let message = "Tus lienzos están preparados. Entra a cualquiera cuando quieras empezar a trabajar.";
+    let message = "Bienvenidx de vuelta";
     if (overlayHidden) {
         message = "Algún propietario usó el control de emergencia. El workspace sigue intacto.";
     } else if (studio) {
@@ -410,18 +411,13 @@ function DashboardSummary({ user, channels, used, limit }) {
         message = "Tu equipo está preparando contenido en alguno de tus lienzos.";
     }
 
-    const username = user?.username ? `@${user.username}` : user?.displayName || "tu cuenta";
     return (
         <section className="dc-home-summary">
-            <div className="dc-home-summary-copy">
-                <h2>{username}</h2>
-                <p>{message}</p>
-            </div>
             <div className="dc-home-metrics">
                 <div className="dc-home-metric">
                     <strong>
                         {used}
-                        <small>/{limit}</small>
+                        <small> / {limit}</small>
                     </strong>
                     <span>LIENZOS</span>
                 </div>
@@ -433,6 +429,10 @@ function DashboardSummary({ user, channels, used, limit }) {
                     <strong>{savedDesigns}</strong>
                     <span>DISEÑOS</span>
                 </div>
+            </div>
+            <div className="dc-home-summary-copy">
+                <p>{message} {username}</p>
+                <h2></h2>
             </div>
         </section>
     );
@@ -741,14 +741,6 @@ export default function ChannelDashboard() {
                               </h2>
                             </div>
                         </div>
-                        <div className="dc-home-canvases-foot">
-                            <span>
-                                {used} de {limit} usados
-                            </span>
-                            <span>
-                                {Math.max(0, limit - used)} disponible{Math.max(0, limit - used) === 1 ? "" : "s"}
-                            </span>
-                        </div>
 
                         <div className="dc-home-canvas-search">
                             <Search size={15} />
@@ -762,6 +754,14 @@ export default function ChannelDashboard() {
                                     <X size={14} />
                                 </button>
                             )}
+                        </div>
+                        <div className="dc-home-canvases-foot mt-5">
+                            <span>
+                                {used} de {limit} usados
+                            </span>
+                            <span>
+                                {Math.max(0, limit - used)} disponible{Math.max(0, limit - used) === 1 ? "" : "s"}
+                            </span>
                         </div>
 
                         <div className="dc-home-canvas-stack">
@@ -802,7 +802,7 @@ export default function ChannelDashboard() {
                     <div>
                         <span className="dc-kicker">NUEVO LIENZO</span>
                         <h2>Prepara otro espacio</h2>
-                        <p>
+                        <p className="text-[var(--dc-text)]">
                             El nombre es obligatorio. El link del canal es opcional; si lo agregas, podrá aparecer en
                             Streamer del día.
                         </p>
