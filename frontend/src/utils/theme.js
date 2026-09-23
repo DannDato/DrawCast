@@ -1,6 +1,14 @@
+let rootComputedStyles = null;
+
+function getRootComputedStyles() {
+  if (typeof document === 'undefined') return null;
+  if (!rootComputedStyles) rootComputedStyles = getComputedStyle(document.documentElement);
+  return rootComputedStyles;
+}
+
 export function getThemeColor(name, fallbackName = '--dc-text') {
-  if (typeof document === 'undefined') return '';
-  const styles = getComputedStyle(document.documentElement);
+  const styles = getRootComputedStyles();
+  if (!styles) return '';
   return styles.getPropertyValue(name).trim() || (fallbackName ? styles.getPropertyValue(fallbackName).trim() : '');
 }
 

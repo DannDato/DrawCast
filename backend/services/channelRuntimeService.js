@@ -173,6 +173,40 @@ export function setObject(channelId, object) {
   return getChannelControl(channelId);
 }
 
+export function patchObjects(channelId, updates = []) {
+  const r = runtime(channelId);
+  const applied = [];
+
+  for (const update of updates) {
+    const current = r.objects.get(update.id);
+    if (!current) continue;
+    const next = { ...current, ...update.patch };
+    r.objects.set(update.id, next);
+    if (r.liveEnabled) r.publishedObjects.set(update.id, next);
+    applied.push({ id: update.id, patch: update.patch });
+  }
+
+  if (applied.length) r.hasDraftChanges = r.liveEnabled ? false : true;
+  return { updates: applied, control: getChannelControl(channelId) };
+}
+
+export function appendDrawStroke(channelId, layerId, stroke, maxLayerBytes = 1800000) {
+  const r = runtime(channelId);
+  const layer = r.objects.get(layerId);
+  if (!layer || (layer.tipo !== 'draw' && layer.tipo !== 'trazo')) return { applied: false, reason: 'missing-layer', control: getChannelControl(channelId) };
+  if ((layer.lineas || []).some((item) => item?.id === stroke.id)) return { applied: true, duplicate: true, control: getChannelControl(channelId) };
+
+  const next = { ...layer, lineas: [...(layer.lineas || []), { ...stroke, layerId }] };
+  if (Buffer.byteLength(JSON.stringify(next), 'utf8') > maxLayerBytes) {
+    return { applied: false, reason: 'layer-too-large', control: getChannelControl(channelId) };
+  }
+
+  r.objects.set(layerId, next);
+  if (r.liveEnabled) r.publishedObjects.set(layerId, next);
+  r.hasDraftChanges = r.liveEnabled ? false : true;
+  return { applied: true, object: next, control: getChannelControl(channelId) };
+}
+
 export function removeObject(channelId, id) {
   const r = runtime(channelId);
   r.objects.delete(id);

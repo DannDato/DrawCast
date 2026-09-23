@@ -23,7 +23,8 @@ export function renderScene(ctx, objects, options = {}) {
   const height = options.height || 1080;
   if (options.clear !== false) ctx.clearRect(0, 0, width, height);
   if (options.grid) drawGrid(ctx, width, height, options.gridStep || 96);
-  for (const object of orderedObjects(objects)) drawObject(ctx, object, options);
+  const sceneObjects = Array.isArray(options.orderedObjects) ? options.orderedObjects : orderedObjects(objects);
+  for (const object of sceneObjects) drawObject(ctx, object, options);
 
   for (const stroke of Object.values(options.liveStrokes || {})) {
     drawObject(ctx, {

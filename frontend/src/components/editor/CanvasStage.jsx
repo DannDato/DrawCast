@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { drawObject, hitObject } from './renderer/drawObject';
 import { orderedObjects, renderScene } from './renderer/sceneRenderer';
 import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getObjectFrame, getSelectionBounds, hitResizeHandle, hitRotateHandle, resizeCursorForHandle, resizeSelectionFromHandle, rotateSelection } from './renderer/selectionRenderer';
@@ -10,10 +10,10 @@ import { appendStrokePoint, hitDrawLayer, isDrawLayer, makeStroke, normalizeDraw
 import { boundsCenter, unrotatePointAround } from './renderer/transformUtils';
 import { buildSnapTargets, drawSnapGuides, SNAP_THRESHOLD_PX, snapMove, snapResizePointer } from './renderer/snapUtils';
 import { getThemeColor } from '../../utils/theme';
+import { createFrameLimiter } from '../../utils/frameRate';
 
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
-const FRAME_MS = 1000 / 30;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.1;
@@ -37,6 +37,7 @@ export default function CanvasStage({
   onDrawStart,
   onDrawPoint,
   onDrawCommit,
+  onDrawCancel,
   shapeConfig,
   lineConfig,
   onShapeCreate,
@@ -74,6 +75,17 @@ export default function CanvasStage({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
 
+  const editingTextId = textEditor?.objectId || null;
+  const sceneObjects = useMemo(() => editingTextId
+    ? Object.fromEntries(Object.entries(objects).filter(([id]) => id !== editingTextId))
+    : objects, [objects, editingTextId]);
+  const orderedSceneObjects = useMemo(() => orderedObjects(sceneObjects), [sceneObjects]);
+  const renderStateRef = useRef({ sceneObjects, orderedSceneObjects, objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, drawConfig, tool, interactionDisabled, panning, editingTextId });
+
+  useEffect(() => {
+    renderStateRef.current = { sceneObjects, orderedSceneObjects, objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, drawConfig, tool, interactionDisabled, panning, editingTextId };
+  }, [sceneObjects, orderedSceneObjects, objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, drawConfig, tool, interactionDisabled, panning, editingTextId]);
+
   useEffect(() => { remoteCursorsRef.current = remoteCursors; }, [remoteCursors]);
 
   useEffect(() => {
@@ -107,15 +119,15 @@ export default function CanvasStage({
     return () => observer.disconnect();
   }, []);
 
-  const setView = (nextZoom, nextPan = panRef.current) => {
+  const setView = useCallback((nextZoom, nextPan = panRef.current) => {
     const safeZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
     zoomRef.current = safeZoom;
     panRef.current = nextPan;
     setZoom(safeZoom);
     setPan(nextPan);
-  };
+  }, []);
 
-  const changeZoom = (delta, anchor = null) => {
+  const changeZoom = useCallback((delta, anchor = null) => {
     const currentZoom = zoomRef.current;
     const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number((currentZoom + delta).toFixed(2))));
     if (nextZoom === currentZoom) return;
@@ -134,7 +146,7 @@ export default function CanvasStage({
     }
 
     setView(nextZoom, nextPan);
-  };
+  }, [setView]);
 
   const resetView = () => setView(1, { x: 0, y: 0 });
 
@@ -179,17 +191,16 @@ export default function CanvasStage({
     return () => cancelAnimationFrame(frame);
   }, [fitViewRequest, objects]);
 
-  const onViewportWheel = (event) => {
-    event.preventDefault();
-    changeZoom(event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP, event);
-  };
-
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return undefined;
+    const onViewportWheel = (event) => {
+      event.preventDefault();
+      changeZoom(event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP, event);
+    };
     viewport.addEventListener('wheel', onViewportWheel, { passive: false });
     return () => viewport.removeEventListener('wheel', onViewportWheel);
-  });
+  }, [changeZoom]);
 
   const onViewportPointerDown = (event) => {
     const handPan = tool === 'hand' && event.button === 0;
@@ -240,13 +251,16 @@ export default function CanvasStage({
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    const shouldRenderFrame = createFrameLimiter();
     let animationFrame;
-    let lastFrame = 0;
     let active = true;
 
     const render = (timestamp = 0) => {
       if (!active || !canvas.isConnected) return;
-      if (timestamp - lastFrame >= FRAME_MS || timestamp === 0) {
+      if (shouldRenderFrame(timestamp)) {
+        const state = renderStateRef.current;
+        if (!state) return;
+
         const cssWidth = Math.max(1, canvas.clientWidth);
         const cssHeight = Math.max(1, canvas.clientHeight);
         const dprX = canvas.width / cssWidth;
@@ -254,15 +268,20 @@ export default function CanvasStage({
         const cssScale = Math.max(0.0001, fitScaleRef.current * zoomRef.current);
         const originX = cssWidth / 2 + panRef.current.x - (CANVAS_WIDTH * cssScale) / 2;
         const originY = cssHeight / 2 + panRef.current.y - (CANVAS_HEIGHT * cssScale) / 2;
+        const now = Date.now();
 
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.setTransform(cssScale * dprX, 0, 0, cssScale * dprY, originX * dprX, originY * dprY);
-        const editingTextId = textEditor?.objectId || null;
-        const sceneObjects = editingTextId
-          ? Object.fromEntries(Object.entries(objects).filter(([id]) => id !== editingTextId))
-          : objects;
-        renderScene(ctx, sceneObjects, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, grid: true, clear: false, now: Date.now(), liveStrokes });
+        renderScene(ctx, state.sceneObjects, {
+          width: CANVAS_WIDTH,
+          height: CANVAS_HEIGHT,
+          grid: true,
+          clear: false,
+          now,
+          liveStrokes: state.liveStrokes,
+          orderedObjects: state.orderedSceneObjects
+        });
 
         const activeGuide = guideImage.current;
         if (activeGuide?.complete && activeGuide.naturalWidth) {
@@ -273,7 +292,7 @@ export default function CanvasStage({
         }
 
         if (drawing.current) {
-          drawObject(ctx, { id: 'draw_preview', tipo: 'draw', x: Number(activeDrawLayer?.x) || 0, y: Number(activeDrawLayer?.y) || 0, w: Number(activeDrawLayer?.w) || CANVAS_WIDTH, h: Number(activeDrawLayer?.h) || CANVAS_HEIGHT, sourceWidth: Number(activeDrawLayer?.sourceWidth) || CANVAS_WIDTH, sourceHeight: Number(activeDrawLayer?.sourceHeight) || CANVAS_HEIGHT, rotation: Number(activeDrawLayer?.rotation) || 0, lineas: [drawing.current], zIndex: Number.MAX_SAFE_INTEGER });
+          drawObject(ctx, { id: 'draw_preview', tipo: 'draw', x: Number(state.activeDrawLayer?.x) || 0, y: Number(state.activeDrawLayer?.y) || 0, w: Number(state.activeDrawLayer?.w) || CANVAS_WIDTH, h: Number(state.activeDrawLayer?.h) || CANVAS_HEIGHT, sourceWidth: Number(state.activeDrawLayer?.sourceWidth) || CANVAS_WIDTH, sourceHeight: Number(state.activeDrawLayer?.sourceHeight) || CANVAS_HEIGHT, rotation: Number(state.activeDrawLayer?.rotation) || 0, lineas: [drawing.current], zIndex: Number.MAX_SAFE_INTEGER });
         }
 
         if (shapePreview.current) {
@@ -296,13 +315,13 @@ export default function CanvasStage({
 
         const selectionAccent = getThemeColor('--dc-accent-four');
         const guideAccent = getThemeColor('--dc-accent-three');
-        const selection = selectedIds.length ? selectedIds : selectedId ? [selectedId] : [];
-        drawMultiSelection(ctx, selection.map((id) => objects[id]).filter((object) => object && object.id !== editingTextId), selectionAccent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
+        const selection = state.selectedIds.length ? state.selectedIds : state.selectedId ? [state.selectedId] : [];
+        drawMultiSelection(ctx, selection.map((id) => state.objects[id]).filter((object) => object && object.id !== state.editingTextId), selectionAccent, { handleSize: 10 / cssScale, rotateHandleDistance: 34 / cssScale });
         drawSnapGuides(ctx, snapGuides.current, guideAccent, { width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
 
-        if (brushCursor.current && ['draw', 'eraser'].includes(tool) && !interactionDisabled && !panning) {
-          const config = normalizeDrawConfig(drawConfig);
-          const layer = activeDrawLayer;
+        if (brushCursor.current && ['draw', 'eraser'].includes(state.tool) && !state.interactionDisabled && !state.panning) {
+          const config = normalizeDrawConfig(state.drawConfig);
+          const layer = state.activeDrawLayer;
           const sourceWidth = Math.max(1, Number(layer?.sourceWidth) || CANVAS_WIDTH);
           const sourceHeight = Math.max(1, Number(layer?.sourceHeight) || CANVAS_HEIGHT);
           const layerScaleX = Math.max(0.0001, (Number(layer?.w) || sourceWidth) / sourceWidth);
@@ -325,7 +344,6 @@ export default function CanvasStage({
         }
 
         const cursorScale = 1 / cssScale;
-        const now = Date.now();
         remoteCursorsRef.current.forEach((cursor) => {
           if (!cursor || !Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)) return;
           const age = Math.max(0, now - Number(cursor.at || now));
@@ -368,7 +386,6 @@ export default function CanvasStage({
         });
 
         if (marquee.current) drawMarquee(ctx, marquee.current.start, marquee.current.end, selectionAccent);
-        lastFrame = timestamp;
       }
 
       if (active && canvas.isConnected) animationFrame = requestAnimationFrame(render);
@@ -379,7 +396,7 @@ export default function CanvasStage({
       active = false;
       cancelAnimationFrame(animationFrame);
     };
-  }, [objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, textEditor, tool, drawConfig, interactionDisabled, panning]);
+  }, []);
 
   const pointFromEvent = (event) => {
     const bounds = canvasRef.current.getBoundingClientRect();
@@ -725,6 +742,7 @@ export default function CanvasStage({
     if (interactionDisabled) return;
     if (drawing.current) {
       if (drawing.current.points.length > 1) onDrawCommit?.(drawing.current);
+      else onDrawCancel?.(drawing.current);
       drawing.current = null;
     }
 

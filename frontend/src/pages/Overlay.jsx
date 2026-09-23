@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useChannelSocket } from '../hooks/useChannelSocket';
-import { renderScene } from '../components/editor/renderer/sceneRenderer';
+import { orderedObjects, renderScene } from '../components/editor/renderer/sceneRenderer';
 import { pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { getSoundUrl } from '../api/sounds';
-
-const FRAME_MS = 1000 / 30;
+import { createFrameLimiter, GRAPHICS_FRAME_MS } from '../utils/frameRate';
 
 export default function Overlay() {
   const { publicKey } = useParams();
@@ -14,6 +13,15 @@ export default function Overlay() {
   const [overlayHidden, setOverlayHidden] = useState(false);
   const canvasRef = useRef(null);
   const activeAudioRef = useRef(new Map());
+  const inboundStrokeFrameRef = useRef(null);
+  const inboundStrokeQueueRef = useRef([]);
+  const inboundStrokeLastAppliedRef = useRef(0);
+  const orderedSceneObjects = useMemo(() => orderedObjects(objects), [objects]);
+  const renderStateRef = useRef({ objects, orderedObjects: orderedSceneObjects, liveStrokes, overlayHidden });
+
+  useEffect(() => {
+    renderStateRef.current = { objects, orderedObjects: orderedSceneObjects, liveStrokes, overlayHidden };
+  }, [objects, orderedSceneObjects, liveStrokes, overlayHidden]);
 
   const stopAllSounds = useCallback(() => {
     activeAudioRef.current.forEach((audio) => {
@@ -67,12 +75,47 @@ export default function Overlay() {
   const handlers = useMemo(() => ({
     'sync-state': ({ objects: list }) => setObjects(Object.fromEntries(list.map((object) => [object.id, object]))),
     'obj-upsert': (object) => setObjects((current) => ({ ...current, [object.id]: object })),
+    'obj-transform': ({ updates = [] } = {}) => setObjects((current) => {
+      if (!Array.isArray(updates) || !updates.length) return current;
+      let next = current;
+      updates.forEach(({ id, patch }) => {
+        if (!id || !current[id] || !patch || typeof patch !== 'object') return;
+        if (next === current) next = { ...current };
+        next[id] = { ...next[id], ...patch };
+      });
+      return next;
+    }),
     'obj-remove': ({ id }) => setObjects((current) => {
       const next = { ...current };
       delete next[id];
       return next;
     }),
-    'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
+    'draw-live': (payload) => {
+      inboundStrokeQueueRef.current.push(payload);
+      if (inboundStrokeFrameRef.current != null) return;
+      const flush = (timestamp) => {
+        if (timestamp - inboundStrokeLastAppliedRef.current < GRAPHICS_FRAME_MS) {
+          inboundStrokeFrameRef.current = requestAnimationFrame(flush);
+          return;
+        }
+        inboundStrokeFrameRef.current = null;
+        inboundStrokeLastAppliedRef.current = timestamp;
+        const queue = inboundStrokeQueueRef.current.splice(0);
+        if (!queue.length) return;
+        setLiveStrokes((current) => queue.reduce((next, event) => reduceLiveStrokeMap(next, event), current));
+      };
+      inboundStrokeFrameRef.current = requestAnimationFrame(flush);
+    },
+    'draw-commit': ({ layerId, stroke } = {}) => {
+      if (!layerId || !stroke?.id) return;
+      inboundStrokeQueueRef.current = inboundStrokeQueueRef.current.filter((event) => event?.strokeId !== stroke.id);
+      setLiveStrokes((current) => reduceLiveStrokeMap(current, { phase: 'end', strokeId: stroke.id }));
+      setObjects((current) => {
+        const layer = current[layerId];
+        if (!layer || (layer.tipo !== 'draw' && layer.tipo !== 'trazo') || (layer.lineas || []).some((item) => item?.id === stroke.id)) return current;
+        return { ...current, [layerId]: { ...layer, lineas: [...(layer.lineas || []), stroke] } };
+      });
+    },
     'sound-play': playSound,
     'sound-stop': stopSound,
     'overlay-visibility': ({ hidden } = {}) => {
@@ -90,16 +133,24 @@ export default function Overlay() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    const shouldRenderFrame = createFrameLimiter();
     let animationFrame;
-    let lastFrame = 0;
     let active = true;
 
-    const render = (timestamp) => {
+    const render = (timestamp = 0) => {
       if (!active || !canvas.isConnected) return;
-      if (timestamp - lastFrame >= FRAME_MS) {
-        if (overlayHidden) ctx.clearRect(0, 0, canvas.width, canvas.height);
-        else renderScene(ctx, objects, { width: 1920, height: 1080, grid: false, now: Date.now(), liveStrokes });
-        lastFrame = timestamp;
+      if (shouldRenderFrame(timestamp)) {
+        const state = renderStateRef.current;
+        if (!state.overlayHidden) {
+          renderScene(ctx, state.objects, {
+            width: 1920,
+            height: 1080,
+            grid: false,
+            now: Date.now(),
+            liveStrokes: state.liveStrokes,
+            orderedObjects: state.orderedObjects
+          });
+        }
       }
       if (active && canvas.isConnected) animationFrame = requestAnimationFrame(render);
     };
@@ -109,11 +160,24 @@ export default function Overlay() {
       active = false;
       cancelAnimationFrame(animationFrame);
     };
-  }, [objects, liveStrokes, overlayHidden]);
+  }, []);
+
+  useEffect(() => {
+    if (!overlayHidden) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, [overlayHidden]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setLiveStrokes((current) => pruneLiveStrokes(current)), 2000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => () => {
+    if (inboundStrokeFrameRef.current != null) cancelAnimationFrame(inboundStrokeFrameRef.current);
+    inboundStrokeFrameRef.current = null;
+    inboundStrokeQueueRef.current = [];
   }, []);
 
   useEffect(() => () => stopAllSounds(), [stopAllSounds]);

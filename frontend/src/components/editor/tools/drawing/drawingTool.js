@@ -3,6 +3,7 @@ import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 
 const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
+export const DRAW_LAYER_MAX_BYTES = 1800000;
 
 const token = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -234,6 +235,9 @@ export function reduceLiveStrokeMap(current, payload) {
 }
 
 export function pruneLiveStrokes(strokes, maxAgeMs = 5000) {
+  const source = strokes || {};
   const now = Date.now();
-  return Object.fromEntries(Object.entries(strokes || {}).filter(([, stroke]) => now - (stroke.updatedAt || 0) < maxAgeMs));
+  const entries = Object.entries(source);
+  const fresh = entries.filter(([, stroke]) => now - (stroke.updatedAt || 0) < maxAgeMs);
+  return fresh.length === entries.length ? source : Object.fromEntries(fresh);
 }

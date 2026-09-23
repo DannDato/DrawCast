@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { sha256 } from '../helpers/security.js';
 import { getEditableChannel, getEditableChannelByPublicKey } from '../services/channelAccessService.js';
 import {
+  appendDrawStroke,
   clearObjects,
   connectRole,
   disconnectRole,
@@ -14,6 +15,7 @@ import {
   getEditorAccess,
   getPublishedChannelState,
   publishChannelState,
+  patchObjects,
   removeObject,
   replaceObjects,
   setLiveEnabled,
@@ -29,6 +31,71 @@ const editorRoom = (channelId) => `channel:${channelId}:editors`;
 const overlayRoom = (channelId) => `channel:${channelId}:overlays`;
 const EDITOR_CURSOR_LIMIT = 100000;
 const SOUND_EVENT_MIN_INTERVAL_MS = 120;
+const SOCKET_PREVIEW_MIN_INTERVAL_MS = 28;
+const TRANSFORM_PATCH_KEYS = new Set(['x', 'y', 'w', 'h', 'rotation', 'fontSize']);
+const TRANSFORM_LIMIT = 10000000;
+
+function sanitizeTransformUpdates(payload) {
+  const updates = Array.isArray(payload?.updates) ? payload.updates : null;
+  if (!updates || !updates.length || updates.length > 100) return null;
+  if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 50000) return null;
+
+  const clean = [];
+  for (const update of updates) {
+    if (!update || typeof update.id !== 'string' || !update.id || update.id.length > 120 || !update.patch || typeof update.patch !== 'object') return null;
+    const patch = {};
+    for (const [key, value] of Object.entries(update.patch)) {
+      if (!TRANSFORM_PATCH_KEYS.has(key)) return null;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || Math.abs(numeric) > TRANSFORM_LIMIT) return null;
+      if ((key === 'w' || key === 'h') && numeric <= 0) return null;
+      if (key === 'fontSize' && (numeric < 5 || numeric > 400)) return null;
+      patch[key] = numeric;
+    }
+    if (!Object.keys(patch).length) return null;
+    clean.push({ id: update.id, patch });
+  }
+  return clean;
+}
+
+function sanitizeDrawCommit(payload) {
+  const layerId = typeof payload?.layerId === 'string' ? payload.layerId : '';
+  const stroke = payload?.stroke;
+  if (!layerId || layerId.length > 120 || !stroke || typeof stroke !== 'object') return null;
+  if (typeof stroke.id !== 'string' || !stroke.id || stroke.id.length > 120) return null;
+  if (!Array.isArray(stroke.points) || stroke.points.length < 2 || stroke.points.length > 50000) return null;
+  if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > 1000000) return null;
+
+  const points = [];
+  for (const point of stroke.points) {
+    const x = Number(point?.x);
+    const y = Number(point?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > TRANSFORM_LIMIT || Math.abs(y) > TRANSFORM_LIMIT) return null;
+    points.push({ x, y });
+  }
+
+  const mode = stroke.mode === 'erase' || stroke.modo === 'borrar' ? 'erase' : 'paint';
+  const size = Math.max(2, Math.min(100, Number(stroke.size ?? stroke.grosor) || 10));
+  const opacity = mode === 'erase' ? 1 : Math.max(0.05, Math.min(1, Number(stroke.opacity) || 1));
+  const brush = ['pencil', 'marker', 'highlighter'].includes(stroke.brush) ? stroke.brush : 'pencil';
+  const color = /^#[0-9a-f]{6}$/i.test(String(stroke.color || '')) ? stroke.color : '#ffffff';
+
+  return {
+    layerId,
+    stroke: {
+      id: stroke.id,
+      layerId,
+      mode,
+      modo: mode === 'erase' ? 'borrar' : 'pintar',
+      color,
+      size,
+      grosor: size,
+      brush,
+      opacity,
+      points
+    }
+  };
+}
 
 async function socketUser(socket) {
   try {
@@ -91,14 +158,20 @@ function canUseWorkspace(context, socket, reply) {
 async function revalidateInteractiveAccess(joined) {
   if (!joined?.sessionId || !joined?.userId || !joined?.channelUuid) return false;
   if (Date.now() - joined.authorizedAt <= 1000) return true;
+  if (joined.revalidatePromise) return joined.revalidatePromise;
 
-  const [session, channel] = await Promise.all([
+  joined.revalidatePromise = Promise.all([
     models.Session.findOne({ where: { id: joined.sessionId, userId: joined.userId, revokedAt: null } }),
     getEditableChannel(joined.userId, joined.channelUuid)
-  ]);
-  if (!session || session.expiresAt <= new Date() || !channel) return false;
-  joined.authorizedAt = Date.now();
-  return true;
+  ]).then(([session, channel]) => {
+    if (!session || session.expiresAt <= new Date() || !channel) return false;
+    joined.authorizedAt = Date.now();
+    return true;
+  }).finally(() => {
+    joined.revalidatePromise = null;
+  });
+
+  return joined.revalidatePromise;
 }
 
 
@@ -179,6 +252,14 @@ export function configureSockets(io) {
         return;
       }
 
+      if (options.minIntervalMs && (!options.throttleWhen || options.throttleWhen(payload))) {
+        const rateKey = `rate:${options.rateKey || event}`;
+        const now = Date.now();
+        const previous = Number(socket.data[rateKey] || 0);
+        if (now - previous < options.minIntervalMs) return;
+        socket.data[rateKey] = now;
+      }
+
       try {
         // Revalida sesión y permisos durante la conexión. La ventana corta evita
         // golpear la BD en cada movimiento de cursor; revocaciones normales además
@@ -211,6 +292,25 @@ export function configureSockets(io) {
       setObject(context.channelId, object);
       emitWorkspaceChange(io, socket, context.channelId, 'obj-upsert', object, before);
     });
+
+    edit('obj-transform', (context, payload) => {
+      const updates = sanitizeTransformUpdates(payload);
+      if (!updates) return;
+
+      const before = getChannelControl(context.channelId);
+      const result = patchObjects(context.channelId, updates);
+      if (!result.updates.length) return;
+
+      const event = { updates: result.updates };
+      if (payload?.preview === true) {
+        socket.to(editorRoom(context.channelId)).volatile.compress(false).emit('obj-transform', event);
+        if (result.control.liveEnabled) io.to(overlayRoom(context.channelId)).volatile.compress(false).emit('obj-transform', event);
+      } else {
+        socket.to(editorRoom(context.channelId)).emit('obj-transform', event);
+        if (result.control.liveEnabled) io.to(overlayRoom(context.channelId)).emit('obj-transform', event);
+      }
+      if (before.hasDraftChanges !== result.control.hasDraftChanges) emitControl(io, context.channelId);
+    }, { minIntervalMs: SOCKET_PREVIEW_MIN_INTERVAL_MS, rateKey: 'transform-preview', throttleWhen: (payload) => payload?.preview === true });
 
     edit('obj-remove', (context, payload) => {
       if (!payload?.id) return;
@@ -251,8 +351,37 @@ export function configureSockets(io) {
 
     edit('draw-live', (context, payload) => {
       if (JSON.stringify(payload || {}).length > 50000) return;
-      socket.to(editorRoom(context.channelId)).emit('draw-live', payload);
-      if (getChannelControl(context.channelId).liveEnabled) io.to(overlayRoom(context.channelId)).emit('draw-live', payload);
+      const isPoint = payload?.phase === 'point';
+      if (isPoint) socket.to(editorRoom(context.channelId)).volatile.compress(false).emit('draw-live', payload);
+      else socket.to(editorRoom(context.channelId)).emit('draw-live', payload);
+
+      if (getChannelControl(context.channelId).liveEnabled) {
+        if (isPoint) io.to(overlayRoom(context.channelId)).volatile.compress(false).emit('draw-live', payload);
+        else io.to(overlayRoom(context.channelId)).emit('draw-live', payload);
+      }
+    }, { minIntervalMs: SOCKET_PREVIEW_MIN_INTERVAL_MS, rateKey: 'draw-point', throttleWhen: (payload) => payload?.phase === 'point' });
+
+    edit('draw-commit', (context, payload, reply) => {
+      const clean = sanitizeDrawCommit(payload);
+      if (!clean) {
+        reply?.({ ok: false, message: 'El trazo no es válido.' });
+        return;
+      }
+
+      const before = getChannelControl(context.channelId);
+      const result = appendDrawStroke(context.channelId, clean.layerId, clean.stroke);
+      if (!result.applied) {
+        reply?.({ ok: false, code: result.reason, message: result.reason === 'layer-too-large' ? 'La capa de dibujo alcanzó su límite. Crea una capa nueva para seguir dibujando.' : 'La capa de dibujo ya no está disponible.' });
+        return;
+      }
+
+      if (!result.duplicate) {
+        const event = { layerId: clean.layerId, stroke: clean.stroke };
+        socket.to(editorRoom(context.channelId)).emit('draw-commit', event);
+        if (result.control.liveEnabled) io.to(overlayRoom(context.channelId)).emit('draw-commit', event);
+      }
+      if (before.hasDraftChanges !== result.control.hasDraftChanges) emitControl(io, context.channelId);
+      reply?.({ ok: true, control: result.control });
     });
 
     socket.on('sound-play', async (payload, ack) => {
@@ -347,16 +476,16 @@ export function configureSockets(io) {
       const x = Number(payload?.x);
       const y = Number(payload?.y);
       if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > EDITOR_CURSOR_LIMIT || Math.abs(y) > EDITOR_CURSOR_LIMIT) return;
-      socket.to(editorRoom(context.channelId)).volatile.emit('cursor-move', {
+      socket.to(editorRoom(context.channelId)).volatile.compress(false).emit('cursor-move', {
         socketId: socket.id,
         x,
         y,
         at: Date.now()
       });
-    });
+    }, { minIntervalMs: SOCKET_PREVIEW_MIN_INTERVAL_MS, rateKey: 'cursor-move' });
 
     edit('cursor-leave', (context) => {
-      socket.to(editorRoom(context.channelId)).volatile.emit('cursor-leave', { socketId: socket.id });
+      socket.to(editorRoom(context.channelId)).volatile.compress(false).emit('cursor-leave', { socketId: socket.id });
     });
 
     edit('live-mode-set', (context, payload, reply) => {

@@ -19,10 +19,11 @@ import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatche
 import { moveSelectionOneLevel, reorderLayerUnitToIndex } from '../components/editor/layers/layerUtils';
 import { applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
 import { adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
-import { appendStrokeToLayer, clearDrawLayer, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
+import { appendStrokeToLayer, clearDrawLayer, DRAW_LAYER_MAX_BYTES, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { applyHistoryEntry, cloneValue, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
 import { createClipboardPayload, materializeClipboardPayload, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
 import { getCursorThemeColor } from '../utils/theme';
+import { GRAPHICS_FRAME_MS } from '../utils/frameRate';
 import useEditorPreferences from '../components/editor/preferences/useEditorPreferences';
 import useEditorSounds from '../components/editor/sounds/useEditorSounds';
 import useEditorGuides from '../components/editor/guides/useEditorGuides';
@@ -79,6 +80,18 @@ export default function Editor() {
   const cursorFrameRef = useRef(null);
   const pendingCursorRef = useRef(null);
   const cursorLastSentRef = useRef(0);
+  const drawPointFrameRef = useRef(null);
+  const pendingDrawPointRef = useRef(null);
+  const drawPointLastSentRef = useRef(0);
+  const transformFrameRef = useRef(null);
+  const transformLatestRef = useRef(new Map());
+  const transformLastSentRef = useRef(0);
+  const inboundStrokeFrameRef = useRef(null);
+  const inboundStrokeQueueRef = useRef([]);
+  const inboundStrokeLastAppliedRef = useRef(0);
+  const inboundCursorFrameRef = useRef(null);
+  const inboundCursorQueueRef = useRef(new Map());
+  const inboundCursorLastAppliedRef = useRef(0);
   const pendingDrawFallbackSelectionRef = useRef(false);
 
   const setScene = (next) => {
@@ -123,6 +136,21 @@ export default function Editor() {
         setSelectedId(object.id);
       }
     },
+    'obj-transform': ({ updates = [] } = {}) => {
+      if (!Array.isArray(updates) || !updates.length) return;
+      const next = { ...objectsRef.current };
+      let changed = false;
+      updates.forEach(({ id, patch: patchData }) => {
+        if (!id || !next[id] || !patchData || typeof patchData !== 'object') return;
+        const object = { ...next[id], ...patchData };
+        if (historyStartRef.current) historyStartRef.current.before[id] = cloneValue(object);
+        next[id] = object;
+        changed = true;
+      });
+      if (!changed) return;
+      objectsRef.current = next;
+      setObjects(next);
+    },
     'obj-remove': ({ id }) => {
       if (historyStartRef.current) delete historyStartRef.current.before[id];
       const next = { ...objectsRef.current };
@@ -150,13 +178,59 @@ export default function Editor() {
         return fallback?.id ? [fallback.id] : [];
       });
     },
-    'draw-live': (payload) => setLiveStrokes((current) => reduceLiveStrokeMap(current, payload)),
+    'draw-live': (payload) => {
+      inboundStrokeQueueRef.current.push(payload);
+      if (inboundStrokeFrameRef.current != null) return;
+      const flush = (timestamp) => {
+        if (timestamp - inboundStrokeLastAppliedRef.current < GRAPHICS_FRAME_MS) {
+          inboundStrokeFrameRef.current = requestAnimationFrame(flush);
+          return;
+        }
+        inboundStrokeFrameRef.current = null;
+        inboundStrokeLastAppliedRef.current = timestamp;
+        const queue = inboundStrokeQueueRef.current.splice(0);
+        if (!queue.length) return;
+        setLiveStrokes((current) => queue.reduce((next, event) => reduceLiveStrokeMap(next, event), current));
+      };
+      inboundStrokeFrameRef.current = requestAnimationFrame(flush);
+    },
+    'draw-commit': ({ layerId, stroke } = {}) => {
+      if (!layerId || !stroke?.id) return;
+      inboundStrokeQueueRef.current = inboundStrokeQueueRef.current.filter((event) => event?.strokeId !== stroke.id);
+      setLiveStrokes((current) => reduceLiveStrokeMap(current, { phase: 'end', strokeId: stroke.id }));
+      const layer = objectsRef.current[layerId];
+      if (!layer || !isDrawLayer(layer) || (layer.lineas || []).some((item) => item?.id === stroke.id)) return;
+      const nextLayer = appendStrokeToLayer(layer, stroke);
+      if (historyStartRef.current) historyStartRef.current.before[layerId] = cloneValue(nextLayer);
+      const next = { ...objectsRef.current, [layerId]: nextLayer };
+      objectsRef.current = next;
+      setObjects(next);
+    },
     'cursor-move': (payload) => {
       if (!payload?.socketId || !Number.isFinite(Number(payload.x)) || !Number.isFinite(Number(payload.y))) return;
-      setRemoteCursors((current) => ({ ...current, [payload.socketId]: { ...payload, x: Number(payload.x), y: Number(payload.y) } }));
+      inboundCursorQueueRef.current.set(payload.socketId, { ...payload, x: Number(payload.x), y: Number(payload.y) });
+      if (inboundCursorFrameRef.current != null) return;
+      const flush = (timestamp) => {
+        if (timestamp - inboundCursorLastAppliedRef.current < GRAPHICS_FRAME_MS) {
+          inboundCursorFrameRef.current = requestAnimationFrame(flush);
+          return;
+        }
+        inboundCursorFrameRef.current = null;
+        inboundCursorLastAppliedRef.current = timestamp;
+        const updates = Array.from(inboundCursorQueueRef.current.entries());
+        inboundCursorQueueRef.current.clear();
+        if (!updates.length) return;
+        setRemoteCursors((current) => {
+          const next = { ...current };
+          updates.forEach(([socketId, cursor]) => { next[socketId] = cursor; });
+          return next;
+        });
+      };
+      inboundCursorFrameRef.current = requestAnimationFrame(flush);
     },
     'cursor-leave': ({ socketId } = {}) => {
       if (!socketId) return;
+      inboundCursorQueueRef.current.delete(socketId);
       setRemoteCursors((current) => {
         if (!current[socketId]) return current;
         const next = { ...current };
@@ -258,7 +332,7 @@ export default function Editor() {
     if (cursorFrameRef.current != null) return;
 
     const flush = (timestamp) => {
-      if (timestamp - cursorLastSentRef.current < 32) {
+      if (timestamp - cursorLastSentRef.current < GRAPHICS_FRAME_MS) {
         cursorFrameRef.current = requestAnimationFrame(flush);
         return;
       }
@@ -267,7 +341,7 @@ export default function Editor() {
       pendingCursorRef.current = null;
       if (!next || editingLocked || !socket.connected) return;
       cursorLastSentRef.current = timestamp;
-      socket.volatile.emit('cursor-move', { x: next.x, y: next.y });
+      socket.volatile.compress(false).emit('cursor-move', { x: next.x, y: next.y });
     };
 
     cursorFrameRef.current = requestAnimationFrame(flush);
@@ -279,13 +353,25 @@ export default function Editor() {
       cancelAnimationFrame(cursorFrameRef.current);
       cursorFrameRef.current = null;
     }
-    if (socket.connected) socket.volatile.emit('cursor-leave');
+    if (socket.connected) socket.volatile.compress(false).emit('cursor-leave');
   };
 
   useEffect(() => () => {
     if (cursorFrameRef.current != null) cancelAnimationFrame(cursorFrameRef.current);
+    if (drawPointFrameRef.current != null) cancelAnimationFrame(drawPointFrameRef.current);
+    if (transformFrameRef.current != null) cancelAnimationFrame(transformFrameRef.current);
+    if (inboundStrokeFrameRef.current != null) cancelAnimationFrame(inboundStrokeFrameRef.current);
+    if (inboundCursorFrameRef.current != null) cancelAnimationFrame(inboundCursorFrameRef.current);
     cursorFrameRef.current = null;
+    drawPointFrameRef.current = null;
+    transformFrameRef.current = null;
+    inboundStrokeFrameRef.current = null;
+    inboundCursorFrameRef.current = null;
     pendingCursorRef.current = null;
+    pendingDrawPointRef.current = null;
+    inboundStrokeQueueRef.current = [];
+    inboundCursorQueueRef.current.clear();
+    transformLatestRef.current.clear();
   }, []);
 
   const toggleLiveMode = async () => {
@@ -468,6 +554,73 @@ export default function Editor() {
       return next;
     });
     nextObjects.forEach((object) => socket.emit('obj-upsert', object));
+  };
+
+  const applyTransformLocally = (updates = []) => {
+    if (!updates.length) return;
+    updateScene((current) => {
+      let next = current;
+      updates.forEach(({ id, patch: patchData }) => {
+        if (!current[id]) return;
+        if (next === current) next = { ...current };
+        next[id] = { ...next[id], ...patchData };
+      });
+      return next;
+    });
+  };
+
+  const flushTransformUpdates = (final = false) => {
+    if (transformFrameRef.current != null) {
+      cancelAnimationFrame(transformFrameRef.current);
+      transformFrameRef.current = null;
+    }
+    if (!transformLatestRef.current.size) return;
+
+    const updates = Array.from(transformLatestRef.current, ([id, patchData]) => ({ id, patch: patchData }));
+    applyTransformLocally(updates);
+    if (final) socket.emit('obj-transform', { updates, preview: false });
+    else if (socket.connected) socket.volatile.compress(false).emit('obj-transform', { updates, preview: true });
+  };
+
+  const scheduleTransformFlush = () => {
+    if (transformFrameRef.current != null) return;
+    const flush = (timestamp) => {
+      if (timestamp - transformLastSentRef.current < GRAPHICS_FRAME_MS) {
+        transformFrameRef.current = requestAnimationFrame(flush);
+        return;
+      }
+      transformFrameRef.current = null;
+      transformLastSentRef.current = timestamp;
+      flushTransformUpdates(false);
+    };
+    transformFrameRef.current = requestAnimationFrame(flush);
+  };
+
+  const applyTransformUpdates = (updates = []) => {
+    if (editingLocked) return;
+    const scene = objectsRef.current;
+    let accepted = false;
+    updates.forEach(({ id, patch: patchData }) => {
+      if (!scene[id] || !patchData || typeof patchData !== 'object') return;
+      transformLatestRef.current.set(id, { ...(transformLatestRef.current.get(id) || {}), ...patchData });
+      accepted = true;
+    });
+    if (accepted) scheduleTransformFlush();
+  };
+
+  const beginTransform = (label) => {
+    transformLatestRef.current.clear();
+    if (transformFrameRef.current != null) {
+      cancelAnimationFrame(transformFrameRef.current);
+      transformFrameRef.current = null;
+    }
+    beginHistory(label || 'Transformar capa');
+  };
+
+  const finishTransform = () => {
+    flushTransformUpdates(true);
+    transformLatestRef.current.clear();
+    commitHistory();
   };
 
   const patch = (id, patchData) => applyUpdates([{ id, patch: patchData }]);
@@ -806,20 +959,81 @@ export default function Editor() {
     });
   };
 
-  const startDrawStroke = (stroke, layer) => { if (!editingLocked) emitLiveStroke('start', stroke, layer, stroke.points?.[0]); };
+  const flushDrawPoint = (reliable = false) => {
+    if (drawPointFrameRef.current != null) {
+      cancelAnimationFrame(drawPointFrameRef.current);
+      drawPointFrameRef.current = null;
+    }
+    const pending = pendingDrawPointRef.current;
+    pendingDrawPointRef.current = null;
+    if (!pending || !socket.connected) return;
+    const event = { phase: 'point', strokeId: pending.strokeId, point: pending.point };
+    if (reliable) socket.emit('draw-live', event);
+    else socket.volatile.compress(false).emit('draw-live', event);
+  };
+
+  const scheduleDrawPoint = () => {
+    if (drawPointFrameRef.current != null) return;
+    const flush = (timestamp) => {
+      if (timestamp - drawPointLastSentRef.current < GRAPHICS_FRAME_MS) {
+        drawPointFrameRef.current = requestAnimationFrame(flush);
+        return;
+      }
+      drawPointFrameRef.current = null;
+      drawPointLastSentRef.current = timestamp;
+      flushDrawPoint(false);
+    };
+    drawPointFrameRef.current = requestAnimationFrame(flush);
+  };
+
+  const startDrawStroke = (stroke, layer) => {
+    if (editingLocked) return;
+    pendingDrawPointRef.current = null;
+    emitLiveStroke('start', stroke, layer, stroke.points?.[0]);
+  };
+
   const continueDrawStroke = (strokeId, point) => {
     if (editingLocked) return;
     const layer = activeDrawLayerId ? objectsRef.current[activeDrawLayerId] : null;
     if (!layer) return;
-    socket.emit('draw-live', { phase: 'point', strokeId, point });
+    pendingDrawPointRef.current = { strokeId, point };
+    scheduleDrawPoint();
   };
+
+  const cancelDrawStroke = (stroke) => {
+    if (!stroke) return;
+    pendingDrawPointRef.current = null;
+    if (drawPointFrameRef.current != null) {
+      cancelAnimationFrame(drawPointFrameRef.current);
+      drawPointFrameRef.current = null;
+    }
+    const layer = objectsRef.current[stroke.layerId];
+    if (layer) emitLiveStroke('cancel', stroke, layer);
+  };
+
   const commitDrawStroke = (stroke) => {
     if (editingLocked) return;
     const layer = objectsRef.current[stroke.layerId];
     if (!layer || !isDrawLayer(layer)) return;
+    flushDrawPoint(true);
+
+    const nextLayer = appendStrokeToLayer(layer, stroke);
+    if (JSON.stringify(nextLayer).length > DRAW_LAYER_MAX_BYTES) {
+      emitLiveStroke('cancel', stroke, layer);
+      setMediaStatus('Esta capa de dibujo alcanzó su límite. Crea una capa nueva para seguir dibujando.');
+      return;
+    }
+
     beginHistory(stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
-    upsert(appendStrokeToLayer(layer, stroke));
-    emitLiveStroke('end', stroke, layer);
+    updateScene((current) => ({ ...current, [layer.id]: nextLayer }));
+    socket.timeout(6000).emit('draw-commit', { layerId: layer.id, stroke }, (error, response) => {
+      if (error) {
+        setMediaStatus('El trazo quedó local, pero el canal no confirmó la sincronización. Revisa tu conexión.');
+        return;
+      }
+      if (!response?.ok) setMediaStatus(response?.message || 'El canal rechazó el trazo.');
+      if (response?.control) applyControlState(response.control);
+    });
     setActiveDrawLayerId(layer.id);
     setSelection([layer.id], layer.id);
     commitHistory(stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
@@ -1064,9 +1278,9 @@ export default function Editor() {
           onSelect={select}
           onSelectMany={setSelection}
           onOpenProperties={openPropertiesAt}
-          onPatchObjects={applyUpdates}
-          onTransformStart={(label) => beginHistory(label || 'Transformar capa')}
-          onTransformEnd={() => commitHistory()}
+          onPatchObjects={applyTransformUpdates}
+          onTransformStart={beginTransform}
+          onTransformEnd={finishTransform}
           snapEnabled={snapEnabled}
           tool={tool}
           drawConfig={drawConfig}
@@ -1075,6 +1289,7 @@ export default function Editor() {
           onDrawStart={startDrawStroke}
           onDrawPoint={continueDrawStroke}
           onDrawCommit={commitDrawStroke}
+          onDrawCancel={cancelDrawStroke}
           lineConfig={lineConfig}
           shapeConfig={shapeConfig}
           onShapeCreate={(draft) => {
