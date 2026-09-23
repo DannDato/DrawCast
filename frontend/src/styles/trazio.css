@@ -472,7 +472,7 @@
 }
 .dc-auth-description {
     margin: 0 0 24px;
-    color: var(--dc-muted);
+    color: var(--dc-text);
     line-height: 1.55;
     font-size: 14px;
 }
@@ -492,7 +492,7 @@
 .dc-auth-form label {
     display: grid;
     gap: 7px;
-    color: var(--dc-muted);
+    color: var(--dc-text);
     font: 700 10px Outfit, sans-serif;
     letter-spacing: 1.2px;
 }
@@ -503,6 +503,7 @@
     background: var(--dc-input-bg);
     color: var(--dc-text);
     outline: none;
+    font: 400 14px Outfit, sans-serif;
     padding: 12px 13px;
     transition: 0.15s;
 }
