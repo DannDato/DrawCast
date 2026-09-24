@@ -2,12 +2,15 @@ const MAX_BYTES = 4 * 1024 * 1024;
 const PNG_PREFIX = 'data:image/png;base64,';
 
 export function parseGuideSlot(value) {
-  return /^[1-3]$/.test(String(value)) ? Number(value) : null;
+  const raw = String(value ?? '');
+  if (!/^[1-9]\d?$/.test(raw)) return null;
+  const slot = Number(raw);
+  return slot >= 1 && slot <= 99 ? slot : null;
 }
 
 export function validateGuide(body = {}, slot) {
   const guideSlot = parseGuideSlot(slot);
-  if (!guideSlot) throw Object.assign(new Error('Elige una de las tres guías del lienzo.'), { status: 400 });
+  if (!guideSlot) throw Object.assign(new Error('El espacio de guía no es válido.'), { status: 400 });
   const name = `Guía ${guideSlot}`;
   const imageData = body?.imageData;
   if (typeof imageData !== 'string' || !imageData.startsWith(PNG_PREFIX)) throw Object.assign(new Error('La guía debe ser una imagen PNG.'), { status: 400 });

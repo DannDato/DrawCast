@@ -5,6 +5,7 @@ const CHANNELS_KEY = 'channels:mine';
 const FEATURED_KEY = 'channels:featured';
 const INVITATIONS_KEY = 'channels:invitations:pending';
 const collaboratorsKey = (channelUuid) => `channels:${channelUuid}:collaborators`;
+const entitlementsKey = (channelUuid) => `channels:${channelUuid}:entitlements`;
 
 export const getChannels = ({ force = false } = {}) => cachedRequest(
   CHANNELS_KEY,
@@ -16,6 +17,13 @@ export const getFeaturedChannel = ({ force = false } = {}) => cachedRequest(
   FEATURED_KEY,
   () => api.get('/channels/featured').then((response) => response.data),
   { ttl: 300000, force }
+);
+
+
+export const getChannelEntitlements = (channelUuid, { force = false } = {}) => cachedRequest(
+  entitlementsKey(channelUuid),
+  () => api.get(`/channels/${channelUuid}/entitlements`).then((response) => response.data),
+  { ttl: 3000, force }
 );
 
 export const createChannel = async (data) => {

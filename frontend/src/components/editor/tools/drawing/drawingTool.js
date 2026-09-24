@@ -5,6 +5,8 @@ const CANVAS_WIDTH = 1920;
 const CANVAS_HEIGHT = 1080;
 export const DRAW_LAYER_MAX_BYTES = 1800000;
 
+const drawBoundsCache = new WeakMap();
+
 const token = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 export const BRUSH_PRESETS = [
@@ -131,14 +133,17 @@ function strokeSegments(stroke) {
   return [];
 }
 
-export function getDrawLayerBounds(layer) {
-  if (!isDrawLayer(layer) || !(layer.lineas || []).length) return null;
+function localDrawBounds(lines) {
+  if (!Array.isArray(lines) || !lines.length) return null;
+  const cached = drawBoundsCache.get(lines);
+  if (cached !== undefined) return cached;
+
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
 
-  for (const stroke of layer.lineas || []) {
+  for (const stroke of lines) {
     for (const segment of strokeSegments(stroke)) {
       if (segment.erase) continue;
       const half = Math.max(2, segment.size / 2);
@@ -149,7 +154,16 @@ export function getDrawLayerBounds(layer) {
     }
   }
 
-  if (!Number.isFinite(minX)) return null;
+  const bounds = Number.isFinite(minX) ? { minX, minY, maxX, maxY } : null;
+  drawBoundsCache.set(lines, bounds);
+  return bounds;
+}
+
+export function getDrawLayerBounds(layer) {
+  if (!isDrawLayer(layer) || !(layer.lineas || []).length) return null;
+  const bounds = localDrawBounds(layer.lineas);
+  if (!bounds) return null;
+
   const sourceWidth = Math.max(1, Number(layer.sourceWidth ?? CANVAS_WIDTH));
   const sourceHeight = Math.max(1, Number(layer.sourceHeight ?? CANVAS_HEIGHT));
   const scaleX = Math.max(0.0001, Number(layer.w ?? sourceWidth) / sourceWidth);
@@ -158,10 +172,10 @@ export function getDrawLayerBounds(layer) {
   const y = Number(layer.y) || 0;
 
   return {
-    x: x + minX * scaleX,
-    y: y + minY * scaleY,
-    w: Math.max(1, (maxX - minX) * scaleX),
-    h: Math.max(1, (maxY - minY) * scaleY)
+    x: x + bounds.minX * scaleX,
+    y: y + bounds.minY * scaleY,
+    w: Math.max(1, (bounds.maxX - bounds.minX) * scaleX),
+    h: Math.max(1, (bounds.maxY - bounds.minY) * scaleY)
   };
 }
 

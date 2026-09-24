@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { saveLaunchpadSlots as saveUserLaunchpadSlots, saveSoundSlots as saveUserSoundSlots } from '../../../api/settings';
 import { deleteChannelSound, getChannelSoundLibrary, getSoundLibrary, getSoundUrl, uploadChannelSound } from '../../../api/sounds';
 
-export default function useEditorSounds({ userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus }) {
+export default function useEditorSounds({ userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus, quickSoundsEnabled = false, customSoundsEnabled = false, launchpadEnabled = false, quickSoundSlotLimit = 0, customSoundLimit = 0, launchpadPadLimit = 0 }) {
   const [soundsOpen, setSoundsOpen] = useState(false);
   const [launchpadConfigOpen, setLaunchpadConfigOpen] = useState(false);
   const [soundLibrary, setSoundLibrary] = useState([]);
   const [customSoundLibrary, setCustomSoundLibrary] = useState([]);
-  const [soundSlots, setSoundSlots] = useState([null, null, null, null, null]);
+  const [soundSlots, setSoundSlots] = useState(Array(24).fill(null));
   const [soundPlayback, setSoundPlayback] = useState({});
   const [soundMonitorEnabled, setSoundMonitorEnabled] = useState(() => {
     try { return localStorage.getItem('TRAZIO.editor.soundMonitor') !== 'off'; } catch { return true; }
@@ -23,15 +23,15 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
     const settings = userSettings;
     const loadSoundSettings = async () => {
       try {
-        const sounds = await getSoundLibrary();
+        const sounds = quickSoundsEnabled || launchpadEnabled ? await getSoundLibrary() : [];
         if (!active) return;
         setSoundLibrary(sounds);
 
         const quickConfigured = Array.isArray(settings?.soundSlots);
         setSoundSlotsConfigured(quickConfigured);
         setSoundSlots(quickConfigured
-          ? Array.from({ length: 5 }, (_, index) => typeof settings.soundSlots[index] === 'string' ? settings.soundSlots[index] : null)
-          : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null));
+          ? Array.from({ length: 24 }, (_, index) => typeof settings.soundSlots[index] === 'string' ? settings.soundSlots[index] : null)
+          : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
 
         const launchpadConfigured = Array.isArray(settings?.launchpadSlots);
         setLaunchpadSlotsConfigured(launchpadConfigured);
@@ -45,25 +45,25 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
 
     loadSoundSettings();
     return () => { active = false; };
-  }, [userSettings]);
+  }, [launchpadEnabled, quickSoundsEnabled, userSettings]);
 
   const allSounds = useMemo(() => [...soundLibrary, ...customSoundLibrary], [soundLibrary, customSoundLibrary]);
   const soundSlotItems = useMemo(() => {
     const byId = new Map(allSounds.map((sound) => [sound.id, sound]));
-    return Array.from({ length: 5 }, (_, index) => byId.get(soundSlots[index]) || null);
-  }, [allSounds, soundSlots]);
+    return Array.from({ length: quickSoundSlotLimit }, (_, index) => byId.get(soundSlots[index]) || null);
+  }, [allSounds, quickSoundSlotLimit, soundSlots]);
 
   const refreshSoundLibrary = async () => {
     const [sounds, ownSounds] = await Promise.all([
       getSoundLibrary(),
-      channelUuid ? getChannelSoundLibrary(channelUuid) : Promise.resolve([])
+      channelUuid && customSoundsEnabled ? getChannelSoundLibrary(channelUuid) : Promise.resolve([])
     ]);
     setSoundLibrary(sounds);
     setCustomSoundLibrary(ownSounds);
     const available = new Set([...sounds, ...ownSounds].map((sound) => sound.id));
     setSoundSlots((current) => soundSlotsConfigured
-      ? Array.from({ length: 5 }, (_, index) => available.has(current[index]) ? current[index] : null)
-      : Array.from({ length: 5 }, (_, index) => sounds[index]?.id || null));
+      ? Array.from({ length: 24 }, (_, index) => available.has(current[index]) ? current[index] : null)
+      : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
     setLaunchpadSlots((current) => launchpadSlotsConfigured
       ? Array.from({ length: 24 }, (_, index) => available.has(current[index]) ? current[index] : null)
       : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
@@ -127,12 +127,21 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
     return true;
   };
 
-  const playSound = async (soundId) => {
+  const playSound = async (soundId, source = 'quick') => {
     if (!connected) return;
+    if (source === 'launchpad' ? !launchpadEnabled : !quickSoundsEnabled) {
+      setMediaStatus(source === 'launchpad' ? 'Launchpad está bloqueado en este lienzo.' : 'Sonidos rápidos está bloqueado en este lienzo.');
+      return;
+    }
 
     const sound = allSounds.find((item) => item.id === soundId);
     if (!sound) {
       setMediaStatus('Ese sonido ya no está disponible. Actualiza la biblioteca.');
+      return;
+    }
+
+    if (sound.scope === 'channel' && !customSoundsEnabled) {
+      setMediaStatus('Sonidos personalizados está bloqueado en este lienzo.');
       return;
     }
 
@@ -154,7 +163,7 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
 
     if (!startMonitoredSound(sound)) return;
     try {
-      await emitChannelAction('sound-play', { soundId });
+      await emitChannelAction('sound-play', { soundId, source });
       setMediaStatus(presence.overlays > 0 ? `Sonido enviado: ${sound.name}` : `Monitoreo: ${sound.name}. No hay un overlay conectado.`);
     } catch (error) {
       stopMonitoredSound(soundId);
@@ -163,6 +172,7 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
   };
 
   const openSoundAssignments = async () => {
+    if (!quickSoundsEnabled) { setMediaStatus('Sonidos rápidos está bloqueado en este lienzo.'); return; }
     setSoundsOpen(true);
     try {
       await refreshSoundLibrary();
@@ -173,15 +183,17 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
 
   const saveSoundAssignments = async (nextSlots) => {
     const available = new Set(allSounds.map((sound) => sound.id));
-    const cleanSlots = Array.from({ length: 5 }, (_, index) => available.has(nextSlots[index]) ? nextSlots[index] : null);
+    const cleanSlots = Array.from({ length: 24 }, (_, index) => index < quickSoundSlotLimit ? (available.has(nextSlots[index]) ? nextSlots[index] : null) : soundSlots[index] || null);
     const saved = await saveUserSoundSlots(cleanSlots);
-    setSoundSlots(Array.from({ length: 5 }, (_, index) => saved[index] || null));
+    setSoundSlots(Array.from({ length: 24 }, (_, index) => saved[index] || null));
     setSoundSlotsConfigured(true);
     setSoundsOpen(false);
     setMediaStatus('Asignación de sonidos guardada.');
   };
 
   const uploadOwnSound = async (file) => {
+    if (!customSoundsEnabled) throw new Error('Sonidos personalizados está bloqueado en este lienzo.');
+    if (customSoundLimit > 0 && customSoundLibrary.length >= customSoundLimit) throw new Error(`Ya usas tus ${customSoundLimit} slots de sonidos personalizados.`);
     if (!channelUuid) throw new Error('No pudimos identificar este lienzo.');
     const sound = await uploadChannelSound(channelUuid, file);
     if (!sound) throw new Error('No se pudo guardar el sonido.');
@@ -190,12 +202,14 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
   };
 
   const deleteOwnSound = async (soundId) => {
+    if (!customSoundsEnabled) throw new Error('Sonidos personalizados está bloqueado en este lienzo.');
     if (!channelUuid) throw new Error('No pudimos identificar este lienzo.');
     await deleteChannelSound(channelUuid, soundId);
     setCustomSoundLibrary((current) => current.filter((sound) => sound.id !== soundId));
   };
 
   const openLaunchpadAssignments = async () => {
+    if (!launchpadEnabled) { setMediaStatus('Launchpad está bloqueado en este lienzo.'); return; }
     setLaunchpadConfigOpen(true);
     try {
       await refreshSoundLibrary();
@@ -206,7 +220,7 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
 
   const saveLaunchpadAssignments = async (nextSlots) => {
     const available = new Set(allSounds.map((sound) => sound.id));
-    const cleanSlots = Array.from({ length: 24 }, (_, index) => available.has(nextSlots[index]) ? nextSlots[index] : null);
+    const cleanSlots = Array.from({ length: 24 }, (_, index) => index < launchpadPadLimit && available.has(nextSlots[index]) ? nextSlots[index] : null);
     const saved = await saveUserLaunchpadSlots(cleanSlots);
     setLaunchpadSlots(Array.from({ length: 24 }, (_, index) => saved[index] || null));
     setLaunchpadSlotsConfigured(true);
@@ -216,11 +230,11 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
 
   useEffect(() => {
     let active = true;
-    (channelUuid ? getChannelSoundLibrary(channelUuid) : Promise.resolve([]))
+    (channelUuid && customSoundsEnabled ? getChannelSoundLibrary(channelUuid) : Promise.resolve([]))
       .then((sounds) => { if (active) setCustomSoundLibrary(sounds); })
       .catch(() => { if (active) setCustomSoundLibrary([]); });
     return () => { active = false; };
-  }, [channelUuid]);
+  }, [channelUuid, customSoundsEnabled]);
 
   useEffect(() => () => {
     monitoredAudioRef.current.forEach(({ audio, cleanup }) => {

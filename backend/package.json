@@ -11,7 +11,8 @@
     "seed": "node scripts/seed.js",
     "bootstrap": "npm run migrate && npm run seed",
     "check": "node --check server.js && node scripts/check-imports.js",
-    "cleanup": "node scripts/cleanup.js"
+    "cleanup": "node scripts/cleanup.js",
+    "entitlement": "node scripts/entitlement.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

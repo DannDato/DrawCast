@@ -1,6 +1,6 @@
 import { useEffect, useState, useTransition } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, LogOut, Menu, PenTool, Settings, X } from "lucide-react";
+import { Boxes, LayoutDashboard, LogOut, Menu, PenTool, Settings, ShoppingBag, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getPendingInvitations } from "../api/channels";
 import AppFooter from "../components/footer/AppFooter";
@@ -8,6 +8,8 @@ import AppFooter from "../components/footer/AppFooter";
 const items = [
     { name: "Inicio", path: "/app", icon: LayoutDashboard, end: true },
     { name: "Editores", path: "/app/editor", icon: PenTool },
+    { name: "Tienda", path: "/app/store", icon: ShoppingBag },
+    { name: "Inventario", path: "/app/inventory", icon: Boxes },
     // { name: "Perfil", path: "/app/profile", icon: User },
     { name: "Configuración", path: "/app/settings", icon: Settings },
 ];
@@ -69,8 +71,8 @@ export default function DashboardLayout() {
                 className={({ isActive }) => `relative flex items-center gap-2 border transition ${mobile ? "px-3 py-2.5" : "h-9 px-3"} ${isActive ? "border-[var(--dc-accent-three)] bg-[var(--dc-accent-three-soft)] text-[var(--dc-accent-four)]" : "border-transparent text-[var(--dc-nav-text)] hover:border-[var(--dc-line)] hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"}`}
             >
                 <Icon size={20} />
-                <span className="text-[11px] font-bold">{item.name}</span>
-                {showBadge && <span className={`${mobile ? 'ml-auto' : '-mr-1'} grid min-w-[18px] h-[18px] place-items-center rounded-full bg-[var(--dc-danger-strong)] px-[5px] text-[10px] font-black leading-none text-[var(--dc-text-strong)] shadow-[0_0_0_2px_var(--dc-nav-bg)]`}>{invitationCount > 99 ? '99+' : invitationCount}</span>}
+                <span className="text-[12px] font-bold">{item.name}</span>
+                {showBadge && <span className={`${mobile ? 'ml-auto' : '-mr-1'} grid min-w-[18px] h-[18px] place-items-center rounded-full bg-[var(--dc-danger-strong)] px-[5px] text-[12px] font-black leading-none text-[var(--dc-text)] shadow-[0_0_0_2px_var(--dc-nav-bg)]`}>{invitationCount > 99 ? '99+' : invitationCount}</span>}
             </NavLink>
         );
     };
@@ -88,7 +90,7 @@ export default function DashboardLayout() {
                         <strong className="dc-nav-brand whitespace-nowrap">
                             {import.meta.env.VITE_APP_NAME || "TRAZIO"} <b>//</b>
                         </strong>
-                        <span className="max-w-[130px] truncate text-[11px] font-semibold text-[var(--dc-text-muted)] sm:max-w-[180px]">{user?.username}</span>
+                        <span className="max-w-[130px] truncate text-[12px] font-semibold text-[var(--dc-text)] sm:max-w-[180px]">{user?.username}</span>
                     </NavLink>
 
                     <nav className="hidden w-full items-center justify-center gap-1 px-10 md:flex">
@@ -102,12 +104,12 @@ export default function DashboardLayout() {
                             </Link>
                         ) : (
                             <Link to="/app/profile" aria-label="Abrir perfil">
-                                <div className="grid h-8 w-8 place-items-center rounded-full border border-[var(--dc-line)] bg-[var(--dc-panel)] text-[11px] font-black" title={user?.displayName || user?.username || "Tu cuenta"}>
+                                <div className="grid h-8 w-8 place-items-center rounded-full border border-[var(--dc-line)] bg-[var(--dc-panel)] text-[12px] font-black" title={user?.displayName || user?.username || "Tu cuenta"}>
                                     {(user?.displayName || user?.username || "U").slice(0, 1).toUpperCase()}
                                 </div>
                             </Link>
                         )}
-                        <button className="inline-grid h-9 w-9 place-items-center border border-transparent text-[var(--dc-text-muted)] transition hover:border-[var(--dc-line)] hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]" onClick={exit} aria-label="Cerrar sesión" title="Cerrar sesión">
+                        <button className="inline-grid h-9 w-9 place-items-center border border-transparent text-[var(--dc-text)] transition hover:border-[var(--dc-line)] hover:bg-[var(--dc-button-secondary-hover)]" onClick={exit} aria-label="Cerrar sesión" title="Cerrar sesión">
                             <LogOut size={16} />
                         </button>
                     </div>
@@ -123,9 +125,9 @@ export default function DashboardLayout() {
                         <div className="mt-2 flex items-center gap-2 border-t border-[var(--dc-line)] px-2 pt-2">
                             <div className="min-w-0 flex-1">
                                 <strong className="block truncate text-xs">{user?.displayName || user?.username}</strong>
-                                <span className="block truncate text-[10px] text-[var(--dc-text-muted)]">{user?.email}</span>
+                                <span className="block truncate text-[12px] text-[var(--dc-text)]">{user?.email}</span>
                             </div>
-                            <button className="flex h-9 items-center gap-2 border border-[var(--dc-line)] px-3 text-[10px] font-bold text-[var(--dc-text)]" onClick={exit}>
+                            <button className="flex h-9 items-center gap-2 border border-[var(--dc-line)] px-3 text-[12px] font-bold text-[var(--dc-text)]" onClick={exit}>
                                 <LogOut size={14} /> Cerrar sesión
                             </button>
                         </div>

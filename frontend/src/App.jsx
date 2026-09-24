@@ -14,6 +14,8 @@ import Overlay from './pages/Overlay';
 import AcceptInvite from './pages/AcceptInvite';
 import EditorHub from './pages/EditorHub';
 import Settings from './pages/Settings';
+import Store from './pages/Store';
+import Inventory from './pages/Inventory';
 import { CookiesPage, FaqPage, PrivacyPage, SecurityPage, TermsPage } from './pages/PublicPages';
 
 export default function App() {
@@ -39,6 +41,8 @@ export default function App() {
         <Route path="/app/editor/:publicKey" element={<Editor />} />
         <Route path="/app/profile" element={<Profile />} />
         <Route path="/app/settings" element={<Settings />} />
+        <Route path="/app/store" element={<Store />} />
+        <Route path="/app/inventory" element={<Inventory />} />
         <Route path="/app/diagnostico" element={<Navigate to="/app/settings?section=diagnostics" replace />} />
       </Route>
 

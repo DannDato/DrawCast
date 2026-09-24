@@ -11,6 +11,8 @@ import { authReadLimiter, mutationLimiter } from '../../middlewares/security.js'
 import { audit } from '../../helpers/audit.js';
 import logger from '../../helpers/winston.js';
 import { deleteChannelSound, getChannelSoundUploadLimits, ingestChannelSound, listChannelSounds } from '../../services/channelSoundService.js';
+import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
+import { getLimit, limitError } from '../../services/channelEntitlementAccessService.js';
 
 const router = Router({ mergeParams: true });
 const { sourceMaxBytes } = getChannelSoundUploadLimits();
@@ -45,12 +47,17 @@ function uploadSound(req, res, next) {
 
 router.use(verifyToken);
 
-router.get('/', authReadLimiter, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
+router.get('/', authReadLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.custom_sounds')), asyncHandler(async (req, res) => {
   const sounds = await listChannelSounds(req.channel.id);
   return res.json({ sounds, maxBytes: 2 * 1024 * 1024 });
 }));
 
-router.post('/', mutationLimiter, asyncHandler(requireChannelEditor), uploadSound, asyncHandler(async (req, res) => {
+router.post('/', mutationLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.custom_sounds')), asyncHandler(async (req, _res, next) => {
+  const limit = getLimit(req.channelEntitlements, 'limit.custom_sound_slots');
+  const sounds = await listChannelSounds(req.channel.id);
+  if (sounds.length >= limit) throw limitError('limit.custom_sound_slots', limit, `Este lienzo ya usa sus ${limit} slot${limit === 1 ? '' : 's'} de sonidos personalizados.`);
+  next();
+}), uploadSound, asyncHandler(async (req, res) => {
   if (!req.file) throw httpError('No se recibió ningún MP3.');
   const sound = await ingestChannelSound({
     channelId: req.channel.id,
@@ -64,7 +71,7 @@ router.post('/', mutationLimiter, asyncHandler(requireChannelEditor), uploadSoun
   return res.status(201).json({ sound });
 }));
 
-router.delete('/:soundId', mutationLimiter, asyncHandler(requireChannelEditor), asyncHandler(async (req, res) => {
+router.delete('/:soundId', mutationLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.custom_sounds')), asyncHandler(async (req, res) => {
   const deleted = await deleteChannelSound(req.channel.id, req.params.soundId);
   if (!deleted) return res.status(404).json({ message: 'Sonido no encontrado' });
   await audit(req, { event: 'channel.sound_deleted', category: 'channel', userId: req.user.id, metadata: { channelUuid: req.channel.uuid, soundId: req.params.soundId } });

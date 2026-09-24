@@ -5,6 +5,12 @@ export function orderedObjects(objects) {
   return Object.values(objects || {}).sort((a, b) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
 }
 
+
+export function sceneHasRunningTimers(objects) {
+  const list = Array.isArray(objects) ? objects : Object.values(objects || {});
+  return list.some((object) => object && !object.hidden && object.tipo === 'timer' && Boolean(object.timerRunning ?? object.running));
+}
+
 export function drawGrid(ctx, width = 1920, height = 1080, step = 96) {
   ctx.save();
   ctx.strokeStyle = getThemeColor('--dc-editor-grid', '--dc-line-soft');

@@ -207,6 +207,22 @@ export function appendDrawStroke(channelId, layerId, stroke, maxLayerBytes = 180
   return { applied: true, object: next, control: getChannelControl(channelId) };
 }
 
+
+export function removeDrawStroke(channelId, layerId, strokeId) {
+  const r = runtime(channelId);
+  const layer = r.objects.get(layerId);
+  if (!layer || (layer.tipo !== 'draw' && layer.tipo !== 'trazo')) return { applied: false, reason: 'missing-layer', control: getChannelControl(channelId) };
+
+  const lines = layer.lineas || [];
+  if (!lines.some((stroke) => stroke?.id === strokeId)) return { applied: true, duplicate: true, control: getChannelControl(channelId) };
+
+  const next = { ...layer, lineas: lines.filter((stroke) => stroke?.id !== strokeId) };
+  r.objects.set(layerId, next);
+  if (r.liveEnabled) r.publishedObjects.set(layerId, next);
+  r.hasDraftChanges = r.liveEnabled ? false : true;
+  return { applied: true, object: next, control: getChannelControl(channelId) };
+}
+
 export function removeObject(channelId, id) {
   const r = runtime(channelId);
   r.objects.delete(id);
@@ -305,7 +321,13 @@ export function connectRole(channelId, socketId, role, metadata = {}) {
       r.sleepTimer = null;
     }
   }
-  if (role === 'overlay') r.overlays.add(socketId);
+  if (role === 'overlay') {
+    r.overlays.add(socketId);
+    if (r.sleepTimer) {
+      clearTimeout(r.sleepTimer);
+      r.sleepTimer = null;
+    }
+  }
   return getChannelPresence(channelId);
 }
 
@@ -328,9 +350,12 @@ export function disconnectRole(channelId, socketId, io) {
     }
   }
 
-  if (!r.editors.size && !r.sleepTimer) {
+  if (!r.editors.size && !r.overlays.size && !r.sleepTimer) {
     r.sleepTimer = setTimeout(async () => {
-      if (r.editors.size) return;
+      if (r.editors.size || r.overlays.size) {
+        r.sleepTimer = null;
+        return;
+      }
 
       r.objects.clear();
       r.publishedObjects.clear();

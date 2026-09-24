@@ -28,7 +28,10 @@ export default function useEditorHotkeys({
   copySelection,
   cutSelection,
   setClipboardPayload,
-  pasteClipboard
+  pasteClipboard,
+  isToolEnabled = () => false,
+  guidesEnabled = false,
+  onLockedFeature
 }) {
   useEffect(() => {
     const isEditableTarget = (target) => target instanceof HTMLElement && (target.matches('input, textarea, select') || target.isContentEditable);
@@ -122,6 +125,7 @@ export default function useEditorHotkeys({
 
       if (!modifier && !event.altKey && Object.prototype.hasOwnProperty.call(guideByKey, event.key)) {
         event.preventDefault();
+        if (event.key !== '0' && !guidesEnabled) { onLockedFeature?.('editor.guides', 'Guías'); return; }
         if (event.key !== '0' && !guides.some((item) => String(item.slot) === event.key)) {
           setMediaStatus(`La guía ${event.key} todavía no está guardada.`);
           return;
@@ -133,6 +137,7 @@ export default function useEditorHotkeys({
 
       if (!modifier && !event.altKey && !event.shiftKey && key === 'i') {
         event.preventDefault();
+        if (!isToolEnabled('image')) { onLockedFeature?.('editor.image', 'Imagen / GIF'); return; }
         setImagePickerRequest((current) => current + 1);
         setMediaStatus('Selecciona una imagen o GIF para agregar.');
         return;
@@ -140,7 +145,9 @@ export default function useEditorHotkeys({
 
       if (!modifier && !event.altKey && !event.shiftKey && toolByKey[key]) {
         event.preventDefault();
-        setTool(toolByKey[key]);
+        const nextTool = toolByKey[key];
+        if (!isToolEnabled(nextTool)) { const feature = { select: 'editor.select', hand: 'editor.pan', draw: 'editor.brush', eraser: 'editor.eraser', shape: 'editor.shape', line: 'editor.line', text: 'editor.text', timer: 'editor.timer' }[nextTool]; onLockedFeature?.(feature, TOOL_LABELS[nextTool] || nextTool); return; }
+        setTool(nextTool);
         setMediaStatus(`Herramienta: ${TOOL_LABELS[toolByKey[key]] || toolByKey[key]}.`);
         return;
       }

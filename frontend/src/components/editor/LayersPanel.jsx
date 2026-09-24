@@ -100,7 +100,9 @@ export default function LayersPanel({
   disabled = false,
   onGroup,
   onUngroup,
-  onDuplicate
+  onDuplicate,
+  layerLimit = 0,
+  onLayerLimit
 }) {
   const [compact, setCompact] = useState(() => {
     try { return localStorage.getItem(VIEW_MODE_KEY) !== 'expanded'; } catch { return true; }
@@ -121,6 +123,7 @@ export default function LayersPanel({
   const canGroup = selectedObjects.filter((object) => [object?.x, object?.y, object?.w, object?.h].every((value) => Number.isFinite(Number(value)))).length >= 2;
   const dragSourceKey = dragState?.sourceKey || null;
   const dragInsertIndex = dragState?.insertIndex ?? null;
+  const layerLimitReached = layerLimit > 0 && ordered.length >= layerLimit;
 
   useEffect(() => {
     try { localStorage.setItem(VIEW_MODE_KEY, compact ? 'compact' : 'expanded'); } catch { /* noop */ }
@@ -384,14 +387,14 @@ export default function LayersPanel({
   return (
     <aside className={`dc-layers ${compact ? 'is-compact' : ''} ${dragState ? 'is-reordering' : ''}`}>
       <header className="dc-layers-head">
-        <span><Layers3 size={14} /> Capas <b>· {ordered.length}</b></span>
+        <span><Layers3 size={14} /> Capas <b>· {ordered.length}{layerLimit > 0 ? ` / ${layerLimit}` : ''}</b></span>
         <div className="dc-layers-head-actions">
           <button type="button" onClick={() => setCompact((value) => !value)}>{compact ? 'Detalle' : 'Compactar'}</button>
         </div>
       </header>
 
       <div className="dc-layers-primary-action">
-        <button type="button" className="dc-layers-new-layer" onClick={onNewDrawLayer} disabled={disabled} title="Nueva capa de dibujo" aria-label="Nueva capa de dibujo">
+        <button type="button" className="dc-layers-new-layer" onClick={() => layerLimitReached ? onLayerLimit?.() : onNewDrawLayer?.()} disabled={disabled} aria-disabled={disabled || layerLimitReached} title={layerLimitReached ? `Límite de ${layerLimit} capas alcanzado` : 'Nueva capa de dibujo'} aria-label="Nueva capa de dibujo">
           <span className="dc-layers-new-layer-icon"><Plus size={15} /></span>
           <span className="dc-layers-new-layer-copy"><b>Nueva capa</b><small>Dibujo</small></span>
         </button>

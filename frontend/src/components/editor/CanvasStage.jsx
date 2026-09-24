@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { drawObject, hitObject } from './renderer/drawObject';
-import { orderedObjects, renderScene } from './renderer/sceneRenderer';
+import { orderedObjects, renderScene, sceneHasRunningTimers } from './renderer/sceneRenderer';
 import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getObjectFrame, getSelectionBounds, hitResizeHandle, hitRotateHandle, resizeCursorForHandle, resizeSelectionFromHandle, rotateSelection } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
 import { buildLineFromDrag } from './tools/lines/lineTool';
@@ -63,6 +63,9 @@ export default function CanvasStage({
   const remoteCursorsRef = useRef(remoteCursors);
   const panInteraction = useRef(null);
   const brushCursor = useRef(null);
+  const renderDirtyRef = useRef(true);
+  const lastTimerSecondRef = useRef(-1);
+  const lastCursorFadeTickRef = useRef(-1);
   const lastFitViewRequest = useRef(-1);
   const fitScaleRef = useRef(1);
   const zoomRef = useRef(1);
@@ -74,6 +77,7 @@ export default function CanvasStage({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
+  const invalidateRender = useCallback(() => { renderDirtyRef.current = true; }, []);
 
   const editingTextId = textEditor?.objectId || null;
   const sceneObjects = useMemo(() => editingTextId
@@ -84,13 +88,20 @@ export default function CanvasStage({
 
   useEffect(() => {
     renderStateRef.current = { sceneObjects, orderedSceneObjects, objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, drawConfig, tool, interactionDisabled, panning, editingTextId };
-  }, [sceneObjects, orderedSceneObjects, objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, drawConfig, tool, interactionDisabled, panning, editingTextId]);
-
-  useEffect(() => { remoteCursorsRef.current = remoteCursors; }, [remoteCursors]);
+    invalidateRender();
+  }, [sceneObjects, orderedSceneObjects, objects, selectedId, selectedIds, liveStrokes, activeDrawLayer, drawConfig, tool, interactionDisabled, panning, editingTextId, invalidateRender]);
 
   useEffect(() => {
-    if (!['draw', 'eraser'].includes(tool) || interactionDisabled) brushCursor.current = null;
-  }, [tool, interactionDisabled]);
+    remoteCursorsRef.current = remoteCursors;
+    invalidateRender();
+  }, [remoteCursors, invalidateRender]);
+
+  useEffect(() => {
+    if (!['draw', 'eraser'].includes(tool) || interactionDisabled) {
+      brushCursor.current = null;
+      invalidateRender();
+    }
+  }, [tool, interactionDisabled, invalidateRender]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -111,13 +122,14 @@ export default function CanvasStage({
       const nextFitScale = Math.min(usableWidth / CANVAS_WIDTH, usableHeight / CANVAS_HEIGHT);
       fitScaleRef.current = nextFitScale;
       setFitScale(nextFitScale);
+      invalidateRender();
     };
 
     syncViewport();
     const observer = new ResizeObserver(syncViewport);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, []);
+  }, [invalidateRender]);
 
   const setView = useCallback((nextZoom, nextPan = panRef.current) => {
     const safeZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
@@ -125,7 +137,8 @@ export default function CanvasStage({
     panRef.current = nextPan;
     setZoom(safeZoom);
     setPan(nextPan);
-  }, []);
+    invalidateRender();
+  }, [invalidateRender]);
 
   const changeZoom = useCallback((delta, anchor = null) => {
     const currentZoom = zoomRef.current;
@@ -185,11 +198,12 @@ export default function CanvasStage({
       setFitScale(nextFitScale);
       setZoom(nextZoom);
       setPan(nextPan);
+      invalidateRender();
       lastFitViewRequest.current = fitViewRequest;
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [fitViewRequest, objects]);
+  }, [fitViewRequest, objects, invalidateRender]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -226,6 +240,7 @@ export default function CanvasStage({
     const nextPan = { x: active.pan.x + event.clientX - active.startX, y: active.pan.y + event.clientY - active.startY };
     panRef.current = nextPan;
     setPan(nextPan);
+    invalidateRender();
   };
 
   const finishPan = (event) => {
@@ -240,13 +255,21 @@ export default function CanvasStage({
   useEffect(() => {
     if (!guideImageUrl) {
       guideImage.current = null;
-      return;
+      invalidateRender();
+      return undefined;
     }
 
     const image = new Image();
+    image.onload = invalidateRender;
+    image.onerror = invalidateRender;
     image.src = guideImageUrl;
     guideImage.current = image;
-  }, [guideImageUrl]);
+    invalidateRender();
+    return () => {
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [guideImageUrl, invalidateRender]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -260,6 +283,22 @@ export default function CanvasStage({
       if (shouldRenderFrame(timestamp)) {
         const state = renderStateRef.current;
         if (!state) return;
+        const now = Date.now();
+        const timerSecond = Math.floor(now / 1000);
+        if (sceneHasRunningTimers(state.orderedSceneObjects, now) && timerSecond !== lastTimerSecondRef.current) renderDirtyRef.current = true;
+        const cursorFadeTick = Math.floor(now / 100);
+        const cursorNeedsFade = remoteCursorsRef.current.some((cursor) => {
+          const age = now - Number(cursor?.at || now);
+          return age >= 7000 && age <= 12100;
+        });
+        if (cursorNeedsFade && cursorFadeTick !== lastCursorFadeTickRef.current) renderDirtyRef.current = true;
+        if (!renderDirtyRef.current) {
+          animationFrame = requestAnimationFrame(render);
+          return;
+        }
+        renderDirtyRef.current = false;
+        lastTimerSecondRef.current = timerSecond;
+        lastCursorFadeTickRef.current = cursorFadeTick;
 
         const cssWidth = Math.max(1, canvas.clientWidth);
         const cssHeight = Math.max(1, canvas.clientHeight);
@@ -268,7 +307,6 @@ export default function CanvasStage({
         const cssScale = Math.max(0.0001, fitScaleRef.current * zoomRef.current);
         const originX = cssWidth / 2 + panRef.current.x - (CANVAS_WIDTH * cssScale) / 2;
         const originY = cssHeight / 2 + panRef.current.y - (CANVAS_HEIGHT * cssScale) / 2;
-        const now = Date.now();
 
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -453,6 +491,7 @@ export default function CanvasStage({
 
     const canvas = canvasRef.current;
     const point = pointFromEvent(event);
+    invalidateRender();
 
     if (tool === 'text') {
       // Texto es una interacción de click, no de arrastre. No capturamos el
@@ -606,6 +645,7 @@ export default function CanvasStage({
 
   const onPointerMove = (event) => {
     const point = pointFromEvent(event);
+    invalidateRender();
     if (['draw', 'eraser'].includes(tool) && !interactionDisabled && !panning) brushCursor.current = point;
     else brushCursor.current = null;
     if (!interactionDisabled) onCursorMove?.(point);
@@ -740,6 +780,7 @@ export default function CanvasStage({
 
   const finishInteraction = (event) => {
     if (interactionDisabled) return;
+    invalidateRender();
     if (drawing.current) {
       if (drawing.current.points.length > 1) onDrawCommit?.(drawing.current);
       else onDrawCancel?.(drawing.current);
@@ -885,7 +926,7 @@ export default function CanvasStage({
         onPointerMove={onPointerMove}
         onPointerUp={finishInteraction}
         onPointerCancel={finishInteraction}
-        onPointerLeave={() => { brushCursor.current = null; if (!interaction.current) setPointerCursor(''); onCursorLeave?.(); }}
+        onPointerLeave={() => { brushCursor.current = null; invalidateRender(); if (!interaction.current) setPointerCursor(''); onCursorLeave?.(); }}
         onDoubleClick={onDoubleClick}
         onContextMenu={onContextMenu}
         onDragEnter={(event) => { if (interactionDisabled) return; event.preventDefault(); setMediaDragging(true); }}

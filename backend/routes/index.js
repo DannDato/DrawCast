@@ -9,6 +9,7 @@ import savedDesignRoutes from './channel/savedDesignRoutes.js';
 import guideRoutes from './channel/guideRoutes.js';
 import soundRoutes from './soundRoutes.js';
 import channelSoundRoutes from './channel/soundRoutes.js';
+import storeRoutes from './store/storeRoutes.js';
 import { getServerDiagnostics } from '../services/diagnosticsService.js';
 import { verifyToken } from '../middlewares/auth.js';
 import { authReadLimiter } from '../middlewares/security.js';
@@ -27,5 +28,6 @@ router.use('/channels', mediaRoutes);
 router.use('/channels/:channelUuid/designs', savedDesignRoutes);
 router.use('/channels/:channelUuid/guides', guideRoutes);
 router.use('/sounds', soundRoutes);
+router.use('/store', storeRoutes);
 
 export default router;

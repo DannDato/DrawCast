@@ -32,14 +32,14 @@ test('acepta una captura PNG y fija el nombre según su espacio', () => {
   assert.equal(guide.name, 'Guía 2');
   assert.equal(validateGuide({ imageData }, 1).name, 'Guía 1');
   assert.equal(validateGuide({ imageData }, 3).name, 'Guía 3');
-  assert.throws(() => validateGuide({ imageData }, 4), { status: 400 });
+  assert.equal(validateGuide({ imageData }, 4).name, 'Guía 4');
   assert.equal(guide.imageData, imageData);
   assert.ok(guide.sizeBytes > 0);
 });
 
-test('sólo existen tres espacios públicos de guía', () => {
-  for (const slot of [1, 2, 3]) assert.equal(parseGuideSlot(String(slot)), slot);
-  for (const slot of [0, 4, -1, 1.5, '01', '1/../../', '', undefined]) assert.equal(parseGuideSlot(slot), null);
+test('acepta slots expandibles y rechaza identificadores inválidos', () => {
+  for (const slot of [1, 2, 3, 4, 24, 99]) assert.equal(parseGuideSlot(String(slot)), slot);
+  for (const slot of [0, 100, -1, 1.5, '01', '1/../../', '', undefined]) assert.equal(parseGuideSlot(slot), null);
 });
 
 test('rechaza contenido ajeno a PNG', () => {

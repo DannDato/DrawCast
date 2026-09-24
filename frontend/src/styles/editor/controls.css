@@ -201,3 +201,23 @@
 .dc-toolbar-file-menu button.dc-toolbar-save-option>svg{
   opacity:.72;
 }
+
+/* TRAZIO // Lienzo Plus — estados bloqueados */
+@keyframes dc-plus-spectrum-drift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.dc-plus-locked{position:relative!important;isolation:isolate;overflow:hidden;opacity:.68!important;color:color-mix(in srgb,var(--dc-text) 74%,#d7ad55 26%)!important;cursor:pointer!important;filter:saturate(.72)}
+.dc-plus-locked::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(115deg,color-mix(in srgb,#d7ad55 10%,transparent),color-mix(in srgb,var(--dc-accent-two) 14%,transparent),color-mix(in srgb,var(--dc-accent-one) 11%,transparent),color-mix(in srgb,#d7ad55 10%,transparent));background-size:220% 220%;animation:dc-plus-spectrum-drift 7s ease infinite;opacity:.9}
+.dc-plus-locked::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 82% 18%,rgba(230,190,99,.13),transparent 42%)}
+.dc-plus-locked:hover{opacity:.9!important;filter:saturate(.95)}
+.dc-plus-lock{display:inline-grid;flex:0 0 auto;width:18px;height:18px;place-items:center;margin-left:auto;border:1px solid color-mix(in srgb,#d7ad55 40%,transparent);background:color-mix(in srgb,#d7ad55 13%,var(--dc-surface));color:#e7bd63;box-shadow:0 0 14px rgba(215,173,85,.12)}
+.dc-toolbar-icon .dc-plus-lock{position:absolute;top:2px;right:2px;width:13px;height:13px;margin:0;border:0;background:color-mix(in srgb,#d7ad55 18%,var(--dc-bg));box-shadow:0 0 10px rgba(215,173,85,.18)}
+.dc-toolbar-icon .dc-plus-lock svg{width:8px;height:8px}
+.dc-toolbar-popover .dc-plus-locked,.dc-toolbar-menu-trigger.dc-plus-locked,.dc-file-live-toggle.dc-plus-locked{opacity:.64!important}
+.dc-toolbar-popover .dc-plus-locked:hover,.dc-toolbar-menu-trigger.dc-plus-locked:hover,.dc-file-live-toggle.dc-plus-locked:hover{opacity:.9!important}
+.dc-toolbar-file-label.dc-plus-locked{min-height:34px;padding:0 10px}
+.dc-plus-locked-panel{position:relative;isolation:isolate;overflow:hidden}
+.dc-plus-locked-panel>*:not(.dc-plus-panel-lock){opacity:.28;filter:blur(1.4px);pointer-events:none;user-select:none}
+.dc-plus-panel-lock{position:absolute;inset:0;z-index:5;display:grid;place-content:center;gap:8px;padding:18px;text-align:center;background:linear-gradient(135deg,rgba(12,12,13,.58),rgba(38,26,31,.55),rgba(21,38,35,.5));backdrop-filter:blur(2px);cursor:pointer}
+.dc-plus-panel-lock>span{display:grid;width:30px;height:30px;place-items:center;margin:auto;background:color-mix(in srgb,#d7ad55 13%,var(--dc-surface));color:#e7bd63;box-shadow:0 0 24px rgba(215,173,85,.14)}
+.dc-plus-panel-lock>b{font:700 12px/1.2 Outfit,sans-serif;color:var(--dc-text-strong)}
+.dc-plus-panel-lock>small{max-width:230px;font:500 11px/1.35 Outfit,sans-serif;color:var(--dc-text)}
+@media(prefers-reduced-motion:reduce){.dc-plus-locked::before{animation:none}}

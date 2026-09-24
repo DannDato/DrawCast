@@ -1,6 +1,7 @@
 import { models } from '../../models/index.js';
 import logger from '../../helpers/winston.js';
 import { isPublicUuid } from '../../services/channelAccessService.js';
+import { getLimit, limitError } from '../../services/channelEntitlementAccessService.js';
 
 const DESIGN_VERSION = 1;
 const DEFAULT_MAX_BYTES = 8 * 1024 * 1024;
@@ -103,7 +104,9 @@ export class SavedDesignController {
     if (stateError) return res.status(400).json({ message: stateError });
 
     const count = await models.SavedDesign.count({ where: { channelId: req.channel.id } });
-    if (count >= maxDesigns()) return res.status(409).json({ message: `Este canal ya llegó al límite de ${maxDesigns()} diseños guardados` });
+    const entitlementLimit = getLimit(req.channelEntitlements, 'limit.design_slots');
+    const effectiveLimit = Math.min(maxDesigns(), entitlementLimit);
+    if (count >= effectiveLimit) throw limitError('limit.design_slots', effectiveLimit, `Este lienzo ya llegó a su límite de ${effectiveLimit} diseño${effectiveLimit === 1 ? '' : 's'} guardado${effectiveLimit === 1 ? '' : 's'}.`);
 
     const sizeBytes = serializedSize(state);
     if (sizeBytes > maxBytes()) return res.status(413).json({ message: `El diseño pesa demasiado. Máximo permitido: ${Math.round(maxBytes() / 1024 / 1024)} MB` });

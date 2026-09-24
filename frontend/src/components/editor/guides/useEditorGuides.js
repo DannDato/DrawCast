@@ -6,7 +6,7 @@ function storedGuide(publicKey) {
   try { return localStorage.getItem(`TRAZIO.editor.guide.${publicKey}`) || 'none'; } catch { return 'none'; }
 }
 
-export default function useEditorGuides({ channelUuid, publicKey, socket, objectsRef, setMediaStatus }) {
+export default function useEditorGuides({ channelUuid, publicKey, socket, objectsRef, setMediaStatus, enabled = false, slotLimit = 0 }) {
   const [collection, setCollection] = useState({ channelUuid: null, guides: [] });
   const [selection, setSelection] = useState({});
   const [image, setImage] = useState(null);
@@ -19,21 +19,22 @@ export default function useEditorGuides({ channelUuid, publicKey, socket, object
   const guideImageUrl = image?.channelUuid === channelUuid && image?.slot === guide && image?.updatedAt === activeGuide?.updatedAt ? image.imageData : null;
 
   const setGuide = useCallback((value) => {
-    const slot = /^[1-3]$/.test(String(value)) ? String(value) : 'none';
+    const numeric = Number(value);
+    const slot = Number.isInteger(numeric) && numeric >= 1 && numeric <= slotLimit ? String(numeric) : 'none';
     setSelection((current) => ({ ...current, [publicKey]: slot }));
     try { localStorage.setItem(`TRAZIO.editor.guide.${publicKey}`, slot); } catch { /* noop */ }
-  }, [publicKey]);
+  }, [publicKey, slotLimit]);
 
   const refreshGuides = useCallback(() => {
     const request = ++requestRef.current.version;
-    return (channelUuid ? getChannelGuides(channelUuid) : Promise.resolve([])).then((rows) => {
+    return (channelUuid && enabled ? getChannelGuides(channelUuid) : Promise.resolve([])).then((rows) => {
       if (request === requestRef.current.version) setCollection({ channelUuid, guides: rows });
     }).catch((error) => {
       if (request !== requestRef.current.version) return;
       setCollection({ channelUuid, guides: [] });
       setMediaStatus(error.response?.data?.message || 'No se pudieron cargar las guías del lienzo.');
     });
-  }, [channelUuid, setMediaStatus]);
+  }, [channelUuid, enabled, setMediaStatus]);
 
   useEffect(() => {
     const requests = requestRef.current;
@@ -48,7 +49,7 @@ export default function useEditorGuides({ channelUuid, publicKey, socket, object
   }, [socket, refreshGuides]);
 
   useEffect(() => {
-    if (!channelUuid || guide === 'none') return undefined;
+    if (!channelUuid || !enabled || guide === 'none') return undefined;
     let active = true;
     getChannelGuide(channelUuid, guide).then((value) => {
       if (active) setImage({ channelUuid, slot: guide, imageData: value.imageData, updatedAt: value.updatedAt });
@@ -58,9 +59,10 @@ export default function useEditorGuides({ channelUuid, publicKey, socket, object
       setMediaStatus(error.response?.data?.message || 'No se pudo abrir la guía.');
     });
     return () => { active = false; };
-  }, [channelUuid, guide, guides, setMediaStatus]);
+  }, [channelUuid, enabled, guide, guides, setMediaStatus]);
 
   const saveGuide = async (slot) => {
+    if (!enabled) throw new Error('Guías está bloqueado en este lienzo.');
     if (!channelUuid) throw new Error('El lienzo todavía no está listo.');
     const imageData = await captureGuide(objectsRef.current);
     await saveChannelGuide(channelUuid, slot, { imageData });
@@ -70,6 +72,7 @@ export default function useEditorGuides({ channelUuid, publicKey, socket, object
   };
 
   const deleteGuide = async (slot) => {
+    if (!enabled) throw new Error('Guías está bloqueado en este lienzo.');
     if (!channelUuid) throw new Error('El lienzo todavía no está listo.');
     await deleteChannelGuide(channelUuid, slot);
     if (selected === String(slot)) setGuide('none');

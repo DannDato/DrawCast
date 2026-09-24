@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Save, Trash2, X } from 'lucide-react';
 import { useSystemAlert } from '../../ui/SystemAlert';
 
-export default function GuidesModal({ guides, onSave, onDelete, onClose, disabled = false }) {
+export default function GuidesModal({ guides, onSave, onDelete, onClose, disabled = false, slotLimit = 3 }) {
   const { confirmDialog } = useSystemAlert();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -49,11 +49,11 @@ export default function GuidesModal({ guides, onSave, onDelete, onClose, disable
     <div className="dc-designs-backdrop" role="presentation" onMouseDown={() => { if (!busy) onClose(); }}>
       <section className="dc-designs-modal dc-guides-modal" role="dialog" aria-modal="true" aria-label="Guardar como guía" onMouseDown={(event) => event.stopPropagation()}>
         <header className="dc-designs-header">
-          <div><h2>GUARDAR COMO GUÍA</h2><p>Guarda el dibujo actual como referencia compartida de este lienzo. Máximo 3 guías.</p></div>
+          <div><h2>GUARDAR COMO GUÍA</h2><p>Guarda el dibujo actual como referencia compartida de este lienzo. {slotLimit} slot{slotLimit === 1 ? '' : 's'} disponible{slotLimit === 1 ? '' : 's'}.</p></div>
           <button type="button" className="dc-designs-close" onClick={onClose} disabled={busy} aria-label="Cerrar"><X size={18} /></button>
         </header>
         <div className="dc-designs-list">
-          {[1, 2, 3].map((slot) => {
+          {Array.from({ length: slotLimit }, (_, index) => index + 1).map((slot) => {
             const current = guides.find((item) => item.slot === slot);
             return (
               <article key={slot} className="dc-design-card">

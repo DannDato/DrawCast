@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Music2, RefreshCw, Save, Search, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { Lock, Music2, RefreshCw, Save, Search, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { useSystemAlert } from '../../ui/SystemAlert';
 
-const SLOT_COUNT = 5;
 
 const cleanSoundName = (value) => String(value || 'Sonido').replace(/\.mp3$/i, '');
 const formatBytes = (value) => {
@@ -12,9 +11,9 @@ const formatBytes = (value) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export default function SoundSlotsModal({ sounds = [], customSounds = [], slots = [], onClose, onRefresh, resolveSoundUrl, onUpload, onDelete, onSave }) {
+export default function SoundSlotsModal({ sounds = [], customSounds = [], slots = [], onClose, onRefresh, resolveSoundUrl, onUpload, onDelete, onSave, slotCount = 3, customSoundsEnabled = true, customSoundLimit = 0, onLockedFeature }) {
   const { confirmDialog } = useSystemAlert();
-  const [draft, setDraft] = useState(() => Array.from({ length: SLOT_COUNT }, (_, index) => slots[index] || null));
+  const [draft, setDraft] = useState(() => Array.from({ length: slotCount }, (_, index) => slots[index] || null));
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState('');
   const [status, setStatus] = useState('');
@@ -25,7 +24,7 @@ export default function SoundSlotsModal({ sounds = [], customSounds = [], slots 
   const previewRef = useRef(null);
   const allSounds = useMemo(() => [...sounds, ...customSounds], [sounds, customSounds]);
   const soundMap = useMemo(() => new Map(allSounds.map((sound) => [sound.id, sound])), [allSounds]);
-  const initialSlots = useMemo(() => Array.from({ length: SLOT_COUNT }, (_, index) => slots[index] || null), [slots]);
+  const initialSlots = useMemo(() => Array.from({ length: slotCount }, (_, index) => slots[index] || null), [slots, slotCount]);
   const hasUnsavedChanges = useMemo(() => draft.some((value, index) => value !== initialSlots[index]), [draft, initialSlots]);
   const filteredSounds = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('es-MX');
@@ -168,6 +167,8 @@ export default function SoundSlotsModal({ sounds = [], customSounds = [], slots 
   };
 
   const upload = async (file) => {
+    if (!customSoundsEnabled) { onLockedFeature?.('editor.custom_sounds', 'Sonidos personalizados'); return; }
+    if (customSoundLimit > 0 && customSounds.length >= customSoundLimit) { setStatus(`Ya usas tus ${customSoundLimit} slots de sonidos personalizados.`); return; }
     if (!file) return;
     if (!String(file.name || '').toLowerCase().endsWith('.mp3')) {
       setStatus('Sólo puedes subir archivos MP3.');
@@ -247,7 +248,7 @@ export default function SoundSlotsModal({ sounds = [], customSounds = [], slots 
           <section className="dc-sounds-column dc-sounds-slots" aria-label="Slots de sonido">
             <div className="dc-sounds-column-head"><div><b>SLOTS</b></div></div>
             <div className="dc-sounds-slot-list">
-              {Array.from({ length: SLOT_COUNT }, (_, index) => {
+              {Array.from({ length: slotCount }, (_, index) => {
                 const sound = soundMap.get(draft[index]);
                 return (
                   <div
@@ -279,11 +280,11 @@ export default function SoundSlotsModal({ sounds = [], customSounds = [], slots 
             </div>
           </section>
 
-          <section className="dc-sounds-column dc-sounds-custom" aria-label="Tus sonidos">
-            <div className="dc-sounds-column-head"><div><b>TUS SONIDOS</b><span>{customSounds.length} en este lienzo</span></div></div>
+          <section className={`dc-sounds-column dc-sounds-custom ${!customSoundsEnabled ? 'dc-plus-locked-panel' : ''}`} aria-label="Tus sonidos">
+            <div className="dc-sounds-column-head"><div><b>TUS SONIDOS</b><span>{customSounds.length}{customSoundLimit > 0 ? ` / ${customSoundLimit}` : ''} en este lienzo</span></div></div>
             <div className="dc-sounds-upload-box">
               <input ref={fileInputRef} type="file" accept="audio/mpeg,.mp3" className="hidden" onChange={(event) => upload(event.target.files?.[0])} />
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy === 'upload'}><Upload size={15} /> {busy === 'upload' ? 'Procesando…' : 'Subir MP3'}</button>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy === 'upload' || (customSoundLimit > 0 && customSounds.length >= customSoundLimit)}><Upload size={15} /> {busy === 'upload' ? 'Procesando…' : 'Subir MP3'}</button>
               <span>Máximo final: 2 MB. Si pesa más, intentamos reducirlo automáticamente.</span>
             </div>
             <div className="dc-sounds-custom-list">
@@ -303,6 +304,7 @@ export default function SoundSlotsModal({ sounds = [], customSounds = [], slots 
                 <div className="dc-sounds-empty"><Upload size={22} /><b>Todavía no subes sonidos</b><span>Lo que subas aquí queda ligado a este lienzo y lo verán sus colaboradores.</span></div>
               )}
             </div>
+            {!customSoundsEnabled && <button type="button" className="dc-plus-panel-lock" onClick={() => onLockedFeature?.('editor.custom_sounds', 'Sonidos personalizados')}><span><Lock size={15} /></span><b>SONIDOS PERSONALIZADOS · PLUS</b><small>Desbloquea tus propios MP3 para todos los colaboradores de este lienzo.</small></button>}
           </section>
         </div>
 

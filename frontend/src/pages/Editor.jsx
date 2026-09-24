@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Redo2, Undo2 } from 'lucide-react';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
-import { getChannels, markChannelUsed } from '../api/channels';
+import { getChannelEntitlements, getChannels, markChannelUsed } from '../api/channels';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
 import Inspector from '../components/editor/Inspector';
@@ -20,7 +20,7 @@ import { moveSelectionOneLevel, reorderLayerUnitToIndex } from '../components/ed
 import { applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
 import { adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
 import { appendStrokeToLayer, clearDrawLayer, DRAW_LAYER_MAX_BYTES, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
-import { applyHistoryEntry, cloneValue, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
+import { applyHistoryEntry, cloneValue, makeDrawStrokeHistoryEntry, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
 import { createClipboardPayload, materializeClipboardPayload, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
 import { getCursorThemeColor } from '../utils/theme';
 import { GRAPHICS_FRAME_MS } from '../utils/frameRate';
@@ -33,6 +33,7 @@ import useEditorMedia from '../components/editor/tools/images/useEditorMedia';
 import { decodeDesignSnapshot, ensureSceneDrawLayer } from '../components/editor/scene/sceneUtils';
 import { TOOL_LABELS } from '../components/editor/hotkeys/shortcuts';
 import { DEFAULT_LINE_CONFIG } from '../components/editor/tools/lines/lineTool';
+import { EMPTY_CHANNEL_ENTITLEMENTS, FEATURE_LABELS, TOOL_FEATURE, entitlementLimit, featureEnabled, normalizeChannelEntitlements, objectFeature } from '../components/editor/entitlements/editorEntitlements';
 
 export default function Editor() {
   const { publicKey } = useParams();
@@ -43,6 +44,7 @@ export default function Editor() {
     textConfig, setTextConfig, timerConfig, setTimerConfig
   } = useEditorPreferences();
   const [channelUuid, setChannelUuid] = useState(null);
+  const [entitlements, setEntitlements] = useState(EMPTY_CHANNEL_ENTITLEMENTS);
   const [objects, setObjects] = useState({});
   const [selectedId, setSelectedId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -125,7 +127,7 @@ export default function Editor() {
       setFitViewRequest((current) => current + 1);
     },
     'obj-upsert': (object) => {
-      if (historyStartRef.current) historyStartRef.current.before[object.id] = cloneValue(object);
+      if (historyStartRef.current) historyStartRef.current.before[object.id] = object;
       const next = { ...objectsRef.current, [object.id]: object };
       objectsRef.current = next;
       setObjects(next);
@@ -143,7 +145,7 @@ export default function Editor() {
       updates.forEach(({ id, patch: patchData }) => {
         if (!id || !next[id] || !patchData || typeof patchData !== 'object') return;
         const object = { ...next[id], ...patchData };
-        if (historyStartRef.current) historyStartRef.current.before[id] = cloneValue(object);
+        if (historyStartRef.current) historyStartRef.current.before[id] = object;
         next[id] = object;
         changed = true;
       });
@@ -201,7 +203,19 @@ export default function Editor() {
       const layer = objectsRef.current[layerId];
       if (!layer || !isDrawLayer(layer) || (layer.lineas || []).some((item) => item?.id === stroke.id)) return;
       const nextLayer = appendStrokeToLayer(layer, stroke);
-      if (historyStartRef.current) historyStartRef.current.before[layerId] = cloneValue(nextLayer);
+      if (historyStartRef.current) historyStartRef.current.before[layerId] = nextLayer;
+      const next = { ...objectsRef.current, [layerId]: nextLayer };
+      objectsRef.current = next;
+      setObjects(next);
+    },
+    'draw-remove': ({ layerId, strokeId } = {}) => {
+      if (!layerId || !strokeId) return;
+      inboundStrokeQueueRef.current = inboundStrokeQueueRef.current.filter((event) => event?.strokeId !== strokeId);
+      setLiveStrokes((current) => reduceLiveStrokeMap(current, { phase: 'end', strokeId }));
+      const layer = objectsRef.current[layerId];
+      if (!layer || !isDrawLayer(layer) || !(layer.lineas || []).some((item) => item?.id === strokeId)) return;
+      const nextLayer = { ...layer, lineas: (layer.lineas || []).filter((item) => item?.id !== strokeId) };
+      if (historyStartRef.current) historyStartRef.current.before[layerId] = nextLayer;
       const next = { ...objectsRef.current, [layerId]: nextLayer };
       objectsRef.current = next;
       setObjects(next);
@@ -261,6 +275,15 @@ export default function Editor() {
         message: message || 'El editor que controlaba el modo Estudio se desconectó. El workspace fue publicado para desbloquear al equipo.'
       });
     },
+    'channel-entitlements': (value = {}) => setEntitlements(normalizeChannelEntitlements(value)),
+    'feature-denied': ({ message, feature } = {}) => {
+      const label = FEATURE_LABELS[feature] || 'Esta función';
+      setMediaStatus(message || `${label} está bloqueado en este lienzo.`);
+      void showAlert({
+        title: `${label} · Lienzo Plus`,
+        message: message || 'Esta función no está incluida en este lienzo. Lienzo Plus desbloquea las herramientas premium para todos sus colaboradores.'
+      });
+    },
     'channel-control': ({ liveEnabled: nextLive, overlayHidden: nextHidden, hasDraftChanges: nextDraft } = {}) => {
       if (typeof nextLive === 'boolean') setLiveEnabled(nextLive);
       if (typeof nextHidden === 'boolean') setOverlayHidden(nextHidden);
@@ -279,7 +302,42 @@ export default function Editor() {
   }), [showAlert]);
 
   const { socket, presence, connected, denied } = useChannelSocket(publicKey, 'editor', handlers);
-  const { guide, setGuide, guides, guideImageUrl, guidesOpen, setGuidesOpen, refreshGuides, saveGuide, deleteGuide } = useEditorGuides({ channelUuid, publicKey, socket, objectsRef, setMediaStatus });
+  const entitlementsReady = entitlements.loaded === true;
+  const canFeature = (feature) => featureEnabled(entitlements, feature);
+  const layerLimit = entitlementLimit(entitlements, 'limit.layers');
+  const designSlotLimit = entitlementLimit(entitlements, 'limit.design_slots');
+  const guideSlotLimit = entitlementLimit(entitlements, 'limit.guide_slots');
+  const quickSoundSlotLimit = entitlementLimit(entitlements, 'limit.quick_sound_slots');
+  const customSoundLimit = entitlementLimit(entitlements, 'limit.custom_sound_slots');
+  const launchpadPadLimit = entitlementLimit(entitlements, 'limit.launchpad_pads');
+
+  const showLockedFeature = (feature, fallbackLabel = 'Función') => {
+    if (!entitlementsReady) { setMediaStatus('Cargando permisos del lienzo...'); return; }
+    const label = FEATURE_LABELS[feature] || fallbackLabel;
+    setMediaStatus(`${label} requiere una mejora para este lienzo.`);
+    void showAlert({
+      title: `${label} · Lienzo Plus`,
+      message: 'Esta función está bloqueada en este lienzo. Lienzo Plus desbloquea todas las herramientas premium para el propietario y todos los colaboradores.'
+    });
+  };
+
+  const requireFrontendFeature = (feature, label, { silent = false } = {}) => {
+    if (!entitlementsReady) {
+      if (!silent) setMediaStatus('Cargando permisos del lienzo...');
+      return false;
+    }
+    if (canFeature(feature)) return true;
+    if (!silent) showLockedFeature(feature, label);
+    return false;
+  };
+
+  const canMutateObject = (object, options = {}) => {
+    const feature = objectFeature(object);
+    return !feature || requireFrontendFeature(feature, FEATURE_LABELS[feature], options);
+  };
+
+  const { guide, setGuide, guides, guideImageUrl, guidesOpen, setGuidesOpen, refreshGuides, saveGuide, deleteGuide } = useEditorGuides({ channelUuid, publicKey, socket, objectsRef, setMediaStatus, enabled: canFeature('editor.guides'), slotLimit: guideSlotLimit });
+
   const editingLocked = editorAccess.canEdit === false;
   const liveRequired = Boolean(editorAccess.liveRequired);
   const studioEditor = !liveEnabled ? (presence.editorList || []).find((editor) => editor.canEdit) : null;
@@ -310,7 +368,9 @@ export default function Editor() {
         return;
       }
       if (!response?.ok) {
-        reject(new Error(response?.message || 'El canal rechazó la acción.'));
+        const actionError = new Error(response?.message || 'El canal rechazó la acción.');
+        actionError.code = response?.code; actionError.feature = response?.feature; actionError.limitKey = response?.limitKey; actionError.limit = response?.limit;
+        reject(actionError);
         return;
       }
       applyControlState(response.control);
@@ -324,7 +384,13 @@ export default function Editor() {
     soundPlayback, soundMonitorEnabled, setSoundMonitorEnabled, playSound,
     openSoundAssignments, saveSoundAssignments, openLaunchpadAssignments, saveLaunchpadAssignments,
     refreshSoundLibrary, uploadOwnSound, deleteOwnSound, resolveSoundUrl
-  } = useEditorSounds({ userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus });
+  } = useEditorSounds({
+    userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus,
+    quickSoundsEnabled: canFeature('editor.quick_sounds'),
+    customSoundsEnabled: canFeature('editor.custom_sounds'),
+    launchpadEnabled: canFeature('editor.launchpad'),
+    quickSoundSlotLimit, customSoundLimit, launchpadPadLimit
+  });
 
   const broadcastCursor = (point) => {
     if (editingLocked || !socket.connected || !point) return;
@@ -375,6 +441,7 @@ export default function Editor() {
   }, []);
 
   const toggleLiveMode = async () => {
+    if (!requireFrontendFeature('editor.live_studio', 'Live / Estudio')) return;
     if (controlBusy || !connected || editingLocked) return;
     const nextLive = !liveEnabled;
     if (!nextLive && liveRequired) {
@@ -404,6 +471,7 @@ export default function Editor() {
   };
 
   const publishScene = async () => {
+    if (!requireFrontendFeature('editor.live_studio', 'Live / Estudio')) return;
     if (controlBusy || !connected || editingLocked || liveEnabled || !hasDraftChanges) return;
     setControlBusy('publish');
     try {
@@ -431,14 +499,16 @@ export default function Editor() {
   };
 
   const handleToggleWorkspaceMode = () => {
+    if (effectiveWorkspaceMode === 'canvas' && !requireFrontendFeature('editor.launchpad', 'Launchpad')) return;
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
-      next.set('view', workspaceMode === 'canvas' ? 'launchpad' : 'canvas');
+      next.set('view', effectiveWorkspaceMode === 'canvas' ? 'launchpad' : 'canvas');
       return next;
     }, { replace: true });
   };
 
   const refreshRecentDesigns = async () => {
+    if (!canFeature('editor.designs')) { setRecentDesigns([]); return []; }
     if (!channelUuid) {
       setRecentDesigns([]);
       return [];
@@ -454,13 +524,14 @@ export default function Editor() {
   };
 
   const openDesigns = (intent = 'load') => {
+    if (!requireFrontendFeature('editor.designs', 'Diseños')) return;
     setDesignsIntent(intent);
     setDesignsOpen(true);
   };
 
   const beginHistory = (label = 'Editar') => {
     if (historyStartRef.current) return;
-    historyStartRef.current = { label, before: cloneValue(objectsRef.current) };
+    historyStartRef.current = { label, before: { ...objectsRef.current } };
   };
 
   const commitHistory = (label = null) => {
@@ -536,7 +607,7 @@ export default function Editor() {
   };
 
   const upsert = (object) => {
-    if (editingLocked || !object?.id) return;
+    if (editingLocked || !object?.id || !canMutateObject(object)) return;
     updateScene((current) => ({ ...current, [object.id]: object }));
     socket.emit('obj-upsert', object);
   };
@@ -544,7 +615,7 @@ export default function Editor() {
   const applyUpdates = (updates = []) => {
     if (editingLocked) return;
     const scene = objectsRef.current;
-    const valid = updates.filter(({ id }) => scene[id]);
+    const valid = updates.filter(({ id }) => scene[id] && canMutateObject(scene[id], { silent: true }));
     if (!valid.length) return;
 
     const nextObjects = valid.map(({ id, patch }) => ({ ...scene[id], ...patch }));
@@ -601,7 +672,7 @@ export default function Editor() {
     const scene = objectsRef.current;
     let accepted = false;
     updates.forEach(({ id, patch: patchData }) => {
-      if (!scene[id] || !patchData || typeof patchData !== 'object') return;
+      if (!scene[id] || !patchData || typeof patchData !== 'object' || !canMutateObject(scene[id], { silent: true })) return;
       transformLatestRef.current.set(id, { ...(transformLatestRef.current.get(id) || {}), ...patchData });
       accepted = true;
     });
@@ -640,7 +711,8 @@ export default function Editor() {
   };
 
   const add = (object, options = {}) => {
-    if (editingLocked || !object?.id) return;
+    if (editingLocked || !object?.id || !canMutateObject(object)) return;
+    if (layerLimit > 0 && Object.keys(objectsRef.current).length >= layerLimit) { setMediaStatus(`Llegaste al límite de ${layerLimit} capas de este lienzo.`); return; }
     if (options.history !== false) beginHistory(options.label || 'Agregar capa');
     upsert(object);
     setSelectedIds([object.id]);
@@ -650,6 +722,8 @@ export default function Editor() {
 
   const addMany = (list, options = {}) => {
     if (editingLocked || !list.length) return;
+    if (list.some((object) => !canMutateObject(object))) return;
+    if (layerLimit > 0 && Object.keys(objectsRef.current).length + list.length > layerLimit) { setMediaStatus(`Esta acción supera el límite de ${layerLimit} capas del lienzo.`); return; }
     if (options.history !== false) beginHistory(options.label || 'Agregar capas');
     updateScene((current) => {
       const next = { ...current };
@@ -675,7 +749,7 @@ export default function Editor() {
     setSelectedId(fallbackLayer.id);
     setActiveDrawLayerId(fallbackLayer.id);
     setLiveStrokes({});
-    socket.emit('scene-replace', { objects: [fallbackLayer] });
+    socket.emit('scene-replace', { objects: [fallbackLayer], operation: 'reset' });
     commitHistory('Vaciar lienzo');
   };
 
@@ -691,6 +765,8 @@ export default function Editor() {
     if (ensured.created) socket.emit('obj-upsert', ensured.drawLayer);
     result.removals.forEach((id) => socket.emit('obj-remove', { id }));
     result.upserts.forEach((object) => socket.emit('obj-upsert', object));
+    result.drawRemovals.forEach((payload) => socket.emit('draw-remove', payload));
+    result.drawCommits.forEach((payload) => socket.emit('draw-commit', payload));
 
     if (ensured.created) setSelection([ensured.drawLayer.id], ensured.drawLayer.id);
     else if (previousSelection.length) setSelection(previousSelection, previousSelection.at(-1));
@@ -845,11 +921,11 @@ export default function Editor() {
     if (!updates.length) return;
 
     const before = Object.fromEntries(
-      updates.map(({ id }) => [id, cloneValue(objectsRef.current[id])])
+      updates.map(({ id }) => [id, objectsRef.current[id]])
     );
     applyUpdates(updates);
     const after = Object.fromEntries(
-      updates.map(({ id }) => [id, cloneValue(objectsRef.current[id])])
+      updates.map(({ id }) => [id, objectsRef.current[id]])
     );
     const entry = makeHistoryEntry(before, after, 'Ordenar capas');
     if (entry) setHistory((current) => ({ past: pushHistoryEntry(current.past, entry), future: [] }));
@@ -911,6 +987,10 @@ export default function Editor() {
 
   const createDrawLayer = () => {
     if (editingLocked) return null;
+    if (layerLimit > 0 && Object.keys(objectsRef.current).length >= layerLimit) {
+      setMediaStatus(`Llegaste al límite de ${layerLimit} capas de este lienzo.`);
+      return null;
+    }
     const layer = makeDrawLayer(objectsRef.current);
     beginHistory('Nueva capa de dibujo');
     upsert(layer);
@@ -988,6 +1068,8 @@ export default function Editor() {
 
   const startDrawStroke = (stroke, layer) => {
     if (editingLocked) return;
+    const feature = stroke?.mode === 'erase' ? 'editor.eraser' : 'editor.brush';
+    if (!requireFrontendFeature(feature, FEATURE_LABELS[feature])) return;
     pendingDrawPointRef.current = null;
     emitLiveStroke('start', stroke, layer, stroke.points?.[0]);
   };
@@ -1013,6 +1095,8 @@ export default function Editor() {
 
   const commitDrawStroke = (stroke) => {
     if (editingLocked) return;
+    const feature = stroke?.mode === 'erase' ? 'editor.eraser' : 'editor.brush';
+    if (!requireFrontendFeature(feature, FEATURE_LABELS[feature], { silent: true })) return;
     const layer = objectsRef.current[stroke.layerId];
     if (!layer || !isDrawLayer(layer)) return;
     flushDrawPoint(true);
@@ -1024,7 +1108,6 @@ export default function Editor() {
       return;
     }
 
-    beginHistory(stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
     updateScene((current) => ({ ...current, [layer.id]: nextLayer }));
     socket.timeout(6000).emit('draw-commit', { layerId: layer.id, stroke }, (error, response) => {
       if (error) {
@@ -1036,7 +1119,8 @@ export default function Editor() {
     });
     setActiveDrawLayerId(layer.id);
     setSelection([layer.id], layer.id);
-    commitHistory(stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
+    const historyEntry = makeDrawStrokeHistoryEntry(layer.id, stroke, stroke.mode === 'erase' ? 'Borrar trazo' : 'Dibujar trazo');
+    if (historyEntry) setHistory((current) => ({ past: pushHistoryEntry(current.past, historyEntry), future: [] }));
   };
 
   useEffect(() => {
@@ -1067,30 +1151,42 @@ export default function Editor() {
         return;
       }
       markChannelUsed(nextChannelUuid).catch(() => {});
-      getSavedDesigns(nextChannelUuid)
-        .then((rows) => {
-          if (active) setRecentDesigns([...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)));
-        })
-        .catch(() => { if (active) setRecentDesigns([]); });
     }).catch(() => {
       if (!active) return;
       setIsOwner(false);
       setChannelUuid(null);
+      setEntitlements(EMPTY_CHANNEL_ENTITLEMENTS);
       setRecentDesigns([]);
     });
     return () => { active = false; };
   }, [publicKey]);
 
+  useEffect(() => {
+    if (!channelUuid) return undefined;
+    let active = true;
+    getChannelEntitlements(channelUuid, { force: true })
+      .then((value) => { if (active) setEntitlements(normalizeChannelEntitlements(value)); })
+      .catch(() => { if (active) { setEntitlements(EMPTY_CHANNEL_ENTITLEMENTS); setMediaStatus('No se pudieron cargar los permisos del lienzo.'); } });
+    return () => { active = false; };
+  }, [channelUuid]);
+
+
+  const effectiveWorkspaceMode = entitlementsReady && workspaceMode === 'launchpad' && canFeature('editor.launchpad') ? 'launchpad' : 'canvas';
+
   useEditorHotkeys({
-    guides, workspaceMode, editingLocked, hotkeysOpen, setHotkeysOpen, tool, setTool, setGuide, setMediaStatus,
+    guides, workspaceMode: effectiveWorkspaceMode, editingLocked, hotkeysOpen, setHotkeysOpen, tool, setTool, setGuide, setMediaStatus,
     setImagePickerRequest, requestClear, redo, undo, selectAllLayers, moveSelectedLayer,
     ungroupSelection, groupSelection, duplicateSelected, nudgeSelection, removeLayers, setSelection,
-    finishNudge, copySelection, cutSelection, setClipboardPayload, pasteClipboard
+    finishNudge, copySelection, cutSelection, setClipboardPayload, pasteClipboard,
+    isToolEnabled: (toolId) => entitlementsReady && canFeature(TOOL_FEATURE[toolId]),
+    guidesEnabled: canFeature('editor.guides'),
+    onLockedFeature: (feature, label) => showLockedFeature(feature, label)
   });
 
   const { uploadFile, importRemote } = useEditorMedia({ channelUuid, editingLocked, imageConfig, add, setTool, openPropertiesAt, setMediaStatus });
 
   const commitText = ({ id, x, y, text, config }) => {
+    if (!requireFrontendFeature('editor.text', 'Texto')) return;
     if (id && objectsRef.current[id]) {
       beginHistory('Editar texto');
       upsert(updateTextContent({ ...objectsRef.current[id], x, y }, text, config));
@@ -1114,11 +1210,15 @@ export default function Editor() {
   });
 
   const loadDesignSnapshot = async (rawState, design) => {
+    if (!requireFrontendFeature('editor.designs', 'Diseños')) throw new Error('Diseños está bloqueado en este lienzo.');
     if (editingLocked) throw new Error('Espera a que el canal vuelva a Live antes de cargar un diseño.');
     const state = decodeDesignSnapshot(rawState);
     const list = state.scene.objects;
     const rawScene = Object.fromEntries(list.filter((object) => object?.id).map((object) => [object.id, object]));
     if (Object.keys(rawScene).length !== list.length) throw new Error('La copia guardada contiene una capa inválida y no se cargó.');
+    if (layerLimit > 0 && list.length > layerLimit) throw new Error(`El diseño usa ${list.length} capas y este lienzo admite ${layerLimit}.`);
+    const blockedObject = list.find((object) => { const feature = objectFeature(object); return feature && !canFeature(feature); });
+    if (blockedObject) throw new Error(`${FEATURE_LABELS[objectFeature(blockedObject)] || 'Una herramienta'} está bloqueado en este lienzo.`);
     const ensured = ensureSceneDrawLayer(rawScene);
     const next = ensured.scene;
     if (!socket.connected) throw new Error('TRAZIO perdió conexión con el canal. Vuelve a intentarlo en un momento.');
@@ -1146,7 +1246,8 @@ export default function Editor() {
     else setSelection([]);
     setGuide(editor.guide || 'none');
     setActiveDrawLayerId(activeDraw?.id || null);
-    setTool(editor.tool && editor.tool !== 'image' && TOOL_LABELS[editor.tool] ? editor.tool : 'select');
+    const savedTool = editor.tool && editor.tool !== 'image' && TOOL_LABELS[editor.tool] ? editor.tool : 'select';
+    setTool(canFeature(TOOL_FEATURE[savedTool]) ? savedTool : 'select');
     setMediaStatus(`Diseño cargado: ${design?.name || 'sin nombre'}.`);
   };
 
@@ -1183,6 +1284,7 @@ export default function Editor() {
   };
 
   const createTimer = (point) => {
+    if (!requireFrontendFeature('editor.timer', 'Temporizador')) return;
     add(makeTimer(point.x, point.y, timerConfig));
     setTool('select');
   };
@@ -1214,7 +1316,7 @@ export default function Editor() {
   if (denied) return <div className="fixed inset-0 grid place-content-center bg-[var(--dc-bg)] text-center text-[var(--dc-text)]">NO TIENES ACCESO A ESTE CANAL // <Link className="text-[var(--dc-accent-four)]" to="/app">VOLVER AL INICIO</Link></div>;
 
   return (
-    <div className={`dc-editor ${editingLocked ? 'is-collab-locked' : ''} ${workspaceMode === 'launchpad' ? 'is-launchpad-mode' : ''}`}>
+    <div className={`dc-editor ${editingLocked ? 'is-collab-locked' : ''} ${effectiveWorkspaceMode === 'launchpad' ? 'is-launchpad-mode' : ''}`}>
       <div className="dc-editor-toolbar">
         <Toolbar
           key={editingLocked ? 'locked' : 'active'}
@@ -1243,10 +1345,10 @@ export default function Editor() {
           overlayHidden={overlayHidden}
           onTogglePanic={togglePanic}
           controlBusy={controlBusy}
-          connected={connected}
+          connected={connected && entitlementsReady}
           editorLocked={editingLocked}
           editors={presence.editorList || []}
-          workspaceMode={workspaceMode}
+          workspaceMode={effectiveWorkspaceMode}
           onToggleWorkspaceMode={handleToggleWorkspaceMode}
           soundSlots={soundSlotItems}
           onPlaySound={playSound}
@@ -1255,19 +1357,24 @@ export default function Editor() {
           onToggleSoundMonitor={() => setSoundMonitorEnabled((value) => !value)}
           onAssignSounds={openSoundAssignments}
           onAssignLaunchpadSounds={openLaunchpadAssignments}
+          entitlementsReady={entitlementsReady}
+          isFeatureEnabled={canFeature}
+          onLockedFeature={showLockedFeature}
+          guideSlotLimit={guideSlotLimit}
+          quickSoundSlotLimit={quickSoundSlotLimit}
         />
       </div>
 
-      <main className={`dc-workspace ${workspaceMode === 'launchpad' ? 'is-launchpad' : ''}`}>
+      <main className={`dc-workspace ${effectiveWorkspaceMode === 'launchpad' ? 'is-launchpad' : ''}`}>
         {/* <div className="dc-watermark">TRAZIO <span>// DannDato</span></div> */}
 
-        {workspaceMode === 'launchpad' ? (
+        {effectiveWorkspaceMode === 'launchpad' ? (
           <LaunchpadSurface
             sounds={allSounds}
             slots={launchpadSlots}
             connected={connected}
-            disabled={overlayHidden || launchpadConfigOpen}
-            onPlaySound={playSound}
+            disabled={overlayHidden || launchpadConfigOpen || !canFeature('editor.launchpad')}
+            onPlaySound={(soundId) => playSound(soundId, 'launchpad')}
             soundPlayback={soundPlayback}
           />
         ) : <>
@@ -1299,7 +1406,7 @@ export default function Editor() {
           textConfig={textConfig}
           onTextCommit={commitText}
           onTimerCreate={createTimer}
-          onMediaDrop={({ file, url, point }) => file ? uploadFile(file, point) : importRemote(url, point)}
+          onMediaDrop={({ file, url, point }) => { if (!requireFrontendFeature('editor.image', 'Imagen / GIF')) return; return file ? uploadFile(file, point) : importRemote(url, point); }}
           guideImageUrl={guideImageUrl}
           remoteCursors={remoteCursorList}
           onCursorMove={broadcastCursor}
@@ -1345,8 +1452,8 @@ export default function Editor() {
           activeDrawLayer={activeDrawLayer}
           onNewDrawLayer={createDrawLayer}
           onClearDrawLayer={clearActiveDrawLayer}
-          onSelectDraw={() => setTool('draw')}
-          onSelectEraser={() => setTool('eraser')}
+          onSelectDraw={() => requireFrontendFeature('editor.brush', 'Pincel') && setTool('draw')}
+          onSelectEraser={() => requireFrontendFeature('editor.eraser', 'Borrador') && setTool('eraser')}
         />}
 
 
@@ -1374,8 +1481,8 @@ export default function Editor() {
           </div>
 
           <div className="dc-status-info">
-            {workspaceMode === 'canvas' && TOOL_LABELS[tool] && <span className="dc-status-presence">Herramienta: {TOOL_LABELS[tool]} //</span>}
-            {workspaceMode === 'canvas' && selectedIds.length > 0 && <span className="dc-status-presence">Seleccionada: {selectedIds.length} //</span>}
+            {effectiveWorkspaceMode === 'canvas' && TOOL_LABELS[tool] && <span className="dc-status-presence">Herramienta: {TOOL_LABELS[tool]} //</span>}
+            {effectiveWorkspaceMode === 'canvas' && selectedIds.length > 0 && <span className="dc-status-presence">Seleccionada: {selectedIds.length} //</span>}
             <span className="dc-status-presence">Conectados: {presence.clients} // Editores: {presence.editors} // OBS: {presence.overlays}</span>
             {mediaStatus && <span className="dc-media-status">{mediaStatus}</span>}
           </div>
@@ -1384,7 +1491,7 @@ export default function Editor() {
         </div>
       </main>
 
-      {workspaceMode === 'canvas' && <div className="dc-editor-layers-sidebar">
+      {effectiveWorkspaceMode === 'canvas' && <div className="dc-editor-layers-sidebar">
         <LayersPanel
           objects={objects}
           selectedIds={selectedIds}
@@ -1404,14 +1511,16 @@ export default function Editor() {
           onGroup={groupSelection}
           onUngroup={ungroupSelection}
           onDuplicate={duplicateSelected}
+          layerLimit={layerLimit}
+          onLayerLimit={() => setMediaStatus(`Llegaste al límite de ${layerLimit} capas de este lienzo.`)}
         />
       </div>}
 
-      {guidesOpen && <GuidesModal guides={guides} onSave={saveGuide} onDelete={deleteGuide} onClose={() => setGuidesOpen(false)} disabled={!channelUuid || editingLocked} />}
+      {guidesOpen && <GuidesModal guides={guides} onSave={saveGuide} onDelete={deleteGuide} onClose={() => setGuidesOpen(false)} disabled={!channelUuid || editingLocked} slotLimit={guideSlotLimit} />}
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-      {soundsOpen && <SoundSlotsModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={soundSlots} onClose={() => setSoundsOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveSoundAssignments} />}
-      {launchpadConfigOpen && <LaunchpadConfigModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={launchpadSlots} onClose={() => setLaunchpadConfigOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveLaunchpadAssignments} />}
-      {designsOpen && <SavedDesignsModal initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelUuid={channelUuid} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
+      {soundsOpen && <SoundSlotsModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={soundSlots} slotCount={quickSoundSlotLimit} customSoundsEnabled={canFeature('editor.custom_sounds')} customSoundLimit={customSoundLimit} onLockedFeature={showLockedFeature} onClose={() => setSoundsOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveSoundAssignments} />}
+      {launchpadConfigOpen && <LaunchpadConfigModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={launchpadSlots} padCount={launchpadPadLimit} customSoundsEnabled={canFeature('editor.custom_sounds')} customSoundLimit={customSoundLimit} onLockedFeature={showLockedFeature} onClose={() => setLaunchpadConfigOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveLaunchpadAssignments} />}
+      {designsOpen && <SavedDesignsModal maxSlots={designSlotLimit} initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelUuid={channelUuid} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
     </div>
   );
 }

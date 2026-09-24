@@ -3,6 +3,8 @@ import '../config/env.js';
 import { db, models } from '../models/index.js';
 import { hashPassword } from '../services/authService.js';
 import { setRolePreset, setUserPermissions } from '../helpers/permissions.js';
+import { seedEntitlementCatalog } from '../services/entitlementCatalogService.js';
+import { seedStoreCatalog } from '../services/storeCatalogService.js';
 
 const statuses = [
   ['ACTIVE', 'Activo', true],
@@ -47,6 +49,9 @@ async function seed() {
     const [row] = await models.SystemSetting.findOrCreate({ where: { key }, defaults: { value, description, public: isPublic } });
     await row.update({ description, public: isPublic });
   }
+
+  await seedEntitlementCatalog({ overwriteSystemDefaults: process.env.ENTITLEMENT_SEED_OVERWRITE === 'true' });
+  await seedStoreCatalog({ overwriteSystemDefaults: process.env.STORE_SEED_OVERWRITE === 'true' });
 
   const baseKeys = permissions.map(([key]) => key);
   await setRolePreset('SUPER_ADMIN', baseKeys);

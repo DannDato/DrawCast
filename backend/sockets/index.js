@@ -16,6 +16,7 @@ import {
   getPublishedChannelState,
   publishChannelState,
   patchObjects,
+  removeDrawStroke,
   removeObject,
   replaceObjects,
   setLiveEnabled,
@@ -25,6 +26,19 @@ import {
 import { getSound } from '../services/soundLibraryService.js';
 import { getChannelSound } from '../services/channelSoundService.js';
 import logger from '../helpers/winston.js';
+import {
+  entitlementError,
+  featureForObject,
+  getChannelEntitlements,
+  getLimit,
+  hasFeature,
+  limitError,
+  publicChannelEntitlements,
+  publicOverlayBranding,
+  requireDrawModeFeature,
+  requireFeatureValue,
+  requireObjectFeature
+} from '../services/channelEntitlementAccessService.js';
 
 const room = (channelId) => `channel:${channelId}`;
 const editorRoom = (channelId) => `channel:${channelId}:editors`;
@@ -34,6 +48,7 @@ const SOUND_EVENT_MIN_INTERVAL_MS = 120;
 const SOCKET_PREVIEW_MIN_INTERVAL_MS = 28;
 const TRANSFORM_PATCH_KEYS = new Set(['x', 'y', 'w', 'h', 'rotation', 'fontSize']);
 const TRANSFORM_LIMIT = 10000000;
+const SOCKET_ENTITLEMENT_REFRESH_MS = 3000;
 
 function sanitizeTransformUpdates(payload) {
   const updates = Array.isArray(payload?.updates) ? payload.updates : null;
@@ -113,6 +128,14 @@ async function socketUser(socket) {
   }
 }
 
+function sanitizeDrawRemove(payload) {
+  const layerId = typeof payload?.layerId === 'string' ? payload.layerId : '';
+  const strokeId = typeof payload?.strokeId === 'string' ? payload.strokeId : '';
+  if (!layerId || !strokeId || layerId.length > 120 || strokeId.length > 120) return null;
+  return { layerId, strokeId };
+}
+
+
 function validObject(object) {
   if (!object || typeof object !== 'object' || typeof object.id !== 'string' || object.id.length > 120) return false;
   const size = JSON.stringify(object).length;
@@ -155,6 +178,52 @@ function canUseWorkspace(context, socket, reply) {
 }
 
 
+async function refreshJoinedEntitlements(joined, { fresh = false } = {}) {
+  if (!joined?.channelId) return null;
+  const now = Date.now();
+  if (!fresh && joined.entitlements && now - Number(joined.entitlementsAt || 0) < SOCKET_ENTITLEMENT_REFRESH_MS) return joined.entitlements;
+  joined.entitlements = await getChannelEntitlements(joined.channelId, { fresh });
+  joined.entitlementsAt = now;
+  return joined.entitlements;
+}
+
+function entitlementReply(error) {
+  return {
+    ok: false,
+    code: error?.code || 'FEATURE_LOCKED',
+    message: error?.message || 'Esta función está bloqueada en este lienzo.',
+    feature: error?.feature,
+    limitKey: error?.limitKey,
+    limit: error?.limit
+  };
+}
+
+function notifyEntitlementDenied(socket, reply, error) {
+  const payload = entitlementReply(error);
+  socket.emit('feature-denied', payload);
+  reply?.(payload);
+}
+
+function findChannelObject(channelId, objectId) {
+  return getChannelState(channelId).find((object) => object?.id === objectId) || null;
+}
+
+function enforceSceneEntitlements(entitlements, objects = []) {
+  const layerLimit = getLimit(entitlements, 'limit.layers');
+  if (objects.length > layerLimit) throw limitError('limit.layers', layerLimit, `Este lienzo admite máximo ${layerLimit} capa${layerLimit === 1 ? '' : 's'}.`);
+  for (const object of objects) requireObjectFeature(entitlements, object);
+}
+
+function isSafeSceneReset(payload) {
+  if (payload?.operation !== 'reset' || !Array.isArray(payload.objects) || payload.objects.length !== 1) return false;
+  const [object] = payload.objects;
+  const type = String(object?.tipo || '').toLowerCase();
+  return (type === 'draw' || type === 'trazo')
+    && Boolean(object?.compuesto ?? true)
+    && Array.isArray(object?.lineas)
+    && object.lineas.length === 0;
+}
+
 async function revalidateInteractiveAccess(joined) {
   if (!joined?.sessionId || !joined?.userId || !joined?.channelUuid) return false;
   if (Date.now() - joined.authorizedAt <= 1000) return true;
@@ -183,16 +252,36 @@ export function configureSockets(io) {
       const channel = await models.Channel.findOne({ where: { publicKey: String(publicKey || '') } });
       if (!channel) return socket.emit('access-denied');
 
-      joined = { channelId: channel.id, role: 'overlay' };
+      const entitlements = await getChannelEntitlements(channel.id);
+      if (!hasFeature(entitlements, 'editor.overlay')) return socket.emit('access-denied');
+
+      joined = { channelId: channel.id, role: 'overlay', entitlements, entitlementsAt: Date.now() };
       socket.join(room(channel.id));
       socket.join(overlayRoom(channel.id));
       connectRole(channel.id, socket.id, 'overlay');
       emitPresence(io, channel.id);
       socket.emit('overlay-visibility', { hidden: getChannelControl(channel.id).overlayHidden });
+      socket.emit('overlay-branding', publicOverlayBranding(entitlements));
       socket.emit('sync-state', { objects: getPublishedChannelState(channel.id) });
     });
 
 
+
+
+    socket.on('refresh-overlay-branding', async () => {
+      if (!joined || joined.role !== 'overlay') return;
+      const now = Date.now();
+      if (now - Number(socket.data.overlayBrandingRefreshAt || 0) < 10000) return;
+      socket.data.overlayBrandingRefreshAt = now;
+      try {
+        const entitlements = await getChannelEntitlements(joined.channelId);
+        joined.entitlements = entitlements;
+        joined.entitlementsAt = now;
+        socket.emit('overlay-branding', publicOverlayBranding(entitlements));
+      } catch (error) {
+        logger.warn('No fue posible refrescar la marca de agua del overlay', { channelId: joined.channelId, error: error.message });
+      }
+    });
 
     socket.on('join-editor', async ({ publicKey } = {}) => {
       const auth = await socketUser(socket);
@@ -208,7 +297,12 @@ export function configureSockets(io) {
       const username = user.username || `editor${user.id}`;
       const displayName = user.displayName || username || 'Editor';
 
-      joined = { channelId: channel.id, channelUuid: channel.uuid, publicKey: channel.publicKey, role: 'editor', userId: user.id, sessionId: session.id, isOwner, authorizedAt: Date.now() };
+      const entitlements = await getChannelEntitlements(channel.id);
+      if (!hasFeature(entitlements, 'editor.live_studio') && !getChannelControl(channel.id).liveEnabled) {
+        setLiveEnabled(channel.id, true);
+        io.to(overlayRoom(channel.id)).emit('sync-state', { objects: getPublishedChannelState(channel.id) });
+      }
+      joined = { channelId: channel.id, channelUuid: channel.uuid, publicKey: channel.publicKey, role: 'editor', userId: user.id, sessionId: session.id, isOwner, authorizedAt: Date.now(), entitlements, entitlementsAt: Date.now() };
       socket.data.channelId = channel.id;
       socket.data.userId = user.id;
       socket.data.role = 'editor';
@@ -226,6 +320,7 @@ export function configureSockets(io) {
 
       socket.emit('sync-state', { objects: getChannelState(channel.id) });
       socket.emit('channel-control', getChannelControl(channel.id));
+      socket.emit('channel-entitlements', publicChannelEntitlements(entitlements));
       emitPresence(io, channel.id);
 
       const access = getEditorAccess(channel.id, socket.id);
@@ -277,25 +372,42 @@ export function configureSockets(io) {
         return;
       }
 
-      if (!options.allowWhenBlocked && !canUseWorkspace(joined, socket, reply)) return;
       try {
-        await handler(joined, payload, reply);
+        const entitlements = await refreshJoinedEntitlements(joined);
+        if (options.feature) requireFeatureValue(entitlements, options.feature);
+        if (!options.allowWhenBlocked && !canUseWorkspace(joined, socket, reply)) return;
+        await handler(joined, payload, reply, entitlements);
       } catch (error) {
+        if (error?.code === 'FEATURE_LOCKED' || error?.code === 'ENTITLEMENT_LIMIT_REACHED') {
+          notifyEntitlementDenied(socket, reply, error);
+          return;
+        }
         logger.error('Falló una acción del editor por socket', { event, socketId: socket.id, userId: joined.userId, channelId: joined.channelId, error: error.message });
         reply?.({ ok: false, message: 'No fue posible procesar la acción.' });
       }
     });
 
-    edit('obj-upsert', (context, object) => {
+    edit('obj-upsert', (context, object, reply, entitlements) => {
       if (!validObject(object)) return;
+      requireObjectFeature(entitlements, object);
+      const existing = findChannelObject(context.channelId, object.id);
+      if (!existing) {
+        const layerLimit = getLimit(entitlements, 'limit.layers');
+        if (getChannelState(context.channelId).length >= layerLimit) throw limitError('limit.layers', layerLimit, `Este lienzo admite máximo ${layerLimit} capa${layerLimit === 1 ? '' : 's'}.`);
+      } else {
+        requireObjectFeature(entitlements, existing);
+      }
       const before = getChannelControl(context.channelId);
       setObject(context.channelId, object);
       emitWorkspaceChange(io, socket, context.channelId, 'obj-upsert', object, before);
+      reply?.({ ok: true });
     });
 
-    edit('obj-transform', (context, payload) => {
+    edit('obj-transform', (context, payload, _reply, entitlements) => {
+      requireFeatureValue(entitlements, 'editor.select');
       const updates = sanitizeTransformUpdates(payload);
       if (!updates) return;
+      updates.forEach(({ id }) => { const object = findChannelObject(context.channelId, id); if (object) requireObjectFeature(entitlements, object); });
 
       const before = getChannelControl(context.channelId);
       const result = patchObjects(context.channelId, updates);
@@ -335,12 +447,14 @@ export function configureSockets(io) {
       if (before.hasDraftChanges !== getChannelControl(context.channelId).hasDraftChanges) emitControl(io, context.channelId);
     });
 
-    edit('scene-replace', (context, payload, reply) => {
+    edit('scene-replace', (context, payload, reply, entitlements) => {
       if (!validScene(payload?.objects)) {
         reply?.({ ok: false, message: 'La escena guardada no es válida' });
         return;
       }
 
+      if (!isSafeSceneReset(payload)) requireFeatureValue(entitlements, 'editor.designs');
+      enforceSceneEntitlements(entitlements, payload.objects);
       const before = getChannelControl(context.channelId);
       const objects = replaceObjects(context.channelId, payload.objects);
       io.to(editorRoom(context.channelId)).emit('sync-state', { objects });
@@ -349,8 +463,23 @@ export function configureSockets(io) {
       reply?.({ ok: true, count: objects.length });
     });
 
-    edit('draw-live', (context, payload) => {
+    edit('draw-live', (context, payload, _reply, entitlements) => {
       if (JSON.stringify(payload || {}).length > 50000) return;
+      const strokeId = typeof payload?.strokeId === 'string' ? payload.strokeId : '';
+      const modes = socket.data.activeDrawModes instanceof Map ? socket.data.activeDrawModes : new Map();
+      socket.data.activeDrawModes = modes;
+      if (payload?.phase === 'start') {
+        const feature = requireDrawModeFeature(entitlements, payload?.mode);
+        if (strokeId) modes.set(strokeId, feature);
+      } else if (payload?.phase === 'point') {
+        const feature = modes.get(strokeId);
+        if (!feature) throw entitlementError('editor.brush', 'No hay un trazo autorizado activo.');
+        requireFeatureValue(entitlements, feature);
+      } else if (payload?.phase === 'end' || payload?.phase === 'cancel') {
+        const feature = modes.get(strokeId);
+        if (feature) requireFeatureValue(entitlements, feature);
+        if (strokeId) modes.delete(strokeId);
+      }
       const isPoint = payload?.phase === 'point';
       if (isPoint) socket.to(editorRoom(context.channelId)).volatile.compress(false).emit('draw-live', payload);
       else socket.to(editorRoom(context.channelId)).emit('draw-live', payload);
@@ -361,13 +490,16 @@ export function configureSockets(io) {
       }
     }, { minIntervalMs: SOCKET_PREVIEW_MIN_INTERVAL_MS, rateKey: 'draw-point', throttleWhen: (payload) => payload?.phase === 'point' });
 
-    edit('draw-commit', (context, payload, reply) => {
+    edit('draw-commit', (context, payload, reply, entitlements) => {
       const clean = sanitizeDrawCommit(payload);
       if (!clean) {
         reply?.({ ok: false, message: 'El trazo no es válido.' });
         return;
       }
 
+      requireDrawModeFeature(entitlements, clean.stroke.mode);
+      const layer = findChannelObject(context.channelId, clean.layerId);
+      if (!layer) throw new Error('La capa de dibujo ya no está disponible.');
       const before = getChannelControl(context.channelId);
       const result = appendDrawStroke(context.channelId, clean.layerId, clean.stroke);
       if (!result.applied) {
@@ -379,6 +511,30 @@ export function configureSockets(io) {
         const event = { layerId: clean.layerId, stroke: clean.stroke };
         socket.to(editorRoom(context.channelId)).emit('draw-commit', event);
         if (result.control.liveEnabled) io.to(overlayRoom(context.channelId)).emit('draw-commit', event);
+      }
+      if (before.hasDraftChanges !== result.control.hasDraftChanges) emitControl(io, context.channelId);
+      reply?.({ ok: true, control: result.control });
+    });
+
+
+    edit('draw-remove', (context, payload, reply) => {
+      const clean = sanitizeDrawRemove(payload);
+      if (!clean) {
+        reply?.({ ok: false, message: 'El trazo no es válido.' });
+        return;
+      }
+
+      const before = getChannelControl(context.channelId);
+      const result = removeDrawStroke(context.channelId, clean.layerId, clean.strokeId);
+      if (!result.applied) {
+        reply?.({ ok: false, code: result.reason, message: 'La capa de dibujo ya no está disponible.' });
+        return;
+      }
+
+      if (!result.duplicate) {
+        const event = { layerId: clean.layerId, strokeId: clean.strokeId };
+        socket.to(editorRoom(context.channelId)).emit('draw-remove', event);
+        if (result.control.liveEnabled) io.to(overlayRoom(context.channelId)).emit('draw-remove', event);
       }
       if (before.hasDraftChanges !== result.control.hasDraftChanges) emitControl(io, context.channelId);
       reply?.({ ok: true, control: result.control });
@@ -400,6 +556,11 @@ export function configureSockets(io) {
           return;
         }
 
+        const entitlements = await refreshJoinedEntitlements(joined);
+        const source = payload?.source === 'quick' || payload?.source === 'launchpad' ? payload.source : null;
+        if (!source) throw entitlementError('editor.quick_sounds', 'El origen del sonido no es válido.');
+        requireFeatureValue(entitlements, source === 'launchpad' ? 'editor.launchpad' : 'editor.quick_sounds');
+
         const now = Date.now();
         const previous = Number(socket.data.lastSoundAt || 0);
         if (now - previous < SOUND_EVENT_MIN_INTERVAL_MS) {
@@ -419,6 +580,7 @@ export function configureSockets(io) {
           reply?.({ ok: false, message: 'Ese sonido ya no existe en la biblioteca.' });
           return;
         }
+        if ((sound.scope || 'library') === 'channel') requireFeatureValue(entitlements, 'editor.custom_sounds');
 
         const playbackId = `${socket.id}:${now}`;
         const activeSounds = socket.data.activeSounds instanceof Map ? socket.data.activeSounds : new Map();
@@ -437,6 +599,10 @@ export function configureSockets(io) {
         io.to(overlayRoom(joined.channelId)).emit('sound-play', event);
         reply?.({ ok: true, playbackId });
       } catch (error) {
+        if (error?.code === 'FEATURE_LOCKED' || error?.code === 'ENTITLEMENT_LIMIT_REACHED') {
+          notifyEntitlementDenied(socket, reply, error);
+          return;
+        }
         logger.error('Falló el disparo de sonido por socket', { socketId: socket.id, userId: joined?.userId, channelId: joined?.channelId, error: error.message });
         reply?.({ ok: false, message: 'No fue posible reproducir el sonido.' });
       }
@@ -488,8 +654,9 @@ export function configureSockets(io) {
       socket.to(editorRoom(context.channelId)).volatile.compress(false).emit('cursor-leave', { socketId: socket.id });
     });
 
-    edit('live-mode-set', (context, payload, reply) => {
+    edit('live-mode-set', (context, payload, reply, entitlements) => {
       const enabled = Boolean(payload?.enabled);
+      if (!enabled) requireFeatureValue(entitlements, 'editor.live_studio');
       const previous = getChannelControl(context.channelId);
 
       if (!enabled && previous.liveRequired) {
@@ -517,7 +684,7 @@ export function configureSockets(io) {
       emitControl(io, context.channelId);
       logger.info('Escena publicada al overlay', { channelId: context.channelId, userId: context.userId, count: objects.length });
       reply?.({ ok: true, count: objects.length, control: getChannelControl(context.channelId) });
-    });
+    }, { feature: 'editor.live_studio' });
 
     edit('panic-set', (context, payload, reply) => {
       if (!context.isOwner) {

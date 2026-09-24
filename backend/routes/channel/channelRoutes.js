@@ -4,6 +4,7 @@ import { verifyToken } from '../../middlewares/auth.js';
 import { requireChannelEditor } from '../../middlewares/channelAccess.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import { mutationLimiter } from '../../middlewares/security.js';
+import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
 
 const router = Router();
 router.use(verifyToken);
@@ -17,11 +18,12 @@ router.post('/invitations/:invitationUuid/accept', asyncHandler(ChannelControlle
 router.post('/invitations/:invitationUuid/reject', asyncHandler(ChannelController.rejectPendingInvitation));
 router.patch('/:channelUuid/preference', asyncHandler(ChannelController.setPreference));
 router.post('/:channelUuid/usage', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.markUsed));
+router.get('/:channelUuid/entitlements', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.entitlements));
 router.patch('/:channelUuid', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.update));
 router.delete('/:channelUuid', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.remove));
 router.delete('/:channelUuid/collaboration', asyncHandler(ChannelController.leave));
-router.post('/:channelUuid/invitations', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.invite));
-router.get('/:channelUuid/collaborators', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.collaborators));
-router.patch('/:channelUuid/collaborators/:userUuid', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.setCollaboratorAccess));
-router.delete('/:channelUuid/collaborators/:userUuid', asyncHandler(requireChannelEditor), asyncHandler(ChannelController.removeCollaborator));
+router.post('/:channelUuid/invitations', asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.collaboration')), asyncHandler(ChannelController.invite));
+router.get('/:channelUuid/collaborators', asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.collaboration')), asyncHandler(ChannelController.collaborators));
+router.patch('/:channelUuid/collaborators/:userUuid', asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.collaboration')), asyncHandler(ChannelController.setCollaboratorAccess));
+router.delete('/:channelUuid/collaborators/:userUuid', asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.collaboration')), asyncHandler(ChannelController.removeCollaborator));
 export default router;

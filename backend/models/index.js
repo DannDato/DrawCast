@@ -22,6 +22,15 @@ import ChannelInvitationFactory from './channelInvitation.model.js';
 import SavedDesignFactory from './savedDesign.model.js';
 import UserSettingFactory from './userSetting.model.js';
 import ChannelUserPreferenceFactory from './channelUserPreference.model.js';
+import EntitlementCapabilityFactory from './entitlementCapability.model.js';
+import EntitlementBundleFactory from './entitlementBundle.model.js';
+import EntitlementGrantFactory from './entitlementGrant.model.js';
+import ChannelEntitlementFactory from './channelEntitlement.model.js';
+import StoreProductFactory from './storeProduct.model.js';
+import StoreProductBundleFactory from './storeProductBundle.model.js';
+import StoreProductRequirementFactory from './storeProductRequirement.model.js';
+import UserLicenseFactory from './userLicense.model.js';
+import LicenseAssignmentFactory from './licenseAssignment.model.js';
 
 const models = {
   User: UserFactory(db),
@@ -45,6 +54,15 @@ const models = {
   SavedDesign: SavedDesignFactory(db),
   UserSetting: UserSettingFactory(db),
   ChannelUserPreference: ChannelUserPreferenceFactory(db),
+  EntitlementCapability: EntitlementCapabilityFactory(db),
+  EntitlementBundle: EntitlementBundleFactory(db),
+  EntitlementGrant: EntitlementGrantFactory(db),
+  ChannelEntitlement: ChannelEntitlementFactory(db),
+  StoreProduct: StoreProductFactory(db),
+  StoreProductBundle: StoreProductBundleFactory(db),
+  StoreProductRequirement: StoreProductRequirementFactory(db),
+  UserLicense: UserLicenseFactory(db),
+  LicenseAssignment: LicenseAssignmentFactory(db),
   AuditLog: AuditFactory(auditDb),
   IpCache: IpFactory(auditDb)
 };
@@ -95,5 +113,33 @@ models.SavedDesign.belongsTo(models.User, { foreignKey: 'createdBy', as: 'creato
 
 models.Channel.hasMany(models.ChannelGuide, { foreignKey: 'channelId', as: 'guides', onDelete: 'CASCADE' });
 models.ChannelGuide.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
+
+models.EntitlementBundle.hasMany(models.EntitlementGrant, { foreignKey: 'bundleId', as: 'grants', onDelete: 'CASCADE' });
+models.EntitlementGrant.belongsTo(models.EntitlementBundle, { foreignKey: 'bundleId', as: 'bundle' });
+models.EntitlementCapability.hasMany(models.EntitlementGrant, { foreignKey: 'capabilityId', as: 'grants', onDelete: 'CASCADE' });
+models.EntitlementGrant.belongsTo(models.EntitlementCapability, { foreignKey: 'capabilityId', as: 'capability' });
+
+models.Channel.hasMany(models.ChannelEntitlement, { foreignKey: 'channelId', as: 'entitlements', onDelete: 'CASCADE' });
+models.ChannelEntitlement.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
+models.EntitlementBundle.hasMany(models.ChannelEntitlement, { foreignKey: 'bundleId', as: 'channelAssignments', onDelete: 'CASCADE' });
+models.ChannelEntitlement.belongsTo(models.EntitlementBundle, { foreignKey: 'bundleId', as: 'bundle' });
+
+models.StoreProduct.hasMany(models.StoreProductBundle, { foreignKey: 'productId', as: 'bundleLinks', onDelete: 'CASCADE' });
+models.StoreProductBundle.belongsTo(models.StoreProduct, { foreignKey: 'productId', as: 'product' });
+models.EntitlementBundle.hasMany(models.StoreProductBundle, { foreignKey: 'bundleId', as: 'storeProductLinks', onDelete: 'CASCADE' });
+models.StoreProductBundle.belongsTo(models.EntitlementBundle, { foreignKey: 'bundleId', as: 'bundle' });
+
+models.StoreProduct.hasMany(models.StoreProductRequirement, { foreignKey: 'productId', as: 'requirements', onDelete: 'CASCADE' });
+models.StoreProductRequirement.belongsTo(models.StoreProduct, { foreignKey: 'productId', as: 'product' });
+
+models.User.hasMany(models.UserLicense, { foreignKey: 'userId', as: 'licenses', onDelete: 'CASCADE' });
+models.UserLicense.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
+models.StoreProduct.hasMany(models.UserLicense, { foreignKey: 'productId', as: 'licenses', onDelete: 'RESTRICT' });
+models.UserLicense.belongsTo(models.StoreProduct, { foreignKey: 'productId', as: 'product' });
+
+models.UserLicense.hasMany(models.LicenseAssignment, { foreignKey: 'licenseId', as: 'assignments', onDelete: 'CASCADE' });
+models.LicenseAssignment.belongsTo(models.UserLicense, { foreignKey: 'licenseId', as: 'license' });
+models.Channel.hasMany(models.LicenseAssignment, { foreignKey: 'channelId', as: 'licenseAssignments', onDelete: 'SET NULL' });
+models.LicenseAssignment.belongsTo(models.Channel, { foreignKey: 'channelId', as: 'channel' });
 
 export { db, auditDb, models };

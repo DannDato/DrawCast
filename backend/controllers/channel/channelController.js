@@ -7,6 +7,7 @@ import { createInvitation, acceptInvitation, acceptInvitationByUuid, listPending
 import { getCanvasLimitForUser } from '../../services/channelLimitService.js';
 import { destroyChannelRuntime, getChannelRuntimeSnapshot } from '../../services/channelRuntimeService.js';
 import { isPublicUuid } from '../../services/channelAccessService.js';
+import { getChannelEntitlements, publicChannelEntitlements } from '../../services/channelEntitlementAccessService.js';
 import logger from '../../helpers/winston.js';
 
 function normalizeChannelUrl(value) {
@@ -119,6 +120,11 @@ async function disconnectInteractiveSocketsForUser(req, channel, userId, reason)
 }
 
 export class ChannelController {
+  static async entitlements(req, res) {
+    const entitlements = await getChannelEntitlements(req.channel.id);
+    res.json(publicChannelEntitlements(entitlements));
+  }
+
   static async mine(req, res) {
     const [ownedRows, collaborationRows] = await Promise.all([
       models.Channel.findAll({ where: { ownerId: req.user.id }, order: [['createdAt', 'ASC']] }),

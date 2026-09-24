@@ -27,7 +27,7 @@ function sameName(a, b) {
   return String(a || '').trim().localeCompare(String(b || '').trim(), 'es-MX', { sensitivity: 'accent' }) === 0;
 }
 
-export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot, onLoad, hasScene, liveEnabled = true, initialView = 'load' }) {
+export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot, onLoad, hasScene, liveEnabled = true, initialView = 'load', maxSlots = 0 }) {
   const { confirmDialog } = useSystemAlert();
   const [designs, setDesigns] = useState([]);
   const [name, setName] = useState('');
@@ -112,6 +112,10 @@ export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot,
   };
 
   const saveNew = async () => {
+    if (maxSlots > 0 && designs.length >= maxSlots) {
+      setStatus(`Ya usas tus ${maxSlots} slot${maxSlots === 1 ? '' : 's'} de diseños. Puedes sobrescribir o eliminar uno.`);
+      return;
+    }
     const cleanName = name.trim();
     if (!cleanName) {
       setStatus('Ponle un nombre para poder guardarlo.');
@@ -216,13 +220,13 @@ export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot,
           </div>
           <div className="dc-designs-save-row">
             <input ref={saveInputRef} maxLength="120" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveNew(); }} placeholder="Ej. Sorteo de subs, charla, pantalla de espera..." />
-            <button type="button" className="primary" onClick={saveNew} disabled={!channelUuid || Boolean(busy)}><Save size={14} /> GUARDAR</button>
+            <button type="button" className="primary" onClick={saveNew} disabled={!channelUuid || Boolean(busy) || (maxSlots > 0 && designs.length >= maxSlots)}><Save size={14} /> GUARDAR</button>
             {activeDesign && <button type="button" onClick={() => overwriteDesign(activeDesign)} disabled={Boolean(busy)} title={`Sobrescribir ${activeDesign.name} con el workspace actual`}><RefreshCw size={14} /> SOBRESCRIBIR</button>}
           </div>
         </div>
 
         <div className="dc-designs-list-head">
-          <div><b>TUS DISEÑOS</b><span>{designs.length} guardado{designs.length === 1 ? '' : 's'}</span></div>
+          <div><b>TUS DISEÑOS</b><span>{designs.length}{maxSlots > 0 ? ` / ${maxSlots}` : ''} guardado{designs.length === 1 ? '' : 's'}</span></div>
           <button type="button" onClick={refresh} disabled={Boolean(busy)}><RefreshCw size={13} /> RECARGAR</button>
         </div>
 

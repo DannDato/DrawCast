@@ -3,7 +3,7 @@ import { models } from '../models/index.js';
 const EDITOR_KEY = 'editor.defaults';
 const SOUND_SLOTS_KEY = 'editor.soundSlots';
 const LAUNCHPAD_SLOTS_KEY = 'editor.launchpadSlots';
-const SOUND_SLOT_COUNT = 5;
+const SOUND_SLOT_COUNT = 24;
 const LAUNCHPAD_SLOT_COUNT = 24;
 const SOFT_WHITE = '#e7e7e7';
 const MAX_TIMER_SECONDS = (99 * 3600) + (59 * 60) + 59;

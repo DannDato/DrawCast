@@ -4,11 +4,13 @@ import { verifyToken } from '../../middlewares/auth.js';
 import { requireChannelEditor } from '../../middlewares/channelAccess.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import { mutationLimiter } from '../../middlewares/security.js';
+import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
 
 const router = Router({ mergeParams: true });
 router.use(verifyToken);
 router.use(mutationLimiter);
 router.use(asyncHandler(requireChannelEditor));
+router.use(asyncHandler(requireChannelFeature('editor.designs')));
 router.get('/', asyncHandler(SavedDesignController.list));
 router.post('/', asyncHandler(SavedDesignController.create));
 router.get('/:designUuid', asyncHandler(SavedDesignController.get));
