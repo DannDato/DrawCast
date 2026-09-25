@@ -309,7 +309,7 @@ export default function Editor() {
   const guideSlotLimit = entitlementLimit(entitlements, 'limit.guide_slots');
   const quickSoundSlotLimit = entitlementLimit(entitlements, 'limit.quick_sound_slots');
   const customSoundLimit = entitlementLimit(entitlements, 'limit.custom_sound_slots');
-  const launchpadPadLimit = entitlementLimit(entitlements, 'limit.launchpad_pads');
+  const launchpadPadLimit = canFeature('editor.launchpad') ? Math.min(24, entitlementLimit(entitlements, 'limit.launchpad_pads')) : 0;
 
   const showLockedFeature = (feature, fallbackLabel = 'Función') => {
     if (!entitlementsReady) { setMediaStatus('Cargando permisos del lienzo...'); return; }
@@ -1162,6 +1162,7 @@ export default function Editor() {
   }, [publicKey]);
 
   useEffect(() => {
+    setEntitlements(EMPTY_CHANNEL_ENTITLEMENTS);
     if (!channelUuid) return undefined;
     let active = true;
     getChannelEntitlements(channelUuid, { force: true })
@@ -1372,9 +1373,10 @@ export default function Editor() {
           <LaunchpadSurface
             sounds={allSounds}
             slots={launchpadSlots}
+            padCount={launchpadPadLimit}
             connected={connected}
             disabled={overlayHidden || launchpadConfigOpen || !canFeature('editor.launchpad')}
-            onPlaySound={(soundId) => playSound(soundId, 'launchpad')}
+            onPlaySound={(soundId, padIndex) => playSound(soundId, 'launchpad', padIndex)}
             soundPlayback={soundPlayback}
           />
         ) : <>

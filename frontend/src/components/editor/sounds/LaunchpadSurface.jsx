@@ -15,9 +15,10 @@ function soundColor(sound) {
   return `hsl(${(hash >>> 0) % 360} 62% 48%)`;
 }
 
-export default function LaunchpadSurface({ sounds = [], slots = [], connected = false, disabled = false, onPlaySound, soundPlayback = {} }) {
+export default function LaunchpadSurface({ sounds = [], slots = [], padCount = 0, connected = false, disabled = false, onPlaySound, soundPlayback = {} }) {
+  const visiblePadCount = Math.max(0, Math.min(PAD_COUNT, Math.trunc(Number(padCount) || 0)));
   const soundMap = useMemo(() => new Map(sounds.map((sound) => [sound.id, sound])), [sounds]);
-  const pads = useMemo(() => Array.from({ length: PAD_COUNT }, (_, index) => soundMap.get(slots[index]) || null), [slots, soundMap]);
+  const pads = useMemo(() => Array.from({ length: visiblePadCount }, (_, index) => soundMap.get(slots[index]) || null), [slots, soundMap, visiblePadCount]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -27,7 +28,7 @@ export default function LaunchpadSurface({ sounds = [], slots = [], connected = 
       const index = PAD_KEYS.indexOf(event.key.toLowerCase());
       if (index < 0 || !pads[index]) return;
       event.preventDefault();
-      onPlaySound?.(pads[index].id);
+      onPlaySound?.(pads[index].id, index);
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -49,7 +50,7 @@ export default function LaunchpadSurface({ sounds = [], slots = [], connected = 
               disabled={!sound || !connected || disabled}
               onPointerDown={(event) => {
                 if (event.button !== 0 || !sound || !connected || disabled) return;
-                onPlaySound?.(sound.id);
+                onPlaySound?.(sound.id, index);
               }}
               title={sound ? soundLabel(sound) : 'Sin asignar'}
             >

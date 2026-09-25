@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { saveLaunchpadSlots as saveUserLaunchpadSlots, saveSoundSlots as saveUserSoundSlots } from '../../../api/settings';
 import { deleteChannelSound, getChannelSoundLibrary, getSoundLibrary, getSoundUrl, uploadChannelSound } from '../../../api/sounds';
 
+const MAX_LAUNCHPAD_PADS = 24;
+
 export default function useEditorSounds({ userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus, quickSoundsEnabled = false, customSoundsEnabled = false, launchpadEnabled = false, quickSoundSlotLimit = 0, customSoundLimit = 0, launchpadPadLimit = 0 }) {
   const [soundsOpen, setSoundsOpen] = useState(false);
   const [launchpadConfigOpen, setLaunchpadConfigOpen] = useState(false);
@@ -13,7 +15,7 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
     try { return localStorage.getItem('TRAZIO.editor.soundMonitor') !== 'off'; } catch { return true; }
   });
   const [soundSlotsConfigured, setSoundSlotsConfigured] = useState(false);
-  const [launchpadSlots, setLaunchpadSlots] = useState(Array(24).fill(null));
+  const [launchpadSlots, setLaunchpadSlots] = useState(Array(MAX_LAUNCHPAD_PADS).fill(null));
   const [launchpadSlotsConfigured, setLaunchpadSlotsConfigured] = useState(false);
   const monitoredAudioRef = useRef(new Map());
 
@@ -36,8 +38,8 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
         const launchpadConfigured = Array.isArray(settings?.launchpadSlots);
         setLaunchpadSlotsConfigured(launchpadConfigured);
         setLaunchpadSlots(launchpadConfigured
-          ? Array.from({ length: 24 }, (_, index) => typeof settings.launchpadSlots[index] === 'string' ? settings.launchpadSlots[index] : null)
-          : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
+          ? Array.from({ length: MAX_LAUNCHPAD_PADS }, (_, index) => typeof settings.launchpadSlots[index] === 'string' ? settings.launchpadSlots[index] : null)
+          : Array.from({ length: MAX_LAUNCHPAD_PADS }, (_, index) => sounds[index]?.id || null));
       } catch {
         if (active) setSoundLibrary([]);
       }
@@ -65,8 +67,8 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
       ? Array.from({ length: 24 }, (_, index) => available.has(current[index]) ? current[index] : null)
       : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
     setLaunchpadSlots((current) => launchpadSlotsConfigured
-      ? Array.from({ length: 24 }, (_, index) => available.has(current[index]) ? current[index] : null)
-      : Array.from({ length: 24 }, (_, index) => sounds[index]?.id || null));
+      ? Array.from({ length: MAX_LAUNCHPAD_PADS }, (_, index) => available.has(current[index]) ? current[index] : null)
+      : Array.from({ length: MAX_LAUNCHPAD_PADS }, (_, index) => sounds[index]?.id || null));
     return { sounds, ownSounds };
   };
 
@@ -127,7 +129,7 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
     return true;
   };
 
-  const playSound = async (soundId, source = 'quick') => {
+  const playSound = async (soundId, source = 'quick', padIndex = null) => {
     if (!connected) return;
     if (source === 'launchpad' ? !launchpadEnabled : !quickSoundsEnabled) {
       setMediaStatus(source === 'launchpad' ? 'Launchpad está bloqueado en este lienzo.' : 'Sonidos rápidos está bloqueado en este lienzo.');
@@ -163,7 +165,7 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
 
     if (!startMonitoredSound(sound)) return;
     try {
-      await emitChannelAction('sound-play', { soundId, source });
+      await emitChannelAction('sound-play', { soundId, source, ...(source === 'launchpad' ? { padIndex } : {}) });
       setMediaStatus(presence.overlays > 0 ? `Sonido enviado: ${sound.name}` : `Monitoreo: ${sound.name}. No hay un overlay conectado.`);
     } catch (error) {
       stopMonitoredSound(soundId);
@@ -220,9 +222,11 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
 
   const saveLaunchpadAssignments = async (nextSlots) => {
     const available = new Set(allSounds.map((sound) => sound.id));
-    const cleanSlots = Array.from({ length: 24 }, (_, index) => index < launchpadPadLimit && available.has(nextSlots[index]) ? nextSlots[index] : null);
+    const cleanSlots = Array.from({ length: MAX_LAUNCHPAD_PADS }, (_, index) => index < launchpadPadLimit
+      ? (available.has(nextSlots[index]) ? nextSlots[index] : null)
+      : launchpadSlots[index] || null);
     const saved = await saveUserLaunchpadSlots(cleanSlots);
-    setLaunchpadSlots(Array.from({ length: 24 }, (_, index) => saved[index] || null));
+    setLaunchpadSlots(Array.from({ length: MAX_LAUNCHPAD_PADS }, (_, index) => saved[index] || null));
     setLaunchpadSlotsConfigured(true);
     setLaunchpadConfigOpen(false);
     setMediaStatus('Launchpad actualizado.');

@@ -3,8 +3,8 @@ import '../config/env.js';
 import { db, models } from '../models/index.js';
 import { hashPassword } from '../services/authService.js';
 import { setRolePreset, setUserPermissions } from '../helpers/permissions.js';
-import { seedEntitlementCatalog } from '../services/entitlementCatalogService.js';
-import { seedStoreCatalog } from '../services/storeCatalogService.js';
+import { bootstrapEntitlementCatalog } from '../services/entitlementCatalogService.js';
+import { bootstrapStoreCatalog } from '../services/storeCatalogService.js';
 
 const statuses = [
   ['ACTIVE', 'Activo', true],
@@ -29,40 +29,30 @@ const settings = [
 
 async function seed() {
   await db.authenticate();
+  const createdRoleKeys = new Set();
 
   for (const [key, name, system] of statuses) {
-    const [row] = await models.UserStatus.findOrCreate({ where: { key }, defaults: { name, system, active: true } });
-    await row.update({ name, system, active: true });
+    await models.UserStatus.findOrCreate({ where: { key }, defaults: { name, system, active: true } });
   }
 
   for (const [key, name, system] of roles) {
-    const [row] = await models.Role.findOrCreate({ where: { key }, defaults: { name, system, active: true } });
-    await row.update({ name, system, active: true });
+    const [, created] = await models.Role.findOrCreate({ where: { key }, defaults: { name, system, active: true } });
+    if (created) createdRoleKeys.add(key);
   }
 
   for (const [key, name] of permissions) {
-    const [row] = await models.Permission.findOrCreate({ where: { key }, defaults: { name, active: true } });
-    await row.update({ name, active: true });
+    await models.Permission.findOrCreate({ where: { key }, defaults: { name, active: true } });
   }
 
   for (const [key, value, description, isPublic] of settings) {
-    const [row] = await models.SystemSetting.findOrCreate({ where: { key }, defaults: { value, description, public: isPublic } });
-    await row.update({ description, public: isPublic });
+    await models.SystemSetting.findOrCreate({ where: { key }, defaults: { value, description, public: isPublic } });
   }
 
-  await seedEntitlementCatalog({ overwriteSystemDefaults: process.env.ENTITLEMENT_SEED_OVERWRITE === 'true' });
-  await seedStoreCatalog({ overwriteSystemDefaults: process.env.STORE_SEED_OVERWRITE === 'true' });
+  await bootstrapEntitlementCatalog();
+  await bootstrapStoreCatalog();
 
   const baseKeys = permissions.map(([key]) => key);
-  await setRolePreset('SUPER_ADMIN', baseKeys);
-  await setRolePreset('ADMIN', baseKeys);
-  await setRolePreset('USER', baseKeys);
-
-  const existingUsers = await models.User.findAll();
-  for (const user of existingUsers) {
-    const count = await models.UserPermission.count({ where: { userId: user.id } });
-    if (count === 0) await setUserPermissions(user.id, baseKeys);
-  }
+  for (const roleKey of createdRoleKeys) await setRolePreset(roleKey, baseKeys);
 
   const email = String(process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim().toLowerCase();
   const password = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || '');
@@ -80,9 +70,8 @@ async function seed() {
       }
     });
 
-    if (!created) await user.update({ roleKey: 'SUPER_ADMIN', statusKey: 'ACTIVE' });
-    await setUserPermissions(user.id, baseKeys);
-    console.log(created ? `Usuario bootstrap creado: ${user.email}` : `Usuario bootstrap actualizado: ${user.email}`);
+    if (created) await setUserPermissions(user.id, baseKeys);
+    console.log(created ? `Usuario bootstrap creado: ${user.email}` : `Usuario bootstrap ya existente, sin cambios: ${user.email}`);
   } else {
     console.log('Seed completado sin usuario bootstrap. Define BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD si deseas crearlo.');
   }

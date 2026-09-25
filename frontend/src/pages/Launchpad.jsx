@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Copy, ExternalLink, Music2, Radio, RefreshCw, Settings2, Volume2 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { getChannels } from '../api/channels';
+import { getChannelEntitlements, getChannels } from '../api/channels';
 import { getUserSettings, saveLaunchpadSlots as saveUserLaunchpadSlots } from '../api/settings';
 import { getSoundLibrary } from '../api/sounds';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import LaunchpadConfigModal from '../components/editor/sounds/LaunchpadConfigModal';
+import { entitlementLimit, featureEnabled, normalizeChannelEntitlements } from '../components/editor/entitlements/editorEntitlements';
 
-const PAD_COUNT = 24;
+const MAX_PAD_COUNT = 24;
 const PAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
 
 export default function Launchpad() {
   const { publicKey } = useParams();
   const [sounds, setSounds] = useState([]);
-  const [slots, setSlots] = useState(Array(PAD_COUNT).fill(null));
+  const [slots, setSlots] = useState(Array(MAX_PAD_COUNT).fill(null));
+  const [padCount, setPadCount] = useState(0);
   const [configured, setConfigured] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [outputCount, setOutputCount] = useState(0);
@@ -46,17 +48,26 @@ export default function Launchpad() {
         const available = new Set(library.map((sound) => sound.id));
         const hasSaved = Array.isArray(settings?.launchpadSlots);
         const nextSlots = hasSaved
-          ? Array.from({ length: PAD_COUNT }, (_, index) => available.has(settings.launchpadSlots[index]) ? settings.launchpadSlots[index] : null)
-          : Array.from({ length: PAD_COUNT }, (_, index) => library[index]?.id || null);
+          ? Array.from({ length: MAX_PAD_COUNT }, (_, index) => available.has(settings.launchpadSlots[index]) ? settings.launchpadSlots[index] : null)
+          : Array.from({ length: MAX_PAD_COUNT }, (_, index) => library[index]?.id || null);
+
+        const channelRows = [...(channels?.ownedChannels || []), ...(channels?.collaborations || [])];
+        const channel = channelRows.find((item) => item.publicKey === publicKey);
+        const rawEntitlements = channel?.uuid ? await getChannelEntitlements(channel.uuid, { force: true }) : null;
+        if (!active) return;
+        const entitlements = normalizeChannelEntitlements(rawEntitlements || {});
+        const launchpadEnabled = featureEnabled(entitlements, 'editor.launchpad');
+        const nextPadCount = launchpadEnabled ? Math.min(MAX_PAD_COUNT, entitlementLimit(entitlements, 'limit.launchpad_pads')) : 0;
 
         setSounds(library);
         setSlots(nextSlots);
         setConfigured(hasSaved);
+        setPadCount(nextPadCount);
 
-        const channelRows = [...(channels?.ownedChannels || []), ...(channels?.collaborations || [])];
-        const channel = channelRows.find((item) => item.publicKey === publicKey);
         if (channel?.name) setChannelName(channel.name);
-        setStatus(library.length ? 'Launchpad listo.' : 'La biblioteca todavía no tiene sonidos.');
+        setStatus(!launchpadEnabled
+          ? 'Launchpad está bloqueado en este lienzo.'
+          : library.length ? `Launchpad listo · ${nextPadCount} pads disponibles.` : 'La biblioteca todavía no tiene sonidos.');
       } catch (error) {
         if (active) setStatus(error?.response?.data?.message || error?.message || 'No se pudo cargar el Launchpad.');
       }
@@ -67,11 +78,11 @@ export default function Launchpad() {
   }, [publicKey]);
 
   const soundMap = useMemo(() => new Map(sounds.map((sound) => [sound.id, sound])), [sounds]);
-  const padItems = useMemo(() => Array.from({ length: PAD_COUNT }, (_, index) => ({
+  const padItems = useMemo(() => Array.from({ length: padCount }, (_, index) => ({
     index,
     key: PAD_KEYS[index],
     sound: soundMap.get(slots[index]) || null
-  })), [slots, soundMap]);
+  })), [padCount, slots, soundMap]);
 
   const flashPad = useCallback((index) => {
     setActivePads((current) => new Set(current).add(index));
@@ -85,7 +96,7 @@ export default function Launchpad() {
   const playPad = useCallback(async (index) => {
     const soundId = slots[index];
     const sound = soundMap.get(soundId);
-    if (!sound || !connected || denied) return;
+    if (index < 0 || index >= padCount || !sound || !connected || denied) return;
 
     flashPad(index);
     try {
@@ -100,7 +111,7 @@ export default function Launchpad() {
     } catch (error) {
       setStatus(error.message || 'No se pudo reproducir el sonido.');
     }
-  }, [connected, denied, flashPad, outputCount, slots, socket, soundMap]);
+  }, [connected, denied, flashPad, outputCount, padCount, slots, socket, soundMap]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -108,29 +119,31 @@ export default function Launchpad() {
       const tag = event.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       const index = PAD_KEYS.indexOf(event.key.toLowerCase());
-      if (index < 0) return;
+      if (index < 0 || index >= padCount) return;
       event.preventDefault();
       playPad(index);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [configOpen, playPad]);
+  }, [configOpen, padCount, playPad]);
 
   const refreshSounds = async () => {
     const library = await getSoundLibrary();
     const available = new Set(library.map((sound) => sound.id));
     setSounds(library);
     setSlots((current) => configured
-      ? Array.from({ length: PAD_COUNT }, (_, index) => available.has(current[index]) ? current[index] : null)
-      : Array.from({ length: PAD_COUNT }, (_, index) => library[index]?.id || null));
+      ? Array.from({ length: MAX_PAD_COUNT }, (_, index) => available.has(current[index]) ? current[index] : null)
+      : Array.from({ length: MAX_PAD_COUNT }, (_, index) => library[index]?.id || null));
     return library;
   };
 
   const saveAssignments = async (nextSlots) => {
     const available = new Set(sounds.map((sound) => sound.id));
-    const cleanSlots = Array.from({ length: PAD_COUNT }, (_, index) => available.has(nextSlots[index]) ? nextSlots[index] : null);
+    const cleanSlots = Array.from({ length: MAX_PAD_COUNT }, (_, index) => index < padCount
+      ? (available.has(nextSlots[index]) ? nextSlots[index] : null)
+      : slots[index] || null);
     const saved = await saveUserLaunchpadSlots(cleanSlots);
-    setSlots(Array.from({ length: PAD_COUNT }, (_, index) => saved[index] || null));
+    setSlots(Array.from({ length: MAX_PAD_COUNT }, (_, index) => saved[index] || null));
     setConfigured(true);
     setConfigOpen(false);
     setStatus('Launchpad guardado en tu cuenta.');
@@ -158,7 +171,7 @@ export default function Launchpad() {
         </div>
         <div className="dc-launchpad-header-actions">
           <span className={`dc-launchpad-output-status ${outputCount > 0 ? 'online' : ''}`}><Radio size={14} /> {outputCount > 0 ? `${outputCount} FUENTE${outputCount === 1 ? '' : 'S'} OBS` : 'SIN FUENTE OBS'}</span>
-          <button type="button" onClick={() => setConfigOpen(true)}><Settings2 size={15} /> Configurar pads</button>
+          <button type="button" onClick={() => setConfigOpen(true)} disabled={!padCount}><Settings2 size={15} /> Configurar pads</button>
         </div>
       </header>
 
@@ -169,7 +182,7 @@ export default function Launchpad() {
       </section>
 
       <main className="dc-launchpad-main">
-        <div className="dc-launchpad-meta"><span>{sounds.length} sonidos en biblioteca</span><span>{slots.filter(Boolean).length}/{PAD_COUNT} pads asignados</span><button type="button" onClick={async () => { try { await refreshSounds(); setStatus('Biblioteca actualizada.'); } catch { setStatus('No se pudo actualizar la biblioteca.'); } }}><RefreshCw size={13} /> Actualizar biblioteca</button></div>
+        <div className="dc-launchpad-meta"><span>{sounds.length} sonidos en biblioteca</span><span>{slots.slice(0, padCount).filter(Boolean).length}/{padCount} pads asignados</span><button type="button" onClick={async () => { try { await refreshSounds(); setStatus('Biblioteca actualizada.'); } catch { setStatus('No se pudo actualizar la biblioteca.'); } }}><RefreshCw size={13} /> Actualizar biblioteca</button></div>
         <div className="dc-launchpad-grid" aria-label="Launchpad de sonidos">
           {padItems.map(({ index, key, sound }) => (
             <button key={index} type="button" className={`${sound ? 'assigned' : 'empty'} ${activePads.has(index) ? 'is-playing' : ''}`} onPointerDown={(event) => { if (event.button === 0 && sound) playPad(index); }} disabled={!sound || !connected || denied} style={{ '--dc-pad-accent': `var(--dc-accent-${['one', 'two', 'three', 'four'][index % 4]})` }}>
@@ -184,7 +197,7 @@ export default function Launchpad() {
 
       <footer className="dc-launchpad-statusbar"><span className={connected ? 'online' : ''}>{connected ? 'CONECTADO' : 'CONECTANDO...'}</span><p>{status}</p></footer>
 
-      {configOpen && <LaunchpadConfigModal sounds={sounds} slots={slots} onClose={() => setConfigOpen(false)} onRefresh={refreshSounds} onSave={saveAssignments} />}
+      {configOpen && <LaunchpadConfigModal sounds={sounds} slots={slots} padCount={padCount} onClose={() => setConfigOpen(false)} onRefresh={refreshSounds} onSave={saveAssignments} />}
     </div>
   );
 }

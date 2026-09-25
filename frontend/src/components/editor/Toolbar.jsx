@@ -114,7 +114,7 @@ export default function Toolbar({
   const audioDisabled = controlDisabled;
   const launchpadMode = workspaceMode === 'launchpad';
   const liveSwitchDisabled = controlDisabled || editorLocked;
-  const featureLocked = (feature) => entitlementsReady && !isFeatureEnabled(feature);
+  const featureLocked = (feature) => !entitlementsReady || !isFeatureEnabled(feature);
   const lockedAction = (feature, label, action) => (event) => {
     event?.preventDefault?.();
     if (featureLocked(feature)) {
@@ -125,7 +125,7 @@ export default function Toolbar({
   };
 
   useEffect(() => {
-    if (!imagePickerRequest || workspaceDisabled || (entitlementsReady && !isFeatureEnabled('editor.image'))) return;
+    if (!imagePickerRequest || workspaceDisabled || !entitlementsReady || !isFeatureEnabled('editor.image')) return;
     imageInputRef.current?.click();
   }, [entitlementsReady, imagePickerRequest, isFeatureEnabled, workspaceDisabled]);
 

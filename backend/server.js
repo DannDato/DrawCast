@@ -36,5 +36,6 @@ app.use(cookieParser()); app.use(verifyBrowserOrigin); app.use(express.json({lim
 const appFolder=process.env.APP_FOLDER||'/api';
 app.use(appFolder,routes);
 app.use((req,res)=>res.status(404).json({message:'Ruta no encontrada'})); app.use(handleError); configureSockets(io);
-await db.authenticate(); if(hasAuditDatabase){try{await auditDb.authenticate();logger.info('Base de datos de auditoría conectada');}catch(error){logger.error('No fue posible conectar con la base de datos de auditoría',{error:error.message});}}
+await db.authenticate();
+if(hasAuditDatabase){try{await auditDb.authenticate();logger.info('Base de datos de auditoría conectada');}catch(error){logger.error('No fue posible conectar con la base de datos de auditoría',{error:error.message});}}
 httpServer.listen(env.port,()=>logger.info(`TRAZIO Cloud iniciado en puerto ${env.port}`));

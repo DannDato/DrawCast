@@ -1,4 +1,9 @@
-import { ENTITLEMENT_BUNDLE_KEYS } from './entitlementCatalog.js';
+// Definiciones de bootstrap para una instalación nueva.
+// La base de datos es la fuente de verdad una vez persistidos estos registros.
+
+import { ENTITLEMENT_BUNDLE_KEYS } from './entitlements.js';
+
+// Keys = contrato técnico. STORE_PRODUCTS = defaults de bootstrap para instalaciones nuevas; no sincroniza cambios sobre registros existentes.
 
 export const STORE_PRODUCT_KEYS = Object.freeze({
   CANVAS_PLUS: 'canvas.plus',
@@ -10,11 +15,18 @@ export const STORE_PRODUCT_KEYS = Object.freeze({
   TOOL_DESIGNS: 'tool.designs',
   TOOL_QUICK_SOUNDS: 'tool.quick_sounds',
   TOOL_CUSTOM_SOUNDS: 'tool.custom_sounds',
+  TOOL_LAUNCHPAD: 'tool.launchpad',
+  TOOL_LIVE_STUDIO: 'tool.live_studio',
+  TOOL_REMOVE_WATERMARK: 'tool.remove_watermark',
+  PACK_VISUAL: 'pack.visual',
+  PACK_CREATIVE: 'pack.creative',
+  PACK_AUDIO: 'pack.audio',
   ADDON_LAYERS_5: 'addon.layers.5',
   ADDON_DESIGNS_3: 'addon.design_slots.3',
   ADDON_GUIDES_3: 'addon.guide_slots.3',
   ADDON_QUICK_SOUNDS_3: 'addon.quick_sound_slots.3',
-  ADDON_CUSTOM_SOUNDS_5: 'addon.custom_sound_slots.5'
+  ADDON_CUSTOM_SOUNDS_5: 'addon.custom_sound_slots.5',
+  ADDON_LAUNCHPAD_PADS_8: 'addon.launchpad_pads.8'
 });
 
 const plusRequirement = {
@@ -160,6 +172,87 @@ export const STORE_PRODUCTS = Object.freeze([
     metadata: { section: 'tools', icon: 'upload', accent: 'neutral', highlights: ['Sonidos propios', '5 slots'] }
   },
   {
+    key: STORE_PRODUCT_KEYS.TOOL_LAUNCHPAD,
+    kind: 'tool',
+    targetScope: 'channel',
+    name: 'Launchpad Lite',
+    description: 'Desbloquea Launchpad con 8 pads y la biblioteca de sonidos. Los sonidos propios se desbloquean por separado.',
+    priceCents: 200,
+    currency: 'USD',
+    billingInterval: 'month',
+    sortOrder: 150,
+    bundles: [ENTITLEMENT_BUNDLE_KEYS.TOOL_LAUNCHPAD],
+    metadata: { section: 'tools', icon: 'audio-lines', accent: 'neutral', highlights: ['Launchpad', '8 pads', 'Biblioteca de sonidos'] }
+  },
+  {
+    key: STORE_PRODUCT_KEYS.TOOL_LIVE_STUDIO,
+    kind: 'tool',
+    targetScope: 'channel',
+    name: 'Live / Studio',
+    description: 'Prepara cambios en Estudio y decide cuándo publicarlos al Overlay.',
+    priceCents: 150,
+    currency: 'USD',
+    billingInterval: 'month',
+    sortOrder: 155,
+    bundles: [ENTITLEMENT_BUNDLE_KEYS.TOOL_LIVE_STUDIO],
+    metadata: { section: 'tools', icon: 'panels-top-left', accent: 'neutral', highlights: ['Modo Estudio', 'Publicación manual'] }
+  },
+  {
+    key: STORE_PRODUCT_KEYS.TOOL_REMOVE_WATERMARK,
+    kind: 'tool',
+    targetScope: 'channel',
+    name: 'Quitar marca de agua',
+    description: 'Oculta la marca TRAZIO del Overlay público de un lienzo.',
+    priceCents: 100,
+    currency: 'USD',
+    billingInterval: 'month',
+    sortOrder: 160,
+    bundles: [ENTITLEMENT_BUNDLE_KEYS.TOOL_REMOVE_WATERMARK],
+    metadata: { section: 'tools', icon: 'sparkles', accent: 'neutral', highlights: ['Overlay sin marca de agua'] }
+  },
+  {
+    key: STORE_PRODUCT_KEYS.PACK_VISUAL,
+    kind: 'pack',
+    targetScope: 'channel',
+    name: 'Pack Visual',
+    description: 'Agrupa las herramientas esenciales para construir elementos visuales en un lienzo.',
+    priceCents: 250,
+    currency: 'USD',
+    billingInterval: 'month',
+    badge: 'PACK',
+    sortOrder: 170,
+    bundles: [ENTITLEMENT_BUNDLE_KEYS.TOOL_TEXT, ENTITLEMENT_BUNDLE_KEYS.TOOL_SHAPES, ENTITLEMENT_BUNDLE_KEYS.TOOL_TIMER],
+    metadata: { section: 'packs', icon: 'package', accent: 'neutral', highlights: ['Texto', 'Línea + Forma', 'Temporizador'] }
+  },
+  {
+    key: STORE_PRODUCT_KEYS.PACK_CREATIVE,
+    kind: 'pack',
+    targetScope: 'channel',
+    name: 'Pack Creativo',
+    description: 'Combina Guías Lite y Diseños Lite en una sola licencia para el lienzo.',
+    priceCents: 250,
+    currency: 'USD',
+    billingInterval: 'month',
+    badge: 'PACK',
+    sortOrder: 180,
+    bundles: [ENTITLEMENT_BUNDLE_KEYS.TOOL_GUIDES, ENTITLEMENT_BUNDLE_KEYS.TOOL_DESIGNS],
+    metadata: { section: 'packs', icon: 'package', accent: 'neutral', highlights: ['Guías Lite', '3 slots de guías', 'Diseños Lite', '3 slots de diseños'] }
+  },
+  {
+    key: STORE_PRODUCT_KEYS.PACK_AUDIO,
+    kind: 'pack',
+    targetScope: 'channel',
+    name: 'Pack Audio',
+    description: 'Reúne Sonidos rápidos Lite, Sonidos propios Lite y Launchpad Lite en una sola licencia.',
+    priceCents: 450,
+    currency: 'USD',
+    billingInterval: 'month',
+    badge: 'PACK',
+    sortOrder: 190,
+    bundles: [ENTITLEMENT_BUNDLE_KEYS.TOOL_QUICK_SOUNDS, ENTITLEMENT_BUNDLE_KEYS.TOOL_CUSTOM_SOUNDS, ENTITLEMENT_BUNDLE_KEYS.TOOL_LAUNCHPAD],
+    metadata: { section: 'packs', icon: 'package', accent: 'neutral', highlights: ['Sonidos rápidos Lite', 'Sonidos propios Lite', 'Launchpad Lite', '8 pads'] }
+  },
+  {
     key: STORE_PRODUCT_KEYS.ADDON_LAYERS_5,
     kind: 'addon',
     targetScope: 'channel',
@@ -233,5 +326,20 @@ export const STORE_PRODUCTS = Object.freeze([
     bundles: [ENTITLEMENT_BUNDLE_KEYS.ADDON_CUSTOM_SOUND_SLOTS_5],
     requirements: [plusRequirement, featureRequirement('editor.custom_sounds', 'Requiere Lienzo Plus o Sonidos personalizados desbloqueados.')],
     metadata: { section: 'expansions', icon: 'upload', accent: 'spectral', highlights: ['+5 sonidos propios'] }
+  },
+  {
+    key: STORE_PRODUCT_KEYS.ADDON_LAUNCHPAD_PADS_8,
+    kind: 'addon',
+    targetScope: 'channel',
+    name: '+8 pads',
+    description: 'Añade ocho pads al Launchpad del lienzo. Puedes acumular la expansión hasta llegar a 24 pads.',
+    priceCents: 100,
+    currency: 'USD',
+    billingInterval: 'month',
+    badge: 'EXPANSIÓN',
+    sortOrder: 250,
+    bundles: [ENTITLEMENT_BUNDLE_KEYS.ADDON_LAUNCHPAD_PADS_8],
+    requirements: [featureRequirement('editor.launchpad', 'Requiere que el lienzo tenga Launchpad desbloqueado.')],
+    metadata: { section: 'expansions', icon: 'audio-lines', accent: 'spectral', highlights: ['+8 pads', 'Máximo 24 pads'] }
   }
 ]);

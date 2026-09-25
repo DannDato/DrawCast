@@ -1,11 +1,9 @@
-function positiveInt(value, fallback) {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : fallback;
-}
+import { resolveAccountEntitlements } from './entitlementCatalogService.js';
 
-// Punto único para los límites de lienzos.
-// Hoy usa un límite global; cuando exista el modelo de suscripciones,
-// este resolver puede leer el plan del usuario sin tocar controladores/UI.
-export function getCanvasLimitForUser(_user) {
-  return positiveInt(process.env.CANVAS_LIMIT_DEFAULT, 3);
+export async function getCanvasLimitForUser(user) {
+  const userId = Number(user?.id);
+  if (!Number.isInteger(userId) || userId <= 0) return 1;
+  const entitlements = await resolveAccountEntitlements(userId);
+  const limit = Number(entitlements?.limits?.['account.canvas_slots'] || 1);
+  return Number.isFinite(limit) ? Math.max(1, Math.trunc(limit)) : 1;
 }

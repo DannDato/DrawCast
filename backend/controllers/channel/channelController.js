@@ -155,7 +155,7 @@ export class ChannelController {
       preferences.get(Number(row.channelId))
     )));
 
-    const limit = getCanvasLimitForUser(req.user);
+    const limit = await getCanvasLimitForUser(req.user);
     res.json({
       owned: ownedChannels[0] || null,
       ownedChannels,
@@ -209,7 +209,7 @@ export class ChannelController {
   }
 
   static async create(req, res) {
-    const limit = getCanvasLimitForUser(req.user);
+    const limit = await getCanvasLimitForUser(req.user);
     const current = await models.Channel.count({ where: { ownerId: req.user.id } });
     if (current >= limit) return res.status(403).json({ code: 'CANVAS_LIMIT_REACHED', message: `Tu plan permite hasta ${limit} lienzo${limit === 1 ? '' : 's'}.`, limit, used: current });
 

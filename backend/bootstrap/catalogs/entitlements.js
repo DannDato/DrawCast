@@ -1,3 +1,7 @@
+// Definiciones de bootstrap para una instalación nueva.
+// La base de datos es la fuente de verdad una vez persistidos estos registros.
+
+// Keys/capabilities = contrato técnico. Las definiciones descriptivas y bundles sólo sirven como defaults de bootstrap; la BD manda después.
 export const ENTITLEMENT_BUNDLE_KEYS = Object.freeze({
   ACCOUNT_FREE: 'account.free',
   CANVAS_FREE: 'canvas.free',
@@ -10,11 +14,15 @@ export const ENTITLEMENT_BUNDLE_KEYS = Object.freeze({
   TOOL_DESIGNS: 'tool.designs',
   TOOL_QUICK_SOUNDS: 'tool.quick_sounds',
   TOOL_CUSTOM_SOUNDS: 'tool.custom_sounds',
+  TOOL_LAUNCHPAD: 'tool.launchpad',
+  TOOL_LIVE_STUDIO: 'tool.live_studio',
+  TOOL_REMOVE_WATERMARK: 'tool.remove_watermark',
   ADDON_LAYERS_5: 'addon.layers.5',
   ADDON_DESIGN_SLOTS_3: 'addon.design_slots.3',
   ADDON_GUIDE_SLOTS_3: 'addon.guide_slots.3',
   ADDON_QUICK_SOUND_SLOTS_3: 'addon.quick_sound_slots.3',
-  ADDON_CUSTOM_SOUND_SLOTS_5: 'addon.custom_sound_slots.5'
+  ADDON_CUSTOM_SOUND_SLOTS_5: 'addon.custom_sound_slots.5',
+  ADDON_LAUNCHPAD_PADS_8: 'addon.launchpad_pads.8'
 });
 
 export const ENTITLEMENT_CAPABILITIES = Object.freeze([
@@ -46,7 +54,7 @@ export const ENTITLEMENT_CAPABILITIES = Object.freeze([
   { key: 'limit.guide_slots', scope: 'channel', valueType: 'integer', category: 'limits', name: 'Slots de guías', description: 'Cantidad de guías guardadas disponibles.', expandable: true, sortOrder: 420 },
   { key: 'limit.quick_sound_slots', scope: 'channel', valueType: 'integer', category: 'limits', name: 'Slots de sonidos rápidos', description: 'Cantidad de accesos rápidos de audio disponibles.', expandable: true, sortOrder: 430 },
   { key: 'limit.custom_sound_slots', scope: 'channel', valueType: 'integer', category: 'limits', name: 'Sonidos personalizados', description: 'Cantidad de sonidos propios que puede almacenar el lienzo.', expandable: true, sortOrder: 440 },
-  { key: 'limit.launchpad_pads', scope: 'channel', valueType: 'integer', category: 'limits', name: 'Pads de Launchpad', description: 'Cantidad de pads disponibles en el Launchpad.', expandable: false, hardMax: 24, sortOrder: 450 }
+  { key: 'limit.launchpad_pads', scope: 'channel', valueType: 'integer', category: 'limits', name: 'Pads de Launchpad', description: 'Cantidad de pads disponibles en el Launchpad.', expandable: true, hardMax: 24, sortOrder: 450 }
 ]);
 
 export const ENTITLEMENT_BUNDLES = Object.freeze([
@@ -207,6 +215,33 @@ export const ENTITLEMENT_BUNDLES = Object.freeze([
     grants: { 'editor.custom_sounds': true, 'limit.custom_sound_slots': 5 }
   },
   {
+    key: ENTITLEMENT_BUNDLE_KEYS.TOOL_LAUNCHPAD,
+    scope: 'channel',
+    kind: 'tool',
+    name: 'Launchpad Lite',
+    description: 'Desbloquea Launchpad con 8 pads y acceso a la biblioteca de sonidos.',
+    priority: 50,
+    grants: { 'editor.launchpad': true, 'limit.launchpad_pads': 8 }
+  },
+  {
+    key: ENTITLEMENT_BUNDLE_KEYS.TOOL_LIVE_STUDIO,
+    scope: 'channel',
+    kind: 'tool',
+    name: 'Live / Studio',
+    description: 'Desbloquea el modo Estudio y la publicación manual hacia el Overlay.',
+    priority: 50,
+    grants: { 'editor.live_studio': true }
+  },
+  {
+    key: ENTITLEMENT_BUNDLE_KEYS.TOOL_REMOVE_WATERMARK,
+    scope: 'channel',
+    kind: 'tool',
+    name: 'Quitar marca de agua',
+    description: 'Retira la marca TRAZIO del Overlay público de un lienzo.',
+    priority: 50,
+    grants: { 'overlay.remove_watermark': true }
+  },
+  {
     key: ENTITLEMENT_BUNDLE_KEYS.ADDON_LAYERS_5,
     scope: 'channel',
     kind: 'addon',
@@ -250,5 +285,14 @@ export const ENTITLEMENT_BUNDLES = Object.freeze([
     description: 'Añade cinco slots de sonidos personalizados.',
     priority: 200,
     grants: { 'limit.custom_sound_slots': { operation: 'add', value: 5 } }
+  },
+  {
+    key: ENTITLEMENT_BUNDLE_KEYS.ADDON_LAUNCHPAD_PADS_8,
+    scope: 'channel',
+    kind: 'addon',
+    name: '+8 pads',
+    description: 'Añade ocho pads al Launchpad del lienzo hasta el máximo técnico permitido.',
+    priority: 200,
+    grants: { 'limit.launchpad_pads': { operation: 'add', value: 8 } }
   }
 ]);

@@ -178,12 +178,14 @@ function canUseWorkspace(context, socket, reply) {
 }
 
 
-async function refreshJoinedEntitlements(joined, { fresh = false } = {}) {
+async function refreshJoinedEntitlements(joined, socket, { fresh = false } = {}) {
   if (!joined?.channelId) return null;
   const now = Date.now();
-  if (!fresh && joined.entitlements && now - Number(joined.entitlementsAt || 0) < SOCKET_ENTITLEMENT_REFRESH_MS) return joined.entitlements;
-  joined.entitlements = await getChannelEntitlements(joined.channelId, { fresh });
+  const forced = socket?.data?.entitlementsStale === true;
+  if (!fresh && !forced && joined.entitlements && now - Number(joined.entitlementsAt || 0) < SOCKET_ENTITLEMENT_REFRESH_MS) return joined.entitlements;
+  joined.entitlements = await getChannelEntitlements(joined.channelId, { fresh: fresh || forced });
   joined.entitlementsAt = now;
+  if (socket) socket.data.entitlementsStale = false;
   return joined.entitlements;
 }
 
@@ -373,7 +375,7 @@ export function configureSockets(io) {
       }
 
       try {
-        const entitlements = await refreshJoinedEntitlements(joined);
+        const entitlements = await refreshJoinedEntitlements(joined, socket);
         if (options.feature) requireFeatureValue(entitlements, options.feature);
         if (!options.allowWhenBlocked && !canUseWorkspace(joined, socket, reply)) return;
         await handler(joined, payload, reply, entitlements);
@@ -556,10 +558,17 @@ export function configureSockets(io) {
           return;
         }
 
-        const entitlements = await refreshJoinedEntitlements(joined);
+        const entitlements = await refreshJoinedEntitlements(joined, socket);
         const source = payload?.source === 'quick' || payload?.source === 'launchpad' ? payload.source : null;
         if (!source) throw entitlementError('editor.quick_sounds', 'El origen del sonido no es válido.');
         requireFeatureValue(entitlements, source === 'launchpad' ? 'editor.launchpad' : 'editor.quick_sounds');
+        if (source === 'launchpad') {
+          const padLimit = getLimit(entitlements, 'limit.launchpad_pads');
+          const padIndex = Number(payload?.padIndex);
+          if (!Number.isInteger(padIndex) || padIndex < 0 || padIndex >= padLimit) {
+            throw limitError('limit.launchpad_pads', padLimit, `Ese pad no está disponible. Este lienzo tiene ${padLimit} pads de Launchpad.`);
+          }
+        }
 
         const now = Date.now();
         const previous = Number(socket.data.lastSoundAt || 0);

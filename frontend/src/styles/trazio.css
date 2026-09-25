@@ -1,6 +1,6 @@
 :root {
     /* Core canvas */
-    --dc-bg: #0c0c0c;
+    --dc-bg: #1a1a1a;
     --dc-black: #000000;
     --dc-surface-deep: #030303;
     --dc-canvas-bg: #050505;
@@ -10,14 +10,14 @@
     --dc-surface-3: #0b0b0b;
     --dc-surface-4: #0c0c0c;
     --dc-surface: #0d0d0d;
-    --dc-panel: #141414;
+    --dc-panel: #020202;
     --dc-surface-raised: #111111;
     --dc-surface-active: #121212;
     --dc-surface-hover: #141414;
     --dc-surface-hover-strong: #141414;
-    --dc-panel2: #181818;
-    --dc-surface-bright: #1a1a1a;
-    --dc-surface-overlay: #141414;
+    --dc-panel2: #020202;
+    --dc-surface-bright: #000000;
+    --dc-surface-overlay: #030303;
     --dc-surface-backdrop: #1a1a1a;
 
     /* Lines / separators */
@@ -45,9 +45,9 @@
     --dc-accent-three: #304073;
     --dc-accent-four: #6B883C; */
     --dc-accent-one: #b2b2b2;
-    --dc-accent-two: #c79a66;
-    --dc-accent-three: #c79a66;
-    --dc-accent-four: #726859;
+    --dc-accent-two: #7577ff;
+    --dc-accent-three: #56dbf3;
+    --dc-accent-four: #84c0ca;
     --dc-accent-one-soft: color-mix(in srgb, var(--dc-accent-one) 14%, transparent);
     --dc-accent-two-soft: color-mix(in srgb, var(--dc-accent-two) 34%, transparent);
     --dc-accent-three-soft: color-mix(in srgb, var(--dc-accent-three) 18%, transparent);

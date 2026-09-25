@@ -21,7 +21,7 @@ export default function LaunchpadConfigModal({
   onUpload,
   onDelete,
   onSave,
-  padCount = 24,
+  padCount = 0,
   customSoundsEnabled = true,
   customSoundLimit = 0,
   onLockedFeature

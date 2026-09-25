@@ -1,5 +1,6 @@
+import { Op } from 'sequelize';
 import { models } from '../models/index.js';
-import { ENTITLEMENT_BUNDLE_KEYS, ENTITLEMENT_BUNDLES, ENTITLEMENT_CAPABILITIES } from '../config/entitlementCatalog.js';
+import { ENTITLEMENT_BUNDLE_KEYS, ENTITLEMENT_BUNDLES, ENTITLEMENT_CAPABILITIES } from '../bootstrap/catalogs/entitlements.js';
 
 function decodeJsonValue(value) {
   let current = value;
@@ -128,7 +129,8 @@ export function resolveEntitlementValues(capabilities, bundles) {
   };
 }
 
-export async function seedEntitlementCatalog({ transaction, overwriteSystemDefaults = false } = {}) {
+// Bootstrap de instalación: crea faltantes y nunca reescribe configuración ya persistida.
+export async function bootstrapEntitlementCatalog({ transaction } = {}) {
   validateEntitlementCatalogDefinitions();
   const capabilityRows = new Map();
 
@@ -141,17 +143,7 @@ export async function seedEntitlementCatalog({ transaction, overwriteSystemDefau
       system: true,
       metadata: definition.metadata ?? null
     };
-    const [row, created] = await models.EntitlementCapability.findOrCreate({ where: { key: definition.key }, defaults, transaction });
-    if (!created) {
-      const patch = overwriteSystemDefaults ? defaults : {
-        name: definition.name,
-        description: definition.description || null,
-        category: definition.category,
-        sortOrder: definition.sortOrder || 0,
-        system: true
-      };
-      await row.update(patch, { transaction });
-    }
+    const [row] = await models.EntitlementCapability.findOrCreate({ where: { key: definition.key }, defaults, transaction });
     capabilityRows.set(definition.key, row);
   }
 
@@ -168,33 +160,16 @@ export async function seedEntitlementCatalog({ transaction, overwriteSystemDefau
       metadata: definition.metadata ?? null
     };
     const [bundle, created] = await models.EntitlementBundle.findOrCreate({ where: { key: definition.key }, defaults: bundleDefaults, transaction });
-    if (!created) {
-      const patch = overwriteSystemDefaults ? bundleDefaults : {
-        name: definition.name,
-        description: definition.description || null,
-        system: true
-      };
-      await bundle.update(patch, { transaction });
-    }
+    if (!created) continue;
 
-    const expectedCapabilityIds = [];
     for (const [capabilityKey, grantDefinition] of Object.entries(definition.grants || {})) {
       const capability = capabilityRows.get(capabilityKey);
       const { operation, value } = normalizeGrantDefinition(grantDefinition);
-      expectedCapabilityIds.push(capability.id);
-      const [grant, created] = await models.EntitlementGrant.findOrCreate({
+      await models.EntitlementGrant.findOrCreate({
         where: { bundleId: bundle.id, capabilityId: capability.id },
         defaults: { operation, value },
         transaction
       });
-      if (!created && overwriteSystemDefaults) await grant.update({ operation, value }, { transaction });
-    }
-
-    if (overwriteSystemDefaults) {
-      const existingGrants = await models.EntitlementGrant.findAll({ where: { bundleId: bundle.id }, transaction });
-      for (const grant of existingGrants) {
-        if (!expectedCapabilityIds.includes(Number(grant.capabilityId))) await grant.destroy({ transaction });
-      }
     }
   }
 }
@@ -206,6 +181,61 @@ function assignmentIsActive(assignment, at) {
   if (startsAt && new Date(startsAt).getTime() > at.getTime()) return false;
   if (endsAt && new Date(endsAt).getTime() <= at.getTime()) return false;
   return true;
+}
+
+export function filterValidLicenseEntitlements(assignments = [], licenseAssignments = [], at = new Date()) {
+  const allowedBundlesBySourceRef = new Map();
+
+  for (const assignment of licenseAssignments || []) {
+    if (String(rowValue(assignment, 'status') || '').toUpperCase() !== 'ACTIVE') continue;
+    const license = rowValue(assignment, 'license');
+    if (!licenseIsActive(license, at)) continue;
+    const product = rowValue(license, 'product');
+    if (!product || rowValue(product, 'active') === false) continue;
+
+    const allowed = new Set();
+    for (const link of rowValue(product, 'bundleLinks') || []) {
+      const bundle = rowValue(link, 'bundle');
+      if (!bundle || rowValue(bundle, 'active') === false || rowValue(bundle, 'scope') !== 'channel') continue;
+      allowed.add(Number(rowValue(bundle, 'id')));
+    }
+    allowedBundlesBySourceRef.set(`assignment:${rowValue(assignment, 'uuid')}`, allowed);
+  }
+
+  return (assignments || []).filter((assignment) => {
+    if (String(rowValue(assignment, 'sourceType') || '').toLowerCase() !== 'license') return true;
+    const sourceRef = String(rowValue(assignment, 'sourceRef') || '');
+    const allowed = allowedBundlesBySourceRef.get(sourceRef);
+    return Boolean(allowed?.has(Number(rowValue(assignment, 'bundleId'))));
+  });
+}
+
+async function loadActiveLicenseAssignments(channelId, sourceRefs, at) {
+  const uuids = [...new Set((sourceRefs || [])
+    .map((sourceRef) => String(sourceRef || ''))
+    .filter((sourceRef) => sourceRef.startsWith('assignment:'))
+    .map((sourceRef) => sourceRef.slice('assignment:'.length))
+    .filter(Boolean))];
+  if (!uuids.length) return [];
+
+  return models.LicenseAssignment.findAll({
+    where: { channelId: Number(channelId), status: 'ACTIVE', uuid: { [Op.in]: uuids } },
+    include: [{
+      model: models.UserLicense,
+      as: 'license',
+      required: true,
+      include: [{
+        model: models.StoreProduct,
+        as: 'product',
+        required: true,
+        include: [{
+          model: models.StoreProductBundle,
+          as: 'bundleLinks',
+          include: [{ model: models.EntitlementBundle, as: 'bundle', required: true }]
+        }]
+      }]
+    }]
+  });
 }
 
 async function loadBundleByKey(key) {
@@ -240,14 +270,74 @@ export async function resolveChannelEntitlements(channelId, { at = new Date() } 
 
   if (!baseline) throw new Error('El catálogo de entitlements no está inicializado. Ejecuta npm run seed.');
 
-  const bundleByKey = new Map([[baseline.key, baseline]]);
-  for (const assignment of assignments) {
-    if (!assignmentIsActive(assignment, at) || !assignment.bundle) continue;
-    bundleByKey.set(assignment.bundle.key, assignment.bundle);
-  }
+  const activeAssignments = assignments.filter((assignment) => assignmentIsActive(assignment, at) && assignment.bundle);
+  const licenseSourceRefs = activeAssignments
+    .filter((assignment) => String(rowValue(assignment, 'sourceType') || '').toLowerCase() === 'license')
+    .map((assignment) => rowValue(assignment, 'sourceRef'));
+  const licenseAssignments = await loadActiveLicenseAssignments(channelId, licenseSourceRefs, at);
+  const validAssignments = filterValidLicenseEntitlements(activeAssignments, licenseAssignments, at);
+
+  const activeBundles = [baseline, ...validAssignments.map((assignment) => assignment.bundle)];
 
   const capabilities = await models.EntitlementCapability.findAll({ where: { scope: 'channel', active: true } });
-  return resolveEntitlementValues(capabilities, [...bundleByKey.values()]);
+  return resolveEntitlementValues(capabilities, activeBundles);
+}
+
+function licenseIsActive(license, at) {
+  if (String(rowValue(license, 'status') || '').toUpperCase() !== 'ACTIVE') return false;
+  const startsAt = rowValue(license, 'startsAt');
+  const endsAt = rowValue(license, 'endsAt');
+  if (startsAt && new Date(startsAt).getTime() > at.getTime()) return false;
+  if (endsAt && new Date(endsAt).getTime() <= at.getTime()) return false;
+  return true;
+}
+
+export async function resolveAccountEntitlements(userId, { at = new Date() } = {}) {
+  const [baseline, licenses] = await Promise.all([
+    loadBundleByKey(ENTITLEMENT_BUNDLE_KEYS.ACCOUNT_FREE),
+    models.UserLicense.findAll({
+      where: { userId: Number(userId), status: 'ACTIVE' },
+      include: [{
+        model: models.StoreProduct,
+        as: 'product',
+        where: { active: true, targetScope: 'account' },
+        required: true,
+        include: [{
+          model: models.StoreProductBundle,
+          as: 'bundleLinks',
+          include: [{
+            model: models.EntitlementBundle,
+            as: 'bundle',
+            where: { active: true, scope: 'account' },
+            required: true,
+            include: [{
+              model: models.EntitlementGrant,
+              as: 'grants',
+              include: [{ model: models.EntitlementCapability, as: 'capability', where: { active: true }, required: true }]
+            }]
+          }]
+        }]
+      }]
+    })
+  ]);
+
+  if (!baseline) throw new Error('El catálogo de entitlements no está inicializado. Ejecuta npm run seed.');
+
+  const activeBundles = [baseline];
+  for (const license of licenses) {
+    if (!licenseIsActive(license, at) || !license.product) continue;
+    const quantity = Math.max(1, Number(rowValue(license, 'quantity') || 1));
+    const links = rowValue(license.product, 'bundleLinks') || [];
+    for (let copy = 0; copy < quantity; copy += 1) {
+      for (const link of links) {
+        const bundle = rowValue(link, 'bundle');
+        if (bundle) activeBundles.push(bundle);
+      }
+    }
+  }
+
+  const capabilities = await models.EntitlementCapability.findAll({ where: { scope: 'account', active: true } });
+  return resolveEntitlementValues(capabilities, activeBundles);
 }
 
 export async function getEntitlementCatalogSnapshot() {
