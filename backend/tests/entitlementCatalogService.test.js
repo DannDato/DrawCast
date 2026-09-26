@@ -102,7 +102,7 @@ test('Launchpad Lite resuelve 8 pads, las expansiones acumulan y el máximo téc
 });
 
 
-test('bootstrap de entitlements no reescribe catálogo existente ni reconstruye grants', async () => {
+test('bootstrap de entitlements completa grants faltantes sin reescribir los existentes', async () => {
   const originals = {
     capabilityFindOrCreate: models.EntitlementCapability.findOrCreate,
     bundleFindOrCreate: models.EntitlementBundle.findOrCreate,
@@ -114,10 +114,11 @@ test('bootstrap de entitlements no reescribe catálogo existente ni reconstruye 
   try {
     models.EntitlementCapability.findOrCreate = async ({ where }) => [{ id: ++capabilityId, key: where.key }, false];
     models.EntitlementBundle.findOrCreate = async ({ where }) => [{ id: where.key, key: where.key }, false];
-    models.EntitlementGrant.findOrCreate = async () => { grantCalls += 1; return [{}, true]; };
+    models.EntitlementGrant.findOrCreate = async () => { grantCalls += 1; return [{}, false]; };
 
     await bootstrapEntitlementCatalog();
-    assert.equal(grantCalls, 0);
+    const expectedGrants = ENTITLEMENT_BUNDLES.reduce((total, bundle) => total + Object.keys(bundle.grants || {}).length, 0);
+    assert.equal(grantCalls, expectedGrants);
   } finally {
     models.EntitlementCapability.findOrCreate = originals.capabilityFindOrCreate;
     models.EntitlementBundle.findOrCreate = originals.bundleFindOrCreate;

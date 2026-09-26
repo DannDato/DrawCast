@@ -5,6 +5,8 @@ import { db, auditDb, models } from '../models/index.js';
 import { hasAuditDatabase } from '../config/database.js';
 import { validateEnv } from '../config/env.js';
 import { ENTITLEMENT_BUNDLES, ENTITLEMENT_BUNDLE_KEYS } from '../bootstrap/catalogs/entitlements.js';
+import { bootstrapEntitlementCatalog } from '../services/entitlementCatalogService.js';
+import { bootstrapStoreCatalog } from '../services/storeCatalogService.js';
 
 validateEnv();
 
@@ -367,6 +369,15 @@ await runTrackedMigration('119_7_channel_entitlement_source_integrity', async (t
   for (const grant of persisted) {
     if (!allowedCapabilityIds.has(Number(grant.capabilityId))) await grant.destroy({ transaction });
   }
+});
+
+
+await runTrackedMigration('123_1_catalog_missing_relations', async (transaction) => {
+  // Hotfix de compatibilidad para instalaciones que ya tenían canvas.plus/productos
+  // antes de que existieran capabilities como Línea, Temporizador o Live/Studio.
+  // Los bootstraps sólo crean filas/relaciones faltantes; nunca pisan valores existentes.
+  await bootstrapEntitlementCatalog({ transaction });
+  await bootstrapStoreCatalog({ transaction });
 });
 
 function rewriteChannelMediaUrls(value, channelId, channelUuid) {

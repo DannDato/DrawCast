@@ -159,9 +159,11 @@ export async function bootstrapEntitlementCatalog({ transaction } = {}) {
       system: true,
       metadata: definition.metadata ?? null
     };
-    const [bundle, created] = await models.EntitlementBundle.findOrCreate({ where: { key: definition.key }, defaults: bundleDefaults, transaction });
-    if (!created) continue;
+    const [bundle] = await models.EntitlementBundle.findOrCreate({ where: { key: definition.key }, defaults: bundleDefaults, transaction });
 
+    // La BD sigue siendo la fuente de verdad: nunca reescribimos grants existentes.
+    // Pero si una versión nueva introduce una capability/grant faltante en un bundle
+    // de sistema ya persistido, sí creamos únicamente esa relación ausente.
     for (const [capabilityKey, grantDefinition] of Object.entries(definition.grants || {})) {
       const capability = capabilityRows.get(capabilityKey);
       const { operation, value } = normalizeGrantDefinition(grantDefinition);

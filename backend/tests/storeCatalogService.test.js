@@ -176,7 +176,7 @@ test('metadata.stackable puede sobreescribir el comportamiento por tipo para fut
   assert.equal(storeProductIsStackable({ kind: 'addon', metadata: { stackable: false } }), false);
 });
 
-test('bootstrap de tienda no reescribe productos existentes ni reconstruye relaciones', async () => {
+test('bootstrap de tienda completa relaciones faltantes sin reescribir productos existentes', async () => {
   const originals = {
     bundleFindAll: models.EntitlementBundle.findAll,
     productFindOrCreate: models.StoreProduct.findOrCreate,
@@ -189,12 +189,12 @@ test('bootstrap de tienda no reescribe productos existentes ni reconstruye relac
   try {
     models.EntitlementBundle.findAll = async () => ENTITLEMENT_BUNDLES.map((bundle, index) => ({ id: index + 1, key: bundle.key }));
     models.StoreProduct.findOrCreate = async ({ where }) => [{ id: where.key, key: where.key }, false];
-    models.StoreProductBundle.findOrCreate = async () => { bundleLinkCalls += 1; return [{}, true]; };
-    models.StoreProductRequirement.findOrCreate = async () => { requirementCalls += 1; return [{}, true]; };
+    models.StoreProductBundle.findOrCreate = async () => { bundleLinkCalls += 1; return [{}, false]; };
+    models.StoreProductRequirement.findOrCreate = async () => { requirementCalls += 1; return [{}, false]; };
 
     await bootstrapStoreCatalog();
-    assert.equal(bundleLinkCalls, 0);
-    assert.equal(requirementCalls, 0);
+    assert.equal(bundleLinkCalls, STORE_PRODUCTS.reduce((total, product) => total + product.bundles.length, 0));
+    assert.equal(requirementCalls, STORE_PRODUCTS.reduce((total, product) => total + (product.requirements || []).length, 0));
   } finally {
     models.EntitlementBundle.findAll = originals.bundleFindAll;
     models.StoreProduct.findOrCreate = originals.productFindOrCreate;

@@ -82,9 +82,10 @@ export async function bootstrapStoreCatalog({ transaction } = {}) {
       metadata: definition.metadata || null
     };
 
-    const [product, created] = await models.StoreProduct.findOrCreate({ where: { key: definition.key }, defaults, transaction });
-    if (!created) continue;
+    const [product] = await models.StoreProduct.findOrCreate({ where: { key: definition.key }, defaults, transaction });
 
+    // No reescribimos nombre/precio/metadata de productos existentes. Sólo completamos
+    // relaciones N:M o requisitos que una versión nueva haya añadido y todavía falten.
     for (const bundleKey of definition.bundles) {
       const bundle = bundleByKey.get(bundleKey);
       if (!bundle) throw new Error(`No se encontró el bundle ${bundleKey}. Ejecuta primero bootstrapEntitlementCatalog.`);

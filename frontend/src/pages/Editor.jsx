@@ -584,7 +584,7 @@ export default function Editor() {
   };
 
   const openInsertProperties = ({ id, clientX, clientY } = {}) => {
-    if (!['text', 'shape', 'timer'].includes(id)) return;
+    if (!['text', 'shape', 'line', 'timer'].includes(id)) return;
     openPropertiesAt({ clientX, clientY });
   };
 
