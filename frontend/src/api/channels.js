@@ -29,6 +29,7 @@ export const getChannelEntitlements = (channelUuid, { force = false } = {}) => c
 export const createChannel = async (data) => {
   const result = await api.post('/channels', data).then((response) => response.data);
   invalidateRequestCache('channels:');
+  invalidateRequestCache('store:');
   return result;
 };
 
@@ -99,6 +100,7 @@ export const invalidateChannelCache = () => invalidateRequestCache('channels:');
 export const deleteChannel = async (channelUuid, confirmation) => {
   const result = await api.delete(`/channels/${channelUuid}`, { data: { confirmation } });
   invalidateRequestCache('channels:');
+  invalidateRequestCache('store:');
   return result;
 };
 

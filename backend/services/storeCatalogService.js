@@ -249,15 +249,31 @@ export function storeProductIsStackable(product) {
   return ['addon', 'capacity', 'plan'].includes(rowValue(product, 'kind'));
 }
 
-export function storeProductCommerceState({ product, ownership = {}, requirementsMet = true, plusOwned = false }) {
+export function storeProductCommerceState({ product, ownership = {}, requirementsMet = true, coverage = {} }) {
   const kind = rowValue(product, 'kind');
   const activeLicenseCount = Number(ownership.activeLicenseCount || 0);
   const activeAssignmentCount = Number(ownership.activeAssignmentCount || 0);
+  const availableInventoryCount = Math.max(0, activeLicenseCount - activeAssignmentCount);
   const stackable = storeProductIsStackable(product);
+  const ownedChannelCount = Number(coverage.ownedChannelCount || 0);
+  const coveredChannelCount = Number(coverage.coveredChannelCount || 0);
+  const plusCoveredChannelCount = Number(coverage.plusCoveredChannelCount || 0);
+  const coverageComplete = ownedChannelCount > 0 && coveredChannelCount >= ownedChannelCount;
+  const plusCoverageComplete = ownedChannelCount > 0 && plusCoveredChannelCount >= ownedChannelCount;
 
-  if (!stackable && activeAssignmentCount > 0) return 'owned_applied';
-  if (!stackable && activeLicenseCount > activeAssignmentCount) return 'in_inventory';
-  if (plusOwned && ['tool', 'pack'].includes(kind)) return 'included_in_plus';
+  // Si ya existe una licencia libre, no vendemos otra: primero hay que aplicarla.
+  if (!stackable && availableInventoryCount > 0) return 'in_inventory';
+
+  if (!stackable && ['tool', 'pack'].includes(kind)) {
+    // Plus sólo vuelve redundante el producto cuando cubre TODOS los lienzos actuales.
+    if (plusCoverageComplete && activeAssignmentCount === 0) return 'included_in_plus';
+    // Una licencia aplicada en A no impide comprar otra para B. Sólo marcamos YA LO
+    // TIENES cuando cada lienzo ya está cubierto por el propio producto o por Plus.
+    if (coverageComplete) return 'owned_applied';
+  } else if (!stackable && activeAssignmentCount > 0) {
+    return 'owned_applied';
+  }
+
   if (!requirementsMet && (rowValue(product, 'requirements') || []).length > 0) return 'requires_base';
   return 'available';
 }
@@ -307,13 +323,31 @@ export async function getStoreCatalogForUser(userId) {
     ? channelContexts.filter((context) => context.activeProductKeys.includes(plusKey)).length
     : 0;
   const plusApplied = plusAppliedChannelCount > 0;
+  const ownedChannelCount = channelContexts.length;
+  const plusCoverageComplete = ownedChannelCount > 0 && plusAppliedChannelCount >= ownedChannelCount;
+  const plusInventoryAvailableCount = Math.max(
+    0,
+    Number(plusOwnership.activeLicenseCount || 0) - Number(plusOwnership.activeAssignmentCount || 0)
+  );
+  const plusUncoveredChannelCount = Math.max(0, ownedChannelCount - plusAppliedChannelCount);
 
   const entries = products.map((product) => {
     const requirements = rowValue(product, 'requirements') || [];
     const eligible = eligibleChannelUuids(product, channelContexts);
     const requirementsMet = rowValue(product, 'targetScope') === 'account' || requirements.length === 0 || eligible.length > 0;
-    const productOwnership = ownership.get(rowValue(product, 'key')) || {};
-    const state = storeProductCommerceState({ product, ownership: productOwnership, requirementsMet, plusOwned });
+    const productKey = rowValue(product, 'key');
+    const productOwnership = ownership.get(productKey) || {};
+    const kind = rowValue(product, 'kind');
+    const coverage = ['tool', 'pack'].includes(kind)
+      ? {
+          ownedChannelCount,
+          plusCoveredChannelCount: plusAppliedChannelCount,
+          coveredChannelCount: channelContexts.filter((context) => (
+            context.activeProductKeys.includes(productKey) || (plusKey && context.activeProductKeys.includes(plusKey))
+          )).length
+        }
+      : { ownedChannelCount };
+    const state = storeProductCommerceState({ product, ownership: productOwnership, requirementsMet, coverage });
     const purchaseAvailable = !['owned_applied', 'in_inventory', 'included_in_plus'].includes(state);
 
     return {
@@ -327,6 +361,8 @@ export async function getStoreCatalogForUser(userId) {
         ownedChannelCount: channelContexts.length,
         activeLicenseCount: Number(productOwnership.activeLicenseCount || 0),
         activeAssignmentCount: Number(productOwnership.activeAssignmentCount || 0),
+        coveredChannelCount: Number(coverage.coveredChannelCount || 0),
+        uncoveredChannelCount: Math.max(0, ownedChannelCount - Number(coverage.coveredChannelCount || 0)),
         stackable: storeProductIsStackable(product)
       }
     };
@@ -339,6 +375,10 @@ export async function getStoreCatalogForUser(userId) {
       plusProductName: rowValue(plusProduct, 'name') || null,
       plusOwned,
       plusApplied,
+      plusCoverageComplete,
+      plusInventoryAvailableCount,
+      plusUncoveredChannelCount,
+      ownedChannelCount,
       plusActiveLicenseCount: Number(plusOwnership.activeLicenseCount || 0),
       plusAppliedChannelCount
     }

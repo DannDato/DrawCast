@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   AudioLines,
@@ -103,7 +103,7 @@ function StoreProductStatus({ product, plusName }) {
   return null;
 }
 
-function StoreCategoryRow({ products, plusOwned, plusName, onOpen, onInventory }) {
+function StoreCategoryRow({ products, plusCoverageComplete, plusName, onOpen, onInventory }) {
   const rowRef = useRef(null);
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
@@ -213,7 +213,7 @@ function StoreCategoryRow({ products, plusOwned, plusName, onOpen, onInventory }
         onPointerUp={resume}
       >
         {products.map((product) => (
-          <StoreProductCard key={product.uuid} product={product} plusOwned={plusOwned} plusName={plusName} onOpen={onOpen} onInventory={onInventory} />
+          <StoreProductCard key={product.uuid} product={product} plusCoverageComplete={plusCoverageComplete} plusName={plusName} onOpen={onOpen} onInventory={onInventory} />
         ))}
       </div>
       <button type="button" className="dc-store-carousel-arrow is-right" aria-label="Ver más productos" disabled={!scrollState.right} onClick={() => scrollByCards(1)}>
@@ -223,11 +223,11 @@ function StoreCategoryRow({ products, plusOwned, plusName, onOpen, onInventory }
   );
 }
 
-function StoreProductCard({ product, plusOwned, plusName, onOpen, onInventory }) {
+function StoreProductCard({ product, plusCoverageComplete, plusName, onOpen, onInventory }) {
   const state = productState(product);
   const requiresConfirmation = state === 'requires_base';
   const purchaseBlocked = product.eligibility?.purchaseAvailable === false;
-  const redundantByPlus = plusOwned && ['tool', 'pack'].includes(product.kind);
+  const redundantByPlus = plusCoverageComplete && ['tool', 'pack'].includes(product.kind);
   const image = productImage(product);
 
   const handleAction = () => {
@@ -272,22 +272,31 @@ function StoreProductCard({ product, plusOwned, plusName, onOpen, onInventory })
 function PlusHero({ product, intelligence, onOpen, onInventory }) {
   if (!product) return null;
   const appliedCount = Number(intelligence?.plusAppliedChannelCount || 0);
+  const uncoveredCount = Number(intelligence?.plusUncoveredChannelCount || 0);
+  const inventoryAvailable = Number(intelligence?.plusInventoryAvailableCount || 0) > 0;
   const plusApplied = intelligence?.plusApplied === true;
   const plusOwned = intelligence?.plusOwned === true;
-  const ctaLabel = plusApplied ? 'Administrar en Inventario' : plusOwned ? 'Aplicar desde Inventario' : 'Desbloquear todo';
+  const coverageComplete = intelligence?.plusCoverageComplete === true;
+  const ctaLabel = coverageComplete
+    ? 'Administrar en Inventario'
+    : inventoryAvailable
+      ? 'Aplicar desde Inventario'
+      : plusOwned
+        ? 'Comprar otro Plus'
+        : 'Desbloquear todo';
   const [nameLead, ...nameTail] = String(product.name || 'Lienzo Plus').split(/\s+/);
-  const handleClick = plusApplied || plusOwned ? onInventory : () => onOpen(product);
+  const handleClick = coverageComplete || inventoryAvailable ? onInventory : () => onOpen(product);
 
   return (
     <section className={`dc-store-plus ${plusApplied ? 'is-active' : ''}`}>
       <div className="dc-store-plus-glow" aria-hidden="true" />
       <div className="dc-store-plus-copy">
-        <span className="dc-store-eyebrow"><Sparkles size={14} /> {plusApplied ? 'TU PLAN PRINCIPAL' : 'LA OPCIÓN MÁS COMPLETA'}</span>
+        <span className="dc-store-eyebrow"><Sparkles size={14} /> {coverageComplete ? 'TODOS TUS LIENZOS TIENEN PLUS' : plusApplied ? 'PLUS ACTIVO EN PARTE DE TU CUENTA' : 'LA OPCIÓN MÁS COMPLETA'}</span>
         <h1><span>{nameLead}</span>{nameTail.length > 0 && <> <strong>{nameTail.join(' ')}</strong></>}</h1>
         <p>{product.description}</p>
-        {!plusApplied && !plusOwned && <div className="dc-store-plus-pitch">¿Vas a comprar varias herramientas? {product.name} ya las reúne en un solo lienzo.</div>}
-        {plusApplied && <div className="dc-store-plus-state"><Check size={15} /> ACTIVO EN {appliedCount} {appliedCount === 1 ? 'LIENZO' : 'LIENZOS'}</div>}
-        {!plusApplied && plusOwned && <div className="dc-store-plus-state"><ShoppingBag size={15} /> YA ESTÁ EN TU INVENTARIO</div>}
+        {!coverageComplete && !inventoryAvailable && <div className="dc-store-plus-pitch">{plusOwned ? `Todavía tienes ${uncoveredCount} ${uncoveredCount === 1 ? 'lienzo sin Plus' : 'lienzos sin Plus'}.` : `¿Vas a comprar varias herramientas? ${product.name} ya las reúne en un solo lienzo.`}</div>}
+        {plusApplied && <div className="dc-store-plus-state"><Check size={15} /> ACTIVO EN {appliedCount} {appliedCount === 1 ? 'LIENZO' : 'LIENZOS'}{uncoveredCount > 0 ? ` · ${uncoveredCount} SIN PLUS` : ''}</div>}
+        {inventoryAvailable && <div className="dc-store-plus-state"><ShoppingBag size={15} /> TIENES UNA LICENCIA PLUS LIBRE EN INVENTARIO</div>}
         <div className="dc-store-plus-highlights">
           {(product.metadata?.highlights || []).map((item) => <span key={item}><Check size={14} /> {item}</span>)}
         </div>
@@ -296,7 +305,7 @@ function PlusHero({ product, intelligence, onOpen, onInventory }) {
         <span>POR LIENZO</span>
         <div><b>{money(product)}</b><small>{intervalLabel(product)}</small></div>
         <button type="button" onClick={handleClick}>{ctaLabel} <ArrowRight size={16} /></button>
-        <small>{plusApplied ? 'Las herramientas y packs incluidos se marcan automáticamente como redundantes.' : 'Todos los colaboradores usan las capacidades del lienzo.'}</small>
+        <small>{coverageComplete ? 'Las herramientas y packs incluidos se marcan como redundantes porque todos tus lienzos están cubiertos.' : 'Cada licencia Plus se aplica a un lienzo concreto.'}</small>
       </div>
     </section>
   );
@@ -380,6 +389,7 @@ function StorePreviewModal({ product, checkoutEnabled, simulationEnabled, onClos
 
 export default function Store() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [catalog, setCatalog] = useState({ checkoutEnabled: false, simulationEnabled: false, intelligence: {}, products: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -388,12 +398,22 @@ export default function Store() {
 
   useEffect(() => {
     let active = true;
-    getStoreCatalog()
+    getStoreCatalog({ force: true })
       .then((result) => active && setCatalog(result || { checkoutEnabled: false, simulationEnabled: false, intelligence: {}, products: [] }))
       .catch((reason) => active && setError(reason?.response?.data?.message || reason?.message || 'No se pudo cargar la tienda.'))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab && TAB_DEFINITIONS.some((tab) => tab.id === requestedTab)) setActiveTab(requestedTab);
+
+    const requestedProduct = searchParams.get('product');
+    if (!requestedProduct || !catalog.products.length) return;
+    const product = catalog.products.find((item) => item.key === requestedProduct || item.uuid === requestedProduct);
+    if (product) setSelectedProduct(product);
+  }, [catalog.products, searchParams]);
 
   const plus = useMemo(() => catalog.products.find((product) => product.featured), [catalog.products]);
   const sections = useMemo(() => {
@@ -414,10 +434,10 @@ export default function Store() {
 
   const visibleSections = useMemo(() => {
     if (activeTab !== 'all') return TAB_SECTIONS[activeTab] || [];
-    return catalog.intelligence?.plusOwned
+    return catalog.intelligence?.plusCoverageComplete
       ? ['expansions', 'canvases', 'packs', 'tools']
       : ['packs', 'tools', 'expansions', 'canvases'];
-  }, [activeTab, catalog.intelligence?.plusOwned]);
+  }, [activeTab, catalog.intelligence?.plusCoverageComplete]);
 
   const sectionTab = (section) => section === 'canvases' ? 'expansions' : section;
 
@@ -467,10 +487,10 @@ export default function Store() {
                   )}
                 </div>
                 {activeTab === 'all' ? (
-                  <StoreCategoryRow products={products} plusOwned={catalog.intelligence?.plusOwned === true} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onInventory={goInventory} />
+                  <StoreCategoryRow products={products} plusCoverageComplete={catalog.intelligence?.plusCoverageComplete === true} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onInventory={goInventory} />
                 ) : (
                   <div className="dc-store-grid">
-                    {products.map((product) => <StoreProductCard key={product.uuid} product={product} plusOwned={catalog.intelligence?.plusOwned === true} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onInventory={goInventory} />)}
+                    {products.map((product) => <StoreProductCard key={product.uuid} product={product} plusCoverageComplete={catalog.intelligence?.plusCoverageComplete === true} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onInventory={goInventory} />)}
                   </div>
                 )}
               </section>

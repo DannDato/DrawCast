@@ -6,7 +6,7 @@ import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import { turnstileConfig, verifyTurnstile } from '../../middlewares/turnstile.js';
 
 const router = express.Router();
-router.post('/login', authLimiter, verifyTurnstile('login'), asyncHandler(ctrlAuth.login));
+router.post('/login', authLimiter, verifyTurnstile('login', { allowLoginFailOpen: true }), asyncHandler(ctrlAuth.login));
 router.post('/register', authLimiter, verifyTurnstile('register'), asyncHandler(ctrlAuth.register));
 router.get('/turnstile/config', authReadLimiter, turnstileConfig);
 router.get('/username-availability', usernameAvailabilityLimiter, asyncHandler(ctrlAuth.usernameAvailability));

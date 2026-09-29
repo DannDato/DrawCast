@@ -68,13 +68,13 @@ export default function Landing() {
             <div className="dc-landing-stipple" aria-hidden="true"></div>
             <div className="dc-landing-content">
                 <Helmet>
-                    <title>TRAZIO — Overlays para OBS en Tiempo Real</title>
+                    <title>Trazio — Overlays para OBS en tiempo real</title>
                     <meta
                         name="description"
                         content="Crea y controla overlays dinámicos para tu transmisión en vivo. Conecta TRAZIO a OBS Studio como Browser Source y opera tu stream en tiempo real, en equipo."
                     />
                     <link rel="canonical" href={`${import.meta.env.VITE_APP_URL}${window.location.pathname}`} />
-                    <meta property="og:title" content="TRAZIO — Overlays para OBS en Tiempo Real" />
+                    <meta property="og:title" content="Trazio — Overlays para OBS en tiempo real" />
                     <meta
                         property="og:description"
                         content="Dibuja tu escena, comparte el control con tu equipo y transmite cada cambio al instante en OBS."
@@ -87,7 +87,7 @@ export default function Landing() {
 
                     <nav className="flex flex-col gap-5 border-b border-[var(--dc-text)]/15 py-5 sm:flex-row sm:items-center sm:justify-between">
                         <strong className="font-['Bebas_Neue'] text-2xl font-normal tracking-[0.06em] md:text-[28px]">
-                            <strong>TRAZIO </strong><span className="text-[var(--dc-accent-four)]"> //</span>
+                            <strong>TRAZIO </strong><span className="text-[var(--dc-accent-one)]"> //</span>
                         </strong>
 
                         <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export default function Landing() {
                                 Iniciar Sesión
                             </Link>
 
-                            <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-4 py-3 font-mono text-[10px] font-bold tracking-wide text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-5 sm:text-xs md:px-6" to="/register">
+                            <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-4 py-3 font-mono text-[10px] font-bold tracking-wide text-[var(--dc-text)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-5 sm:text-xs md:px-6" to="/register">
                                 Crear cuenta
                             </Link>
                         </div>
@@ -124,7 +124,7 @@ export default function Landing() {
                             </p>
 
                             <div className="mt-10 flex flex-wrap items-center gap-3">
-                                <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
+                                <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
                                     CREA TU CUENTA YA!
                                 </Link>
                             </div>
@@ -160,7 +160,7 @@ export default function Landing() {
 
                         <h2 className="mt-5 font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
                             TÚ CONTROLAS AQUÍ <span className="text-[var(--dc-accent-two)]">//</span>
-                            <span className="text-[var(--dc-accent-four)]"> SALE ALLÁ.</span>
+                            <span className="text-[var(--dc-accent-three)]"> SALE ALLÁ.</span>
                         </h2>
 
                         <p className="mt-8  text-base leading-7 text-[var(--dc-text)] md:text-lg md:leading-8">
@@ -275,7 +275,7 @@ export default function Landing() {
                                                 <span>●</span>
                                             </div>
 
-                                            <div className="flex justify-between bg-[var(--dc-accent-two)] px-2 py-1 text-[var(--dc-text-inverse)]">
+                                            <div className="flex justify-between bg-[var(--dc-accent-two)] px-2 py-1 text-[var(--dc-text)]">
                                                 <span>Overlay TRAZIO</span>
                                                 <span>●</span>
                                             </div>
@@ -368,9 +368,9 @@ export default function Landing() {
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,6rem)]">
-                            <span className="text-[var(--dc-accent-three)]"> UNA URL <span className="text-[var(--dc-text-muted)]">|</span> </span>
+                            <span className="text-[var(--dc-accent-one)]"> UNA URL <span className="text-[var(--dc-text-muted)]">|</span> </span>
                             <span className="text-[var(--dc-text)]"> UNA FUENTE <span className="text-[var(--dc-text-muted)]">|</span> </span> 
-                            <span className="text-[var(--dc-accent-four)]"> CONTROL TOTAL</span>
+                            <span className="text-[var(--dc-accent-three)]"> CONTROL TOTAL</span>
                         </h2>
 
                         <div className="mt-14 flex flex-col  gap-10 ">
@@ -379,7 +379,7 @@ export default function Landing() {
                                 <div className="flex min-w-0 items-center gap-3 overflow-hidden border border-[var(--dc-text)]/10 bg-white/[0.03] px-4 py-3">
                                     <div className="h-2 w-2 shrink-0 bg-[var(--dc-accent)]"></div>
 
-                                    <span className="min-w-0 truncate font-mono text-[9px] text-[var(--dc-text)]/35 sm:text-[10px]">
+                                    <span className="min-w-0 truncate font-mono text-[9px] text-[var(--dc-text)]/35 sm:text-[12px]">
                                         {`${import.meta.env.VITE_APP_URL}${window.location.pathname}overlay/canal_xxxxxxxxx`}
                                     </span>
                                 </div>
@@ -407,7 +407,7 @@ export default function Landing() {
                                     </div>
 
                                     <div className="flex items-center gap-3 pb-3">
-                                        <span className="bg-[var(--dc-accent-three)] px-1.5 py-0.5 text-[var(--dc-text-inverse)]">04</span>
+                                        <span className="bg-[var(--dc-accent-one)] px-1.5 py-0.5 text-[var(--dc-text-inverse)]">04</span>
                                         SAL AL AIRE
                                     </div>
                                 </div>

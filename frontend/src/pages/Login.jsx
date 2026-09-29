@@ -17,6 +17,7 @@ export default function Login() {
     const [error, setError] = useState(() => searchParams.get("oauthError") || "");
     const [loading, setLoading] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState("");
+    const [turnstileState, setTurnstileState] = useState({ enabled: true, available: false, loginFailOpen: false });
     const turnstileRef = useRef(null);
     const { login: doLogin } = useAuth();
     const navigate = useNavigate();
@@ -76,8 +77,8 @@ export default function Login() {
                     />
                 </label>
                 {error ? <p className="dc-auth-alert error">{error}</p> : null}
-                <TurnstileWidget ref={turnstileRef} action="login" onTokenChange={setTurnstileToken} />
-                <button className="dc-auth-primary" disabled={loading || !turnstileToken}>
+                <TurnstileWidget ref={turnstileRef} action="login" onTokenChange={setTurnstileToken} onStateChange={setTurnstileState} />
+                <button className="dc-auth-primary" disabled={loading || (turnstileState.enabled && !turnstileToken && !(turnstileState.loginFailOpen && !turnstileState.available))}>
                     <LogIn size={16} />
                     {loading ? "ENTRANDO..." : "INICIAR SESIÓN"}
                 </button>

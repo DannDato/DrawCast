@@ -7,7 +7,6 @@ import { ForgotPassword, ResetPassword } from './pages/PasswordPages';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicOnlyRoute from './components/PublicOnlyRoute';
-import ChannelDashboard from './pages/ChannelDashboard';
 import Profile from './pages/Profile';
 import Editor from './pages/Editor';
 import Overlay from './pages/Overlay';
@@ -16,6 +15,7 @@ import EditorHub from './pages/EditorHub';
 import Settings from './pages/Settings';
 import Store from './pages/Store';
 import Inventory from './pages/Inventory';
+import Inicio from './pages/Inicio';
 import { CookiesPage, FaqPage, PrivacyPage, SecurityPage, TermsPage } from './pages/PublicPages';
 
 export default function App() {
@@ -36,7 +36,8 @@ export default function App() {
       <Route path="/invite/:token" element={<ProtectedRoute><AcceptInvite /></ProtectedRoute>} />
 
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-        <Route path="/app" element={<ChannelDashboard />} />
+        <Route path="/app" element={<Inicio />} />
+        <Route path="/app/inicio" element={<Inicio />} />
         <Route path="/app/editor" element={<EditorHub />} />
         <Route path="/app/editor/:publicKey" element={<Editor />} />
         <Route path="/app/profile" element={<Profile />} />

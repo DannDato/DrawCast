@@ -155,7 +155,7 @@ test('requirements de límites soportan gte para futuras expansiones', () => {
 
 
 
-test('la inteligencia de tienda prioriza propiedad, Plus y requisitos sin depender del nombre comercial', () => {
+test('la inteligencia de tienda calcula redundancia por cobertura de lienzos, no por propiedad global', () => {
   const tool = { kind: 'tool', metadata: {}, requirements: [] };
   const addon = { kind: 'addon', metadata: {}, requirements: [{ groupKey: 'base' }] };
   const plan = { kind: 'plan', metadata: {}, requirements: [] };
@@ -164,11 +164,45 @@ test('la inteligencia de tienda prioriza propiedad, Plus y requisitos sin depend
   assert.equal(storeProductIsStackable(addon), true);
   assert.equal(storeProductIsStackable(plan), true);
 
-  assert.equal(storeProductCommerceState({ product: tool, ownership: { activeLicenseCount: 1, activeAssignmentCount: 1 }, requirementsMet: true, plusOwned: false }), 'owned_applied');
-  assert.equal(storeProductCommerceState({ product: tool, ownership: { activeLicenseCount: 1, activeAssignmentCount: 0 }, requirementsMet: true, plusOwned: false }), 'in_inventory');
-  assert.equal(storeProductCommerceState({ product: tool, ownership: {}, requirementsMet: true, plusOwned: true }), 'included_in_plus');
-  assert.equal(storeProductCommerceState({ product: addon, ownership: {}, requirementsMet: false, plusOwned: false }), 'requires_base');
-  assert.equal(storeProductCommerceState({ product: addon, ownership: {}, requirementsMet: true, plusOwned: true }), 'available');
+  assert.equal(storeProductCommerceState({
+    product: tool,
+    ownership: { activeLicenseCount: 1, activeAssignmentCount: 1 },
+    requirementsMet: true,
+    coverage: { ownedChannelCount: 1, coveredChannelCount: 1, plusCoveredChannelCount: 0 }
+  }), 'owned_applied');
+
+  // Tener la herramienta aplicada en A no impide comprar otra para B.
+  assert.equal(storeProductCommerceState({
+    product: tool,
+    ownership: { activeLicenseCount: 1, activeAssignmentCount: 1 },
+    requirementsMet: true,
+    coverage: { ownedChannelCount: 2, coveredChannelCount: 1, plusCoveredChannelCount: 0 }
+  }), 'available');
+
+  // Una licencia libre debe usarse antes de vender otra.
+  assert.equal(storeProductCommerceState({
+    product: tool,
+    ownership: { activeLicenseCount: 2, activeAssignmentCount: 1 },
+    requirementsMet: true,
+    coverage: { ownedChannelCount: 2, coveredChannelCount: 1, plusCoveredChannelCount: 0 }
+  }), 'in_inventory');
+
+  // Plus sólo hace redundante una herramienta cuando cubre todos los lienzos.
+  assert.equal(storeProductCommerceState({
+    product: tool,
+    ownership: {},
+    requirementsMet: true,
+    coverage: { ownedChannelCount: 1, coveredChannelCount: 1, plusCoveredChannelCount: 1 }
+  }), 'included_in_plus');
+  assert.equal(storeProductCommerceState({
+    product: tool,
+    ownership: {},
+    requirementsMet: true,
+    coverage: { ownedChannelCount: 2, coveredChannelCount: 1, plusCoveredChannelCount: 1 }
+  }), 'available');
+
+  assert.equal(storeProductCommerceState({ product: addon, ownership: {}, requirementsMet: false, coverage: { ownedChannelCount: 1 } }), 'requires_base');
+  assert.equal(storeProductCommerceState({ product: addon, ownership: {}, requirementsMet: true, coverage: { ownedChannelCount: 1 } }), 'available');
 });
 
 test('metadata.stackable puede sobreescribir el comportamiento por tipo para futura administración', () => {
