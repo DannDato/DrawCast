@@ -221,3 +221,11 @@
 .dc-plus-panel-lock>b{font:700 12px/1.2 Outfit,sans-serif;color:var(--dc-text-strong)}
 .dc-plus-panel-lock>small{max-width:230px;font:500 11px/1.35 Outfit,sans-serif;color:var(--dc-text)}
 @media(prefers-reduced-motion:reduce){.dc-plus-locked::before{animation:none}}
+
+.dc-toolbar-icon.dc-toolbar-navigation,
+.dc-toolbar-icon.dc-toolbar-navigation:hover{
+  flex-shrink:0;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}

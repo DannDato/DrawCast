@@ -131,7 +131,7 @@ export default function Profile() {
   const shown = profile || user;
   const initial = (shown?.displayName || shown?.username || 'U').slice(0, 1).toUpperCase();
 
-  return <div className="mx-auto w-full max-w-[1440px] py-6 pt-4">
+  return <div className="dc-app-page">
     {(oauthNotice || notice) && <div className={`mb-4 flex items-center gap-2 border px-3.5 py-3 font-semibold ${(oauthNotice || notice).type === 'error' ? 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]' : 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]'}`}><span>{(oauthNotice || notice).type === 'success' ? <Check size={17} /> : <X size={17} />}</span>{(oauthNotice || notice).text}</div>}
 
     <div className="grid grid-cols-1 items-stretch gap-[18px] xl:grid-cols-[280px_minmax(0,1fr)_320px]">

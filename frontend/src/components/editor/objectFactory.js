@@ -2,6 +2,7 @@ import { DEFAULT_SHAPE_CONFIG, getShapeLabel } from './tools/shapes/shapeTool';
 import { DEFAULT_IMAGE_CONFIG, clampImageConfig, getImageKind, imageLayerName } from './tools/images/imageTool';
 import { DEFAULT_TEXT_CONFIG, measureTextBounds, normalizeTextConfig, textLayerName } from './tools/text/textTool';
 import { DEFAULT_TIMER_CONFIG, normalizeTimerConfig, timerBounds } from './tools/timer/timerTool';
+import { DEFAULT_ROULETTE_CONFIG, normalizeRouletteConfig } from './tools/roulette/rouletteTool';
 
 const id = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -65,6 +66,31 @@ export const makeTimer = (x, y, options = {}) => {
     timerRunning: false,
     hidden: false,
     layerName: `TEMPORIZADOR ${Date.now().toString().slice(-4)}`,
+    zIndex: Date.now()
+  };
+};
+
+
+export const makeRoulette = (draft = {}) => {
+  const config = normalizeRouletteConfig({ ...DEFAULT_ROULETTE_CONFIG, ...draft });
+  const size = Math.max(120, Number(draft.w || draft.h) || 520);
+  return {
+    id: id('roulette'),
+    tipo: 'roulette',
+    x: Number(draft.x) || 0,
+    y: Number(draft.y) || 0,
+    w: size,
+    h: size,
+    rotation: Number(draft.rotation) || 0,
+    ...config,
+    rouletteRunning: false,
+    rouletteStartedAtMs: null,
+    rouletteStartRotation: 0,
+    rouletteEndRotation: 0,
+    rouletteWinnerIndex: null,
+    rouletteWinnerText: '',
+    hidden: false,
+    layerName: `RULETA ${Date.now().toString().slice(-4)}`,
     zIndex: Date.now()
   };
 };

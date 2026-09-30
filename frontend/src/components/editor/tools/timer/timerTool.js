@@ -2,18 +2,23 @@ import { normalizeTextConfig, resolveTextFontFamily } from '../text/textTool';
 import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 
 export const MAX_TIMER_SECONDS = (99 * 3600) + (59 * 60) + 59;
+export const TIMER_FINISH_ANIMATION_MS = 900;
 
 export const DEFAULT_TIMER_CONFIG = {
   timerMode: DEFAULT_EDITOR_PREFERENCES.timer.timerMode,
   startSeconds: DEFAULT_EDITOR_PREFERENCES.timer.startSeconds,
   limitSeconds: DEFAULT_EDITOR_PREFERENCES.timer.limitSeconds,
   color: DEFAULT_EDITOR_PREFERENCES.timer.color,
+  finishColor: DEFAULT_EDITOR_PREFERENCES.timer.finishColor,
   strokeColor: DEFAULT_EDITOR_PREFERENCES.timer.strokeColor,
   strokeWidth: DEFAULT_EDITOR_PREFERENCES.timer.strokeWidth,
   fontSize: DEFAULT_EDITOR_PREFERENCES.timer.fontSize,
   fontKey: DEFAULT_EDITOR_PREFERENCES.timer.fontKey,
   fontFamily: resolveTextFontFamily(DEFAULT_EDITOR_PREFERENCES.timer.fontKey)
 };
+
+const clampSeconds = (value) => Math.max(0, Math.min(MAX_TIMER_SECONDS, Number(value) || 0));
+const validColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback;
 
 export function parseHmsToSeconds(raw, fallbackSeconds = 0) {
   const text = String(raw || '').trim();
@@ -25,11 +30,11 @@ export function parseHmsToSeconds(raw, fallbackSeconds = 0) {
   const seconds = Number(match[3]);
   if (minutes > 59 || seconds > 59) return fallbackSeconds;
 
-  return Math.max(0, (hours * 3600) + (minutes * 60) + seconds);
+  return clampSeconds((hours * 3600) + (minutes * 60) + seconds);
 }
 
 export function formatSecondsAsHms(totalSeconds) {
-  const safe = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const safe = clampSeconds(Math.floor(Number(totalSeconds) || 0));
   const hours = Math.floor(safe / 3600);
   const minutes = Math.floor((safe % 3600) / 60);
   const seconds = safe % 60;
@@ -38,7 +43,7 @@ export function formatSecondsAsHms(totalSeconds) {
 
 export function normalizeTimerConfig(config = {}) {
   const timerMode = config.timerMode === 'down' || config.mode === 'down' ? 'down' : 'up';
-  const startSeconds = Math.max(0, Math.min(MAX_TIMER_SECONDS, Number(config.startSeconds ?? config.baseSeconds) || 0));
+  const startSeconds = clampSeconds(config.startSeconds ?? config.baseSeconds);
   const fallbackLimit = timerMode === 'down' ? 0 : MAX_TIMER_SECONDS;
   const rawLimit = Number.isFinite(Number(config.limitSeconds)) ? Number(config.limitSeconds) : fallbackLimit;
   const limitSeconds = timerMode === 'down'
@@ -50,6 +55,7 @@ export function normalizeTimerConfig(config = {}) {
     timerMode,
     startSeconds,
     limitSeconds,
+    finishColor: validColor(config.finishColor, DEFAULT_EDITOR_PREFERENCES.timer.finishColor),
     ...textConfig
   };
 }
@@ -95,24 +101,79 @@ export function getTimerText(timer, nowMs = Date.now()) {
   return formatSecondsAsHms(getTimerCurrentSeconds(timer, nowMs));
 }
 
-export function timerIsStillRunning(timer, nowMs = Date.now()) {
-  if (!timer || !(timer.timerRunning ?? timer.running)) return false;
+export function timerHasReachedEnd(timer, nowMs = Date.now()) {
+  if (!timer) return false;
   const config = normalizeTimerConfig(timer);
   const current = getTimerCurrentSeconds(timer, nowMs);
-  return config.timerMode === 'down' ? current > config.limitSeconds : current < config.limitSeconds;
+  return config.timerMode === 'down' ? current <= config.limitSeconds : current >= config.limitSeconds;
+}
+
+export function timerIsStillRunning(timer, nowMs = Date.now()) {
+  return Boolean(timer?.timerRunning ?? timer?.running) && !timerHasReachedEnd(timer, nowMs);
+}
+
+export function getTimerCompletionAtMs(timer) {
+  if (!timer || !(timer.timerRunning ?? timer.running)) return null;
+  const startedAtMs = Number.isFinite(timer.startedAtMs)
+    ? timer.startedAtMs
+    : Number.isFinite(timer.startedAt)
+      ? timer.startedAt
+      : null;
+  if (!Number.isFinite(startedAtMs)) return null;
+
+  const config = normalizeTimerConfig(timer);
+  const resumeSeconds = Number.isFinite(timer.timerResumeSeconds)
+    ? timer.timerResumeSeconds
+    : Number.isFinite(timer.timerCurrentSeconds)
+      ? timer.timerCurrentSeconds
+      : config.startSeconds;
+  const remaining = config.timerMode === 'down'
+    ? Math.max(0, resumeSeconds - config.limitSeconds)
+    : Math.max(0, config.limitSeconds - resumeSeconds);
+
+  return startedAtMs + (remaining * 1000);
+}
+
+export function getTimerFinishAnimationProgress(timer, nowMs = Date.now()) {
+  const completedAt = getTimerCompletionAtMs(timer);
+  if (!Number.isFinite(completedAt)) return null;
+  const elapsed = nowMs - completedAt;
+  if (elapsed < 0 || elapsed > TIMER_FINISH_ANIMATION_MS) return null;
+  return Math.max(0, Math.min(1, elapsed / TIMER_FINISH_ANIMATION_MS));
+}
+
+export function timerHasFinishAnimation(timer, nowMs = Date.now()) {
+  return getTimerFinishAnimationProgress(timer, nowMs) !== null;
 }
 
 export function toggleTimer(timer, nowMs = Date.now()) {
   const current = getTimerCurrentSeconds(timer, nowMs);
   const running = Boolean(timer.timerRunning ?? timer.running);
+  const config = normalizeTimerConfig(timer);
+  const reachedEnd = timerHasReachedEnd(timer, nowMs);
+  const nextCurrent = !running && reachedEnd ? config.startSeconds : current;
 
   return {
     ...timer,
-    timerCurrentSeconds: current,
-    timerResumeSeconds: current,
+    timerCurrentSeconds: nextCurrent,
+    timerResumeSeconds: nextCurrent,
     timerRunning: !running,
     running: undefined,
     startedAtMs: running ? null : nowMs,
+    startedAt: undefined
+  };
+}
+
+export function restartTimer(timer, nowMs = Date.now()) {
+  const config = normalizeTimerConfig(timer);
+  const running = Boolean(timer.timerRunning ?? timer.running);
+  return {
+    ...timer,
+    timerCurrentSeconds: config.startSeconds,
+    timerResumeSeconds: config.startSeconds,
+    timerRunning: running,
+    running: undefined,
+    startedAtMs: running ? nowMs : null,
     startedAt: undefined
   };
 }

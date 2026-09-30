@@ -50,7 +50,8 @@ export default function useEditorHotkeys({
       g: 'shape',
       l: 'line',
       t: 'text',
-      r: 'timer'
+      r: 'timer',
+      u: 'roulette'
     };
 
     const toggleHotkeys = (event) => {
@@ -137,6 +138,7 @@ export default function useEditorHotkeys({
 
       if (!modifier && !event.altKey && !event.shiftKey && key === 'i') {
         event.preventDefault();
+        if (event.repeat) return;
         if (!isToolEnabled('image')) { onLockedFeature?.('editor.image', 'Imagen / GIF'); return; }
         setImagePickerRequest((current) => current + 1);
         setMediaStatus('Selecciona una imagen o GIF para agregar.');
@@ -146,7 +148,7 @@ export default function useEditorHotkeys({
       if (!modifier && !event.altKey && !event.shiftKey && toolByKey[key]) {
         event.preventDefault();
         const nextTool = toolByKey[key];
-        if (!isToolEnabled(nextTool)) { const feature = { select: 'editor.select', hand: 'editor.pan', draw: 'editor.brush', eraser: 'editor.eraser', shape: 'editor.shape', line: 'editor.line', text: 'editor.text', timer: 'editor.timer' }[nextTool]; onLockedFeature?.(feature, TOOL_LABELS[nextTool] || nextTool); return; }
+        if (!isToolEnabled(nextTool)) { const feature = { select: 'editor.select', hand: 'editor.pan', draw: 'editor.brush', eraser: 'editor.eraser', shape: 'editor.shape', line: 'editor.line', text: 'editor.text', timer: 'editor.timer', roulette: 'editor.shape' }[nextTool]; onLockedFeature?.(feature, TOOL_LABELS[nextTool] || nextTool); return; }
         setTool(nextTool);
         setMediaStatus(`Herramienta: ${TOOL_LABELS[toolByKey[key]] || toolByKey[key]}.`);
         return;

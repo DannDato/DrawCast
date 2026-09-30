@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Boxes, CalendarDays, Check, Clock3, PackageOpen, Unlink } from 'lucide-react';
+import { CalendarDays, Check, Clock3, PackageOpen, LockKeyhole } from 'lucide-react';
 import { getChannels } from '../api/channels';
-import { assignStoreLicense, getStoreLicenses, releaseStoreLicense } from '../api/store';
+import { assignStoreLicense, getStoreLicenses } from '../api/store';
+import InventoryLicenseModal from '../components/inventory/InventoryLicenseModal';
+import InventoryProductIcon from '../components/inventory/InventoryProductIcon';
 import { useSystemAlert } from '../components/ui/SystemAlert';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -25,7 +27,7 @@ function daysUntil(value) {
   return Math.ceil((date.getTime() - Date.now()) / DAY_MS);
 }
 
-function periodCountdown(days, verb = 'Renueva') {
+function periodCountdown(days, verb = 'Termina') {
   if (days == null) return '';
   if (days < 0) return `${Math.abs(days)} ${Math.abs(days) === 1 ? 'día' : 'días'} desde la fecha indicada`;
   if (days === 0) return `${verb} hoy`;
@@ -37,31 +39,20 @@ function licenseState(license, assignment, isAccountLicense) {
   const status = String(license.status || '').toUpperCase();
   if (status === 'EXPIRED') return 'EXPIRADA';
   if (status === 'CANCELED' || status === 'CANCELLED') return 'CANCELADA';
-  if (isAccountLicense) return 'EN CUENTA';
+  if (isAccountLicense) return '';
   return assignment ? 'EN USO' : 'LIBRE';
 }
 
 function licensePeriod(license) {
-  const isDev = license.sourceType === 'dev';
   const interval = license.product?.billingInterval;
-  const periodEnd = license.currentPeriodEnd || license.endsAt;
   const hardEnd = license.endsAt || (license.cancelAtPeriodEnd ? license.currentPeriodEnd : null);
-
-  if (isDev) {
-    const days = daysUntil(periodEnd);
-    return {
-      label: 'PERIODO SIMULADO',
-      value: periodEnd ? `Corte ${formatDate(periodEnd)}` : 'Sin fecha de corte',
-      detail: periodEnd ? periodCountdown(days, 'Corte') : 'No genera un cobro real.'
-    };
-  }
 
   if (license.cancelAtPeriodEnd) {
     const days = daysUntil(hardEnd);
     return {
       label: 'ACTIVA HASTA',
       value: hardEnd ? formatDate(hardEnd) : 'Fin del periodo actual',
-      detail: hardEnd ? periodCountdown(days, 'Termina') : 'No se renovará al terminar el periodo.'
+      detail: hardEnd ? periodCountdown(days, 'Termina') : 'Disponible hasta el final del periodo actual.'
     };
   }
 
@@ -81,9 +72,9 @@ function licensePeriod(license) {
   if (license.currentPeriodEnd) {
     const days = daysUntil(license.currentPeriodEnd);
     return {
-      label: 'PRÓXIMA RENOVACIÓN',
+      label: 'PERIODO ACTUAL HASTA',
       value: formatDate(license.currentPeriodEnd),
-      detail: periodCountdown(days, 'Renueva')
+      detail: periodCountdown(days, 'Termina')
     };
   }
 
@@ -98,6 +89,9 @@ export default function Inventory() {
   const [busyLicense, setBusyLicense] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeType, setActiveType] = useState('all');
+  const [selectedLicenseUuid, setSelectedLicenseUuid] = useState('');
+  const selectedLicense = licenses.find((license) => license.uuid === selectedLicenseUuid);
 
   const load = useCallback(async ({ force = false } = {}) => {
     const [inventory, channels] = await Promise.all([
@@ -123,9 +117,40 @@ export default function Inventory() {
 
   const channelByUuid = useMemo(() => new Map(ownedChannels.map((channel) => [channel.uuid, channel])), [ownedChannels]);
 
+  const licenseTabs = useMemo(() => {
+    const definitions = [
+      { id: 'all', label: 'Todas' },
+      { id: 'plan', label: 'Planes' },
+      { id: 'pack', label: 'Packs' },
+      { id: 'tool', label: 'Herramientas' },
+      { id: 'addon', label: 'Expansiones' },
+      { id: 'capacity', label: 'Capacidad' }
+    ];
+
+    return definitions.map((tab) => ({
+      ...tab,
+      count: tab.id === 'all'
+        ? licenses.length
+        : licenses.filter((license) => license.product?.kind === tab.id).length
+    }));
+  }, [licenses]);
+
+  const visibleLicenses = useMemo(() => (
+    activeType === 'all'
+      ? licenses
+      : licenses.filter((license) => license.product?.kind === activeType)
+  ), [activeType, licenses]);
+
   const assign = async (license, fallbackUuid) => {
     const channelUuid = selectedChannel[license.uuid] || fallbackUuid;
     if (!channelUuid || busyLicense) return;
+    const confirmed = await confirmDialog({
+      title: '¿Seguro que quieres aplicar esta licencia?',
+      message: `${license.product?.name || 'Esta mejora'} quedará ligada a ${channelByUuid.get(channelUuid)?.name || 'este lienzo'}. No podrás retirarla ni transferirla a otro lienzo, incluso si eliminas el lienzo original.`,
+      confirmLabel: 'Aplicar definitivamente',
+      cancelLabel: 'Cancelar'
+    });
+    if (!confirmed) return;
     setBusyLicense(license.uuid);
     setError('');
     try {
@@ -138,47 +163,70 @@ export default function Inventory() {
     }
   };
 
-  const release = async (license, assignment) => {
-    if (!assignment?.uuid || busyLicense) return;
-    const confirmed = await confirmDialog({
-      tone: 'danger',
-      title: 'Quitar licencia del lienzo',
-      message: `${license.product?.name || 'Esta mejora'} dejará de aplicarse en ${assignment.channel?.name || 'este lienzo'}. La licencia seguirá disponible en tu Inventario y su periodo continuará corriendo.`,
-      confirmLabel: 'Quitar licencia',
-      cancelLabel: 'Cancelar'
-    });
-    if (!confirmed) return;
-
-    setBusyLicense(license.uuid);
-    setError('');
-    try {
-      await releaseStoreLicense(license.uuid, assignment.uuid);
-      await load({ force: true });
-    } catch (reason) {
-      setError(reason?.response?.data?.message || reason?.message || 'No se pudo quitar la licencia del lienzo.');
-    } finally {
-      setBusyLicense('');
-    }
-  };
 
   return (
     <div className="dc-inventory-page">
-      <div className="dc-store-page-bg" aria-hidden="true" />
-      <div className="dc-store-shell">
-        <header className="dc-store-page-head">
-          <div>
-            <span className="dc-store-eyebrow"><Boxes size={14} /> INVENTARIO</span>
-            <h1>TUS <strong>//</strong> MEJORAS</h1>
-            <p>Consulta el estado de tus licencias y decide en qué lienzo usarlas.</p>
-          </div>
+      <div className="dc-inventory-shell dc-app-page">
+        <header className="dc-inventory-header">
+          <h1 className="dc-page-title">INVENTARIO</h1>
+          <p>Administra tus licencias y decide en qué lienzo se aplica cada mejora.</p>
         </header>
 
-        {loading && <div className="dc-store-state">Cargando inventario…</div>}
-        {error && <div className="dc-store-state error">{error}</div>}
+        <div className="dc-inventory-toolbar">
+          <div className="dc-section-tabs" role="tablist" aria-label="Filtrar licencias por tipo">
+            {licenseTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeType === tab.id}
+                className={`dc-section-tab${activeType === tab.id ? ' is-active' : ''}`}
+                onClick={() => setActiveType(tab.id)}
+              >
+                {tab.label}
+                <span>{tab.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {!loading && (licenses.length ? (
+        {loading && <div className="dc-store-state">Cargando inventario…</div>}
+        {error && !selectedLicense && <div className="dc-store-state error">{error}</div>}
+
+        {!loading && (visibleLicenses.length ? (
           <div className="dc-inventory-grid">
-            {licenses.map((license) => {
+            {visibleLicenses.map((license) => {
+              const status = String(license.status || '').toUpperCase();
+              const applied = status === 'ACTIVE' && (license.product?.targetScope === 'account' || Boolean(activeAssignment(license)));
+              const state = status === 'ACTIVE' ? applied ? 'Aplicada' : 'Disponible' : status === 'EXPIRED' ? 'Vencida' : ['CANCELED', 'CANCELLED'].includes(status) ? 'Cancelada' : 'Inactiva';
+
+              return (
+                <button key={license.uuid} type="button" className="dc-inventory-tile" onClick={() => { setError(''); setSelectedLicenseUuid(license.uuid); }} aria-haspopup="dialog">
+                  <span className={`dc-inventory-tile-status ${applied ? 'is-applied' : status === 'ACTIVE' ? 'is-available' : 'is-inactive'}`}>{applied && <Check size={12} />}{state}</span>
+                  <InventoryProductIcon product={license.product} size={32} />
+                  <span>{license.product?.name || 'Licencia TRAZIO'}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : !error && (
+          licenses.length ? (
+            <div className="dc-inventory-empty">
+              <PackageOpen size={34} />
+              <div><b>No tienes licencias de este tipo</b><span>Elige otra categoría para seguir revisando tu inventario.</span></div>
+            </div>
+          ) : (
+            <div className="dc-inventory-empty">
+              <PackageOpen size={34} />
+              <div><b>Aún no tienes mejoras</b><span>Encuentra herramientas, packs y expansiones en la Tienda para personalizar tus lienzos.</span></div>
+            </div>
+          )
+        ))}
+      </div>
+      {selectedLicense && (
+        <InventoryLicenseModal name={selectedLicense.product?.name || 'Licencia TRAZIO'} busy={Boolean(busyLicense)} onClose={() => { setSelectedLicenseUuid(''); setError(''); }}>
+          {error && <div className="dc-store-state error" role="alert">{error}</div>}
+            {[selectedLicense].map((license) => {
               const assignment = activeAssignment(license);
               const isAccountLicense = license.product?.targetScope === 'account';
               const eligible = (license.eligibleChannelUuids || []).map((uuid) => channelByUuid.get(uuid)).filter(Boolean);
@@ -187,36 +235,26 @@ export default function Inventory() {
               const busy = busyLicense === license.uuid;
               const state = licenseState(license, assignment, isAccountLicense);
               const period = licensePeriod(license);
-              const assignedDate = assignment?.assignedAt ? formatDate(assignment.assignedAt) : '';
               const isActiveLicense = String(license.status || '').toUpperCase() === 'ACTIVE';
               const isFree = !assignment && !isAccountLicense && isActiveLicense;
 
               return (
                 <article className={`dc-inventory-card${isFree ? ' is-free' : ''}`} key={license.uuid}>
                   <div className="dc-inventory-card-head">
-                    <div className="dc-inventory-status-row">
-                      <span className="dc-inventory-status">{state}</span>
-                      {license.sourceType === 'dev' && <span className="dc-inventory-source">PRUEBA</span>}
-                    </div>
+                    {state && (
+                      <div className="dc-inventory-status-row">
+                        <span className="dc-inventory-status">{state}</span>
+                      </div>
+                    )}
                     <h2>{license.product?.name || 'Licencia TRAZIO'}</h2>
                     {license.product?.description && <p className="dc-inventory-description">{license.product.description}</p>}
                   </div>
 
-                  <div className="dc-inventory-facts">
-                    <div className="dc-inventory-fact">
-                      <div className="dc-inventory-fact-icon"><Check size={16} /></div>
-                      <div>
-                        <span>APLICACIÓN</span>
-                        <b>{isAccountLicense ? 'Activa en tu cuenta' : assignment ? assignment.channel?.name || 'Lienzo asignado' : 'Disponible para asignar'}</b>
-                        {assignment && assignedDate && <small>Aplicada desde {assignedDate}</small>}
-                        {isFree && <small>El periodo sigue corriendo aunque la licencia esté libre.</small>}
-                      </div>
-                    </div>
-
-                    <div className="dc-inventory-fact">
-                      <div className="dc-inventory-fact-icon"><CalendarDays size={16} /></div>
-                      <div>
-                        <span>{period.label}</span>
+                  <div className="dc-inventory-period">
+                    <CalendarDays size={16} />
+                    <div className="dc-inventory-period-copy">
+                      <span>{period.label}</span>
+                      <div className="dc-inventory-period-meta">
                         <b>{period.value}</b>
                         {period.detail && <small><Clock3 size={13} /> {period.detail}</small>}
                       </div>
@@ -228,10 +266,10 @@ export default function Inventory() {
                   ) : isAccountLicense ? (
                     <div className="dc-inventory-active"><Check size={16} /> Se aplica automáticamente a tu cuenta</div>
                   ) : assignment ? (
-                    <button type="button" className="dc-inventory-release" onClick={() => release(license, assignment)} disabled={busy}><Unlink size={15} /> {busy ? 'Quitando…' : 'Quitar del lienzo'}</button>
+                    <div className="dc-inventory-active"><LockKeyhole size={16} /><span>Aplicada a {assignment.channel?.name || 'un lienzo eliminado'}. Asignación permanente.</span></div>
                   ) : eligible.length ? (
                     <div className="dc-inventory-assign">
-                      <select value={value} onChange={(event) => setSelectedChannel((current) => ({ ...current, [license.uuid]: event.target.value }))}>
+                      <select aria-label="Lienzo donde aplicar la licencia" value={value} onChange={(event) => setSelectedChannel((current) => ({ ...current, [license.uuid]: event.target.value }))}>
                         {eligible.map((channel) => <option key={channel.uuid} value={channel.uuid}>{channel.name}</option>)}
                       </select>
                       <button type="button" onClick={() => assign(license, fallbackUuid)} disabled={busy}>{busy ? 'Aplicando…' : 'Aplicar al lienzo'}</button>
@@ -242,14 +280,8 @@ export default function Inventory() {
                 </article>
               );
             })}
-          </div>
-        ) : !error && (
-          <div className="dc-inventory-empty">
-            <PackageOpen size={34} />
-            <div><b>Aún no tienes mejoras</b><span>Compra una licencia en Tienda y aparecerá aquí.</span></div>
-          </div>
-        ))}
-      </div>
+        </InventoryLicenseModal>
+      )}
     </div>
   );
 }

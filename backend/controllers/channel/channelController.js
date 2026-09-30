@@ -9,6 +9,7 @@ import { destroyChannelRuntime, getChannelRuntimeSnapshot } from '../../services
 import { isPublicUuid } from '../../services/channelAccessService.js';
 import { getChannelEntitlements, publicChannelEntitlements } from '../../services/channelEntitlementAccessService.js';
 import logger from '../../helpers/winston.js';
+import { getStreamPreview } from '../../services/streamPreviewService.js';
 
 function normalizeChannelUrl(value) {
   const raw = String(value || '').trim();
@@ -206,6 +207,20 @@ export class ChannelController {
     const seed = crypto.createHash('sha256').update(`TRAZIO-featured:${day}`).digest().readUInt32BE(0);
     const selected = candidates[seed % candidates.length];
     res.json({ channel: { uuid: selected.uuid, name: selected.name, platform: selected.platform, channelUrl: selected.channelUrl } });
+  }
+
+  static async featuredPreview(req, res) {
+    const channelUuid = String(req.params.channelUuid || '').trim();
+    if (!isPublicUuid(channelUuid)) return res.status(400).json({ message: 'Identificador de lienzo inválido' });
+
+    const channel = await models.Channel.findOne({
+      where: { uuid: channelUuid },
+      attributes: ['uuid', 'channelUrl']
+    });
+    if (!channel?.channelUrl) return res.status(404).json({ message: 'El canal recomendado no tiene una URL disponible' });
+
+    const preview = await getStreamPreview(channel.channelUrl);
+    return res.json({ preview });
   }
 
   static async create(req, res) {

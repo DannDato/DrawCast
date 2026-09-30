@@ -59,7 +59,7 @@ export function validateStoreCatalogDefinitions(products = STORE_PRODUCTS, bundl
 }
 
 // Bootstrap de instalación: la BD pasa a ser la fuente de verdad en cuanto el producto existe.
-export async function bootstrapStoreCatalog({ transaction } = {}) {
+export async function bootstrapStoreCatalog({ transaction, syncPrices = false } = {}) {
   validateStoreCatalogDefinitions();
   const bundles = await models.EntitlementBundle.findAll({ transaction });
   const bundleByKey = new Map(bundles.map((bundle) => [bundle.key, bundle]));
@@ -84,8 +84,12 @@ export async function bootstrapStoreCatalog({ transaction } = {}) {
 
     const [product] = await models.StoreProduct.findOrCreate({ where: { key: definition.key }, defaults, transaction });
 
-    // No reescribimos nombre/precio/metadata de productos existentes. Sólo completamos
-    // relaciones N:M o requisitos que una versión nueva haya añadido y todavía falten.
+    if (syncPrices && (Number(product.priceCents) !== definition.priceCents || product.currency !== definition.currency)) {
+      await product.update({ priceCents: definition.priceCents, currency: definition.currency }, { transaction });
+    }
+
+    // Conservamos nombres, metadata y estado de productos existentes. El seed puede
+    // sincronizar precios; las relaciones faltantes se completan en ambos modos.
     for (const bundleKey of definition.bundles) {
       const bundle = bundleByKey.get(bundleKey);
       if (!bundle) throw new Error(`No se encontró el bundle ${bundleKey}. Ejecuta primero bootstrapEntitlementCatalog.`);
@@ -348,7 +352,8 @@ export async function getStoreCatalogForUser(userId) {
         }
       : { ownedChannelCount };
     const state = storeProductCommerceState({ product, ownership: productOwnership, requirementsMet, coverage });
-    const purchaseAvailable = !['owned_applied', 'in_inventory', 'included_in_plus'].includes(state);
+    // La propiedad informa al usuario, pero no bloquea licencias para otros lienzos.
+    const purchaseAvailable = true;
 
     return {
       product,

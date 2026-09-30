@@ -7,6 +7,7 @@
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "bootstrap": "npm --prefix backend run bootstrap",
+    "seed": "npm --prefix backend run seed",
     "cleanup": "npm --prefix backend run cleanup",
     "build": "npm --prefix frontend run build",
     "check": "npm --prefix backend run check && npm --prefix frontend run lint && npm --prefix frontend run build"

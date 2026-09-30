@@ -49,7 +49,8 @@ async function seed() {
   }
 
   await bootstrapEntitlementCatalog();
-  await bootstrapStoreCatalog();
+  await db.transaction((transaction) => bootstrapStoreCatalog({ transaction, syncPrices: true }));
+  console.log('Precios y moneda del catálogo actualizados.');
 
   const baseKeys = permissions.map(([key]) => key);
   for (const roleKey of createdRoleKeys) await setRolePreset(roleKey, baseKeys);

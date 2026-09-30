@@ -1,0 +1,50 @@
+.dc-loading-overlay{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(0,0,0,.68);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .22s ease,visibility 0s linear .22s;
+}
+
+.dc-loading-overlay.is-active{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transition-delay:0s;
+}
+
+.dc-loading-content{
+  display:grid;
+  justify-items:center;
+  gap:16px;
+  max-width:320px;
+  color:var(--dc-text-strong);
+  font:600 13px/1.5 Outfit,sans-serif;
+  text-align:center;
+}
+
+.dc-loading-spinner{
+  width:42px;
+  height:42px;
+  border:3px solid rgba(255,255,255,.18);
+  border-top-color:var(--dc-accent);
+  border-radius:50%;
+  animation:dc-loading-spin .8s linear infinite;
+}
+
+@keyframes dc-loading-spin{
+  to{transform:rotate(360deg)}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .dc-loading-overlay{transition:none}
+  .dc-loading-spinner{animation:none}
+}

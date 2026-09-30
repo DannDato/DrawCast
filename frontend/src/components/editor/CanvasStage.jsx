@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { drawObject, hitObject } from './renderer/drawObject';
-import { orderedObjects, renderScene, sceneHasRunningTimers } from './renderer/sceneRenderer';
+import { orderedObjects, renderScene, sceneHasRunningTimers, sceneHasTimerFinishAnimations, sceneHasRunningRoulettes } from './renderer/sceneRenderer';
 import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getObjectFrame, getSelectionBounds, hitResizeHandle, hitRotateHandle, resizeCursorForHandle, resizeSelectionFromHandle, rotateSelection } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
 import { buildLineFromDrag } from './tools/lines/lineTool';
+import { buildRouletteFromDrag } from './tools/roulette/rouletteTool';
 import InlineTextEditor from './tools/text/InlineTextEditor';
 import { normalizeTextConfig, textConfigFromObject } from './tools/text/textTool';
+import { normalizeTimerConfig } from './tools/timer/timerTool';
 import { appendStrokePoint, hitDrawLayer, isDrawLayer, makeStroke, normalizeDrawConfig } from './tools/drawing/drawingTool';
 import { boundsCenter, unrotatePointAround } from './renderer/transformUtils';
 import { buildSnapTargets, drawSnapGuides, SNAP_THRESHOLD_PX, snapMove, snapResizePointer } from './renderer/snapUtils';
@@ -44,6 +46,8 @@ export default function CanvasStage({
   textConfig,
   onTextCommit,
   onTimerCreate,
+  rouletteConfig,
+  onRouletteCreate,
   onMediaDrop,
   guideImageUrl,
   remoteCursors = [],
@@ -253,6 +257,14 @@ export default function CanvasStage({
   };
 
   useEffect(() => {
+    const refreshAfterVisibilityChange = () => {
+      if (!document.hidden) invalidateRender();
+    };
+    document.addEventListener('visibilitychange', refreshAfterVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', refreshAfterVisibilityChange);
+  }, [invalidateRender]);
+
+  useEffect(() => {
     if (!guideImageUrl) {
       guideImage.current = null;
       invalidateRender();
@@ -285,7 +297,9 @@ export default function CanvasStage({
         if (!state) return;
         const now = Date.now();
         const timerSecond = Math.floor(now / 1000);
-        if (sceneHasRunningTimers(state.orderedSceneObjects, now) && timerSecond !== lastTimerSecondRef.current) renderDirtyRef.current = true;
+        if (sceneHasRunningRoulettes(state.orderedSceneObjects, now)) renderDirtyRef.current = true;
+        else if (sceneHasTimerFinishAnimations(state.orderedSceneObjects, now)) renderDirtyRef.current = true;
+        else if (sceneHasRunningTimers(state.orderedSceneObjects, now) && timerSecond !== lastTimerSecondRef.current) renderDirtyRef.current = true;
         const cursorFadeTick = Math.floor(now / 100);
         const cursorNeedsFade = remoteCursorsRef.current.some((cursor) => {
           const age = now - Number(cursor?.at || now);
@@ -529,6 +543,12 @@ export default function CanvasStage({
       return;
     }
 
+    if (tool === 'roulette') {
+      interaction.current = { type: 'roulette', start: point };
+      shapePreview.current = buildRouletteFromDrag(point, point, rouletteConfig, event.altKey);
+      return;
+    }
+
     if (tool === 'timer') {
       onTimerCreate?.(point);
       return;
@@ -707,6 +727,11 @@ export default function CanvasStage({
       return;
     }
 
+    if (active.type === 'roulette') {
+      shapePreview.current = buildRouletteFromDrag(active.start, point, rouletteConfig, event.altKey);
+      return;
+    }
+
     if (active.type === 'move') {
       let dx = point.x - active.start.x;
       let dy = point.y - active.start.y;
@@ -743,16 +768,25 @@ export default function CanvasStage({
       }
 
       const singleText = active.items.length === 1 && (active.items[0]?.tipo === 'text' || active.items[0]?.tipo === 'texto');
-      const updates = resizeSelectionFromHandle(active.items, active.bounds, active.handle, resizePoint, active.start, event.shiftKey || singleText);
+      const singleTimer = active.items.length === 1 && active.items[0]?.tipo === 'timer';
+      const singleRoulette = active.items.length === 1 && active.items[0]?.tipo === 'roulette';
+      const scalesWithFont = singleText || singleTimer;
+      const keepAspect = scalesWithFont || singleRoulette;
+      const updates = resizeSelectionFromHandle(active.items, active.bounds, active.handle, resizePoint, active.start, event.shiftKey || keepAspect);
       if (!updates.length) return;
 
-      const resizedUpdates = singleText
+      const resizedUpdates = scalesWithFont
         ? updates.map((update) => {
             const original = active.items[0];
             const originalWidth = Math.max(1, Number(original.w) || 1);
+            const originalHeight = Math.max(1, Number(original.h) || 1);
             const nextWidth = Math.max(1, Number(update.patch?.w) || originalWidth);
-            const scale = nextWidth / originalWidth;
-            const fontSize = Math.max(5, Math.min(400, Math.round(normalizeTextConfig(original).fontSize * scale)));
+            const nextHeight = Math.max(1, Number(update.patch?.h) || originalHeight);
+            const widthScale = nextWidth / originalWidth;
+            const heightScale = nextHeight / originalHeight;
+            const scale = Math.max(0.01, Math.min(widthScale, heightScale));
+            const currentFontSize = singleTimer ? normalizeTimerConfig(original).fontSize : normalizeTextConfig(original).fontSize;
+            const fontSize = Math.max(5, Math.min(400, Math.round(currentFontSize * scale)));
             return { ...update, patch: { ...update.patch, fontSize } };
           })
         : updates;
@@ -789,6 +823,10 @@ export default function CanvasStage({
 
     if (['shape', 'line'].includes(interaction.current?.type) && shapePreview.current) {
       onShapeCreate(shapePreview.current);
+      shapePreview.current = null;
+    }
+    if (interaction.current?.type === 'roulette' && shapePreview.current) {
+      onRouletteCreate?.(shapePreview.current);
       shapePreview.current = null;
     }
 

@@ -2,6 +2,7 @@
 @import "./styles/trazio.css";
 @import "./styles/editor.css";
 @import "./styles/store.css";
+@import "./styles/cart.css";
 
 @layer base {
   * {

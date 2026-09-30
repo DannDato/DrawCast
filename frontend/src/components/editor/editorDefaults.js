@@ -15,7 +15,8 @@ export const DEFAULT_EDITOR_PREFERENCES = Object.freeze({
   shape: Object.freeze({ shapeType: 'square', fillColor: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 0, borderRadius: 0 }),
   image: Object.freeze({ borderRadius: 0, opacity: 1 }),
   text: Object.freeze({ fontKey: 'segoe', color: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 6, fontSize: 56 }),
-  timer: Object.freeze({ timerMode: 'up', startSeconds: 0, limitSeconds: MAX_TIMER_SECONDS, fontKey: 'segoe', color: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 6, fontSize: 56 })
+  timer: Object.freeze({ timerMode: 'up', startSeconds: 0, limitSeconds: MAX_TIMER_SECONDS, fontKey: 'segoe', color: SOFT_WHITE, finishColor: '#dba367', strokeColor: SOFT_WHITE, strokeWidth: 6, fontSize: 56 }),
+  roulette: Object.freeze({ baseColor: '#6c63ff', spinSpeed: 3.5, spinDurationMs: 7000, spinDecay: 0.5, textColor: '#ffffff', centerColor: '#111111', pointerColor: SOFT_WHITE })
 });
 
 export function normalizeEditorPreferences(preferences = {}) {
@@ -24,6 +25,7 @@ export function normalizeEditorPreferences(preferences = {}) {
   const image = preferences.image || {};
   const text = preferences.text || {};
   const timer = preferences.timer || {};
+  const roulette = preferences.roulette || {};
   const timerMode = choice(timer.timerMode, ['up', 'down'], DEFAULT_EDITOR_PREFERENCES.timer.timerMode);
   const startSeconds = Math.round(clamp(timer.startSeconds, 0, MAX_TIMER_SECONDS, DEFAULT_EDITOR_PREFERENCES.timer.startSeconds));
   const rawLimit = Math.round(clamp(timer.limitSeconds, 0, MAX_TIMER_SECONDS, DEFAULT_EDITOR_PREFERENCES.timer.limitSeconds));
@@ -59,9 +61,19 @@ export function normalizeEditorPreferences(preferences = {}) {
       limitSeconds: timerMode === 'down' ? Math.min(startSeconds, rawLimit) : Math.max(startSeconds, rawLimit),
       fontKey: choice(timer.fontKey, ['segoe', 'bebas', 'outfit', 'montserrat'], DEFAULT_EDITOR_PREFERENCES.timer.fontKey),
       color: color(timer.color, DEFAULT_EDITOR_PREFERENCES.timer.color),
+      finishColor: color(timer.finishColor, DEFAULT_EDITOR_PREFERENCES.timer.finishColor),
       strokeColor: color(timer.strokeColor, DEFAULT_EDITOR_PREFERENCES.timer.strokeColor),
       strokeWidth: clamp(timer.strokeWidth, 0, 24, DEFAULT_EDITOR_PREFERENCES.timer.strokeWidth),
       fontSize: clamp(timer.fontSize, 5, 400, DEFAULT_EDITOR_PREFERENCES.timer.fontSize)
+    },
+    roulette: {
+      baseColor: color(roulette.baseColor, DEFAULT_EDITOR_PREFERENCES.roulette.baseColor),
+      spinSpeed: clamp(roulette.spinSpeed, 0.5, 3.5, DEFAULT_EDITOR_PREFERENCES.roulette.spinSpeed),
+      spinDurationMs: Math.round(clamp(roulette.spinDurationMs, 2000, 30000, DEFAULT_EDITOR_PREFERENCES.roulette.spinDurationMs)),
+      spinDecay: clamp(roulette.spinDecay, 0.10, 0.90, DEFAULT_EDITOR_PREFERENCES.roulette.spinDecay),
+      textColor: color(roulette.textColor, DEFAULT_EDITOR_PREFERENCES.roulette.textColor),
+      centerColor: color(roulette.centerColor, DEFAULT_EDITOR_PREFERENCES.roulette.centerColor),
+      pointerColor: color(roulette.pointerColor, DEFAULT_EDITOR_PREFERENCES.roulette.pointerColor)
     }
   };
 }

@@ -74,7 +74,7 @@ export default function Settings() {
 
     const current = sections.find((section) => section.id === activeSection) || sections[0];
 
-    return <div className="mx-auto w-full max-w-[1440px] py-6 pt-4">
+    return <div className="dc-app-page">
         {notice && <div className={`mb-4 flex items-center gap-2 border px-3.5 py-3 font-semibold ${notice.type === 'error' ? 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]' : 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]'}`}>{notice.type === 'success' ? <Check size={17} /> : <X size={17} />}{notice.text}</div>}
 
         <div className="grid grid-cols-1 items-start gap-[18px] md:grid-cols-[250px_minmax(0,1fr)]">

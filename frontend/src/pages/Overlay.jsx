@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useChannelSocket } from '../hooks/useChannelSocket';
-import { orderedObjects, renderScene, sceneHasRunningTimers } from '../components/editor/renderer/sceneRenderer';
+import { orderedObjects, renderScene, sceneHasRunningTimers, sceneHasTimerFinishAnimations, sceneHasRunningRoulettes } from '../components/editor/renderer/sceneRenderer';
 import { pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { getSoundUrl } from '../api/sounds';
 import { createFrameLimiter, GRAPHICS_FRAME_MS } from '../utils/frameRate';
+import useRouletteTickSound from '../components/editor/tools/roulette/useRouletteTickSound';
 
 const WATERMARK_CORNERS = Object.freeze([
   { top: 20, left: 20 },
@@ -23,6 +24,7 @@ export default function Overlay() {
   const [objects, setObjects] = useState({});
   const [liveStrokes, setLiveStrokes] = useState({});
   const [overlayHidden, setOverlayHidden] = useState(false);
+  useRouletteTickSound(objects, { enabled: !overlayHidden });
   const [watermarkRequired, setWatermarkRequired] = useState(null);
   const [watermarkCorner, setWatermarkCorner] = useState(() => Math.floor(Math.random() * WATERMARK_CORNERS.length));
   const canvasRef = useRef(null);
@@ -167,6 +169,14 @@ export default function Overlay() {
   }, [socket, watermarkRequired]);
 
   useEffect(() => {
+    const refreshAfterVisibilityChange = () => {
+      if (!document.hidden) renderDirtyRef.current = true;
+    };
+    document.addEventListener('visibilitychange', refreshAfterVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', refreshAfterVisibilityChange);
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const shouldRenderFrame = createFrameLimiter();
@@ -179,7 +189,9 @@ export default function Overlay() {
         const state = renderStateRef.current;
         const now = Date.now();
         const timerSecond = Math.floor(now / 1000);
-        if (sceneHasRunningTimers(state.orderedObjects, now) && timerSecond !== lastTimerSecondRef.current) renderDirtyRef.current = true;
+        if (sceneHasRunningRoulettes(state.orderedObjects, now)) renderDirtyRef.current = true;
+        else if (sceneHasTimerFinishAnimations(state.orderedObjects, now)) renderDirtyRef.current = true;
+        else if (sceneHasRunningTimers(state.orderedObjects, now) && timerSecond !== lastTimerSecondRef.current) renderDirtyRef.current = true;
         if (renderDirtyRef.current) {
           renderDirtyRef.current = false;
           lastTimerSecondRef.current = timerSecond;
@@ -226,7 +238,19 @@ export default function Overlay() {
   useEffect(() => () => stopAllSounds(), [stopAllSounds]);
 
   return <>
-    <canvas ref={canvasRef} width="1920" height="1080" className="fixed inset-0 h-screen w-screen bg-transparent" />
+    <canvas
+      ref={canvasRef}
+      width="1920"
+      height="1080"
+      className="fixed bg-transparent"
+      style={{
+        left: '50%',
+        top: '50%',
+        width: 'min(100vw, calc(100vh * 16 / 9))',
+        height: 'min(100vh, calc(100vw * 9 / 16))',
+        transform: 'translate(-50%, -50%)'
+      }}
+    />
     {watermarkRequired === true && (
       <div
         aria-hidden="true"

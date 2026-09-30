@@ -1,6 +1,7 @@
 import { drawShape, traceRoundedRect } from './shapeRenderer';
 import { drawTextLayer } from './textRenderer';
-import { getTimerText } from '../tools/timer/timerTool';
+import { getTimerFinishAnimationProgress, getTimerText, timerHasReachedEnd } from '../tools/timer/timerTool';
+import { drawRoulette } from '../tools/roulette/rouletteRenderer';
 import { getDrawLayerBounds, isDrawLayer } from '../tools/drawing/drawingTool';
 import { boundsCenter, unrotatePointAround } from './transformUtils';
 import { getThemeColor } from '../../../utils/theme';
@@ -214,6 +215,31 @@ function applyObjectRotation(ctx, object) {
   ctx.translate(-center.x, -center.y);
 }
 
+function drawTimer(ctx, object, nowMs = Date.now()) {
+  const finished = timerHasReachedEnd(object, nowMs);
+  const progress = getTimerFinishAnimationProgress(object, nowMs);
+  const finishColor = object.finishColor || '#dba367';
+  const styledTimer = finished ? { ...object, color: finishColor } : object;
+
+  if (progress !== null) {
+    const pulse = Math.sin(progress * Math.PI);
+    const scale = 1 + (pulse * 0.035);
+    const x = Number(object.x) || 0;
+    const y = Number(object.y) || 0;
+    const w = Math.max(1, Number(object.w) || 1);
+    const h = Math.max(1, Number(object.h) || 1);
+    const cx = x + (w / 2);
+    const cy = y + (h / 2);
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+    ctx.shadowColor = finishColor;
+    ctx.shadowBlur = pulse * 18;
+  }
+
+  drawTextLayer(ctx, styledTimer, getTimerText(object, nowMs));
+}
+
 export function drawObject(ctx, object, options = {}) {
   if (!object || object.hidden) return;
   const type = getObjectType(object);
@@ -222,7 +248,8 @@ export function drawObject(ctx, object, options = {}) {
   if (type === 'shape') drawShape(ctx, object);
   else if (type === 'image') drawImage(ctx, object);
   else if (type === 'text') drawTextLayer(ctx, object, object.text ?? object.texto ?? '');
-  else if (type === 'timer') drawTextLayer(ctx, object, getTimerText(object, options.now));
+  else if (type === 'timer') drawTimer(ctx, object, options.now);
+  else if (type === 'roulette') drawRoulette(ctx, object, options.now);
   else if (type === 'draw') drawStrokeLayer(ctx, object);
   ctx.restore();
 }

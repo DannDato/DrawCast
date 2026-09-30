@@ -93,6 +93,7 @@ export function featureForObject(object) {
   const type = String(object?.tipo || '').toLowerCase();
   if (type === 'text' || type === 'texto') return 'editor.text';
   if (type === 'timer') return 'editor.timer';
+  if (type === 'roulette') return 'editor.shape';
   if (type === 'image' || type === 'imagen') return 'editor.image';
   if (type === 'shape' || type === 'forma') return String(object?.shapeType || object?.shape || '').toLowerCase() === 'line' ? 'editor.line' : 'editor.shape';
   return null;

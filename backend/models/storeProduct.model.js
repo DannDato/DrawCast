@@ -9,7 +9,7 @@ export default (db) => db.define('StoreProduct', {
   name: { type: DataTypes.STRING(120), allowNull: false },
   description: { type: DataTypes.STRING(320), allowNull: true },
   priceCents: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0, field: 'price_cents' },
-  currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
+  currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'MXN' },
   billingInterval: { type: DataTypes.STRING(24), allowNull: false, defaultValue: 'month', field: 'billing_interval' },
   badge: { type: DataTypes.STRING(80), allowNull: true },
   featured: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },

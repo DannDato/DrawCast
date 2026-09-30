@@ -4,6 +4,8 @@ import { BRUSH_PRESETS } from '../editor/tools/drawing/drawingTool';
 import { SHAPE_TYPES } from '../editor/tools/shapes/shapeTool';
 import { TEXT_FONTS } from '../editor/tools/text/textTool';
 import { formatSecondsAsHms, parseHmsToSeconds } from '../editor/tools/timer/timerTool';
+import { rouletteReleaseMultiplier } from '../editor/tools/roulette/rouletteTool';
+import { roulettePaletteFromColor } from '../editor/tools/roulette/rouletteTheme';
 
 const fieldClass = 'w-full border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 py-[10px] text-[var(--dc-text)] outline-none focus:border-[var(--dc-accent-three)]';
 const labelClass = 'grid gap-1.5 text-sm font-bold';
@@ -12,8 +14,9 @@ function ColorField({ label, value, onChange }) {
   return <label className={labelClass}>{label}<div className="flex items-center gap-2"><input className="h-10 w-14 cursor-pointer border border-[var(--dc-input-border)] bg-transparent p-1" type="color" value={value} onChange={(event) => onChange(event.target.value)} /><code className="flex h-10 flex-1 items-center border border-[var(--dc-input-border)] bg-[var(--dc-button-secondary-bg)] px-3 text-sm uppercase text-[var(--dc-text-muted)]">{value}</code></div></label>;
 }
 
-function RangeField({ label, value, min, max, step = 1, suffix = '', onChange }) {
-  return <label className={labelClass}><span>{label} <b className="text-[var(--dc-accent-four)]">{step < 1 ? Math.round(value * 100) : value}{suffix}</b></span><input className="dc-settings-range" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
+function RangeField({ label, value, min, max, step = 1, suffix = '', displayValue, onChange }) {
+  const shown = displayValue ?? (step < 1 ? Math.round(value * 100) : value);
+  return <label className={labelClass}><span>{label} <b className="text-[var(--dc-accent-four)]">{shown}{suffix}</b></span><input className="dc-settings-range" type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
 }
 
 function Card({ title, description, children }) {
@@ -61,9 +64,23 @@ export default function EditorPreferencesSettings({ value, onChange, onSave, onR
       <label className={labelClass}>Tiempo inicial<input className={fieldClass} key={`start-${preferences.timer.startSeconds}`} defaultValue={formatSecondsAsHms(preferences.timer.startSeconds)} maxLength={8} onBlur={(event) => patch('timer', { startSeconds: parseHmsToSeconds(event.currentTarget.value, preferences.timer.startSeconds) })} /></label>
       <label className={labelClass}>Límite<input className={fieldClass} key={`limit-${preferences.timer.limitSeconds}`} defaultValue={formatSecondsAsHms(preferences.timer.limitSeconds)} maxLength={8} onBlur={(event) => patch('timer', { limitSeconds: parseHmsToSeconds(event.currentTarget.value, preferences.timer.limitSeconds) })} /></label>
       <ColorField label="Color" value={preferences.timer.color} onChange={(color) => patch('timer', { color })} />
+      <ColorField label="Color al finalizar" value={preferences.timer.finishColor} onChange={(finishColor) => patch('timer', { finishColor })} />
       <ColorField label="Color del borde" value={preferences.timer.strokeColor} onChange={(strokeColor) => patch('timer', { strokeColor })} />
       <RangeField label="Grosor del borde" value={preferences.timer.strokeWidth} min={0} max={24} suffix=" px" onChange={(strokeWidth) => patch('timer', { strokeWidth })} />
       <RangeField label="Tamaño" value={preferences.timer.fontSize} min={5} max={400} suffix=" px" onChange={(fontSize) => patch('timer', { fontSize })} />
+    </Card>
+
+    <Card title="Ruleta" description="Apariencia y física inicial de las ruletas nuevas.">
+      <div className="grid gap-2">
+        <ColorField label="Color base" value={preferences.roulette.baseColor} onChange={(baseColor) => patch('roulette', { baseColor })} />
+        <div className="flex h-8 overflow-hidden border border-[var(--dc-input-border)]" aria-label="Paleta automática de la ruleta">{roulettePaletteFromColor(preferences.roulette.baseColor).map((paletteColor) => <span key={paletteColor} className="flex-1" style={{ background: paletteColor }} title={paletteColor} />)}</div>
+      </div>
+      <ColorField label="Color de texto" value={preferences.roulette.textColor} onChange={(textColor) => patch('roulette', { textColor })} />
+      <ColorField label="Centro" value={preferences.roulette.centerColor} onChange={(centerColor) => patch('roulette', { centerColor })} />
+      <ColorField label="Puntero" value={preferences.roulette.pointerColor} onChange={(pointerColor) => patch('roulette', { pointerColor })} />
+      <RangeField label="Velocidad" value={preferences.roulette.spinSpeed} min={0.5} max={3.5} step={0.1} displayValue={preferences.roulette.spinSpeed.toFixed(1)} suffix="x" onChange={(spinSpeed) => patch('roulette', { spinSpeed })} />
+      <RangeField label="Sustain" value={preferences.roulette.spinDurationMs / 1000} min={2} max={30} step={0.25} displayValue={(preferences.roulette.spinDurationMs / 1000).toFixed(2).replace(/\.00$/, '').replace(/0$/, '')} suffix=" s" onChange={(seconds) => patch('roulette', { spinDurationMs: Math.round(seconds * 1000) })} />
+      <label className={labelClass}><span>Release final <b className="text-[var(--dc-accent-four)]">{Math.round(preferences.roulette.spinDecay * 100)}%</b></span><input className="dc-settings-range" type="range" min="0.10" max="0.90" step="0.01" value={preferences.roulette.spinDecay} onChange={(event) => patch('roulette', { spinDecay: Number(event.target.value) })} /><span className="text-[10px] font-normal text-[var(--dc-text-muted)]">Cola {rouletteReleaseMultiplier(preferences.roulette.spinDecay).toFixed(2)}×.</span></label>
     </Card>
 
   </div>;

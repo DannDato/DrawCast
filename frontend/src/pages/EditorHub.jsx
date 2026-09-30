@@ -1,32 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import ExpandableCanvasCard from "../components/channels/ExpandableCanvasCard";
 import {
     Check,
-    Clock3,
-    Copy,
-    ExternalLink,
-    FileStack,
-    LogOut,
     Mail,
-    MonitorPlay,
     PenTool,
     Search,
     Star,
-    Users,
     X,
     XCircle,
 } from "lucide-react";
 import {
     acceptPendingInvitation,
+    deleteChannel,
     getChannels,
+    getCollaborators,
     getPendingInvitations,
+    inviteCollaborator,
     leaveChannel,
     notifyInvitationsChanged,
     rejectPendingInvitation,
+    removeCollaborator,
     setChannelFavorite,
+    setCollaboratorAccess,
+    updateChannel,
 } from "../api/channels";
 import { useSystemAlert } from "../components/ui/SystemAlert";
-import { PresenceStack } from "../components/ui/PresenceAvatar";
 
 function channelStatus(channel) {
     const runtime = channel.runtime || {};
@@ -36,24 +35,6 @@ function channelStatus(channel) {
     if ((runtime.overlayCount || 0) > 0) return { label: "Live", tone: "live" };
     if ((runtime.editorCount || 0) > 0) return { label: "Editando", tone: "editing" };
     return { label: "Listo", tone: "idle" };
-}
-
-function CopyObsButton({ publicKey }) {
-    const [copied, setCopied] = useState(false);
-    const copy = async () => {
-        await navigator.clipboard.writeText(`${window.location.origin}/overlay/${publicKey}`);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1200);
-    };
-    return (
-        <button
-            type="button"
-            className="inline-flex min-h-9 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-2)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text)] transition hover:border-[var(--dc-accent-three)] hover:bg-[var(--dc-accent-three-soft)]"
-            onClick={copy}
-        >
-            <Copy size={15} /> {copied ? "Copiado" : "Copiar OBS"}
-        </button>
-    );
 }
 
 function InvitationAvatar({ inviter }) {
@@ -103,7 +84,7 @@ function expiresLabel(value) {
 }
 
 export default function EditorHub() {
-    const { showAlert, confirmDialog } = useSystemAlert();
+    const { showAlert, confirmDialog, confirmTextDialog } = useSystemAlert();
     const [data, setData] = useState({ ownedChannels: [], collaborations: [] });
     const [invitations, setInvitations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -112,6 +93,10 @@ export default function EditorHub() {
     const [query, setQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
     const [sortBy, setSortBy] = useState("recent");
+    const [expandedUuid, setExpandedUuid] = useState(null);
+    const [collaborators, setCollaborators] = useState({});
+    const [loadingCollaborators, setLoadingCollaborators] = useState({});
+    const [savingUuid, setSavingUuid] = useState(null);
 
     useEffect(() => {
         let active = true;
@@ -175,7 +160,6 @@ export default function EditorHub() {
         return next;
     }, [channels, query, activeTab, sortBy]);
 
-    const gridColumns = filtered.length === 1 ? "grid-cols-1" : filtered.length % 2 === 0 ? "grid-cols-2" : "grid-cols-3";
 
     const emptyBox =
         "grid justify-items-center gap-2.5 bg-[var(--dc-panel)] p-[18px] text-center shadow-[0_8px_24px_var(--dc-shadow-soft)]";
@@ -276,6 +260,134 @@ export default function EditorHub() {
         }
     };
 
+    const ensureCollaborators = async (channelUuid, { force = false } = {}) => {
+        if (!force && collaborators[channelUuid]) return collaborators[channelUuid];
+
+        setLoadingCollaborators((current) => ({ ...current, [channelUuid]: true }));
+        try {
+            const rows = await getCollaborators(channelUuid, { force });
+            setCollaborators((current) => ({ ...current, [channelUuid]: rows }));
+            return rows;
+        } finally {
+            setLoadingCollaborators((current) => ({ ...current, [channelUuid]: false }));
+        }
+    };
+
+    const toggleChannel = (channel) => {
+        if (!channel.owned) return;
+        if (expandedUuid === channel.uuid) {
+            setExpandedUuid(null);
+            return;
+        }
+        setExpandedUuid(channel.uuid);
+        ensureCollaborators(channel.uuid).catch(() => {});
+    };
+
+    const saveChannel = async (channel, payload) => {
+        setSavingUuid(channel.uuid);
+        try {
+            const result = await updateChannel(channel.uuid, payload);
+            const updated = result?.channel || { ...channel, ...payload };
+            setData((current) => ({
+                ...current,
+                owned: current.owned?.uuid === channel.uuid ? { ...current.owned, ...updated } : current.owned,
+                ownedChannels: (current.ownedChannels || []).map((item) => item.uuid === channel.uuid ? { ...item, ...updated } : item),
+            }));
+            await showAlert({ title: "Lienzo actualizado", message: "Los cambios se guardaron correctamente.", tone: "success" });
+        } catch (error) {
+            await showAlert({ title: "No se pudo guardar", message: error.response?.data?.message || "Inténtalo nuevamente.", tone: "danger" });
+        } finally {
+            setSavingUuid(null);
+        }
+    };
+
+    const inviteToChannel = async (channel, email) => {
+        try {
+            await inviteCollaborator(channel.uuid, email);
+            await showAlert({ title: "Invitación enviada", message: `Enviamos la invitación a ${email}.`, tone: "success" });
+        } catch (error) {
+            await showAlert({ title: "No se pudo invitar", message: error.response?.data?.message || "Inténtalo nuevamente.", tone: "danger" });
+            throw error;
+        }
+    };
+
+    const toggleCollaborator = async (channel, row) => {
+        const nextCanEdit = !row.canEdit;
+        if (!nextCanEdit) {
+            const accepted = await confirmDialog({
+                title: `¿Suspender a ${row.user?.username ? `@${row.user.username}` : row.user?.email || "este usuario"}?`,
+                message: "Conservará su registro, pero no podrá editar el lienzo hasta que lo reactives.",
+                confirmLabel: "Suspender",
+                cancelLabel: "Cancelar",
+                tone: "danger",
+            });
+            if (!accepted) return;
+        }
+
+        try {
+            await setCollaboratorAccess(channel.uuid, row.user?.uuid, nextCanEdit);
+            setCollaborators((current) => ({
+                ...current,
+                [channel.uuid]: (current[channel.uuid] || []).map((item) => item.user?.uuid === row.user?.uuid ? { ...item, canEdit: nextCanEdit } : item),
+            }));
+        } catch (error) {
+            await showAlert({ title: "No se pudo cambiar el acceso", message: error.response?.data?.message || "Inténtalo nuevamente.", tone: "danger" });
+        }
+    };
+
+    const removeChannelCollaborator = async (channel, row) => {
+        const accepted = await confirmDialog({
+            title: "¿Quitar colaborador?",
+            message: "Perderá el acceso a este lienzo.",
+            confirmLabel: "Quitar",
+            cancelLabel: "Cancelar",
+            tone: "danger",
+        });
+        if (!accepted) return;
+
+        try {
+            await removeCollaborator(channel.uuid, row.user?.uuid);
+            setCollaborators((current) => ({
+                ...current,
+                [channel.uuid]: (current[channel.uuid] || []).filter((item) => item.user?.uuid !== row.user?.uuid),
+            }));
+        } catch (error) {
+            await showAlert({ title: "No se pudo quitar", message: error.response?.data?.message || "Inténtalo nuevamente.", tone: "danger" });
+        }
+    };
+
+    const deleteOwnedChannel = async (channel) => {
+        const accepted = await confirmDialog({
+            title: `¿Eliminar “${channel.name}”?`,
+            message: "Esta acción elimina permanentemente el lienzo, colaboradores, diseños y archivos asociados.",
+            confirmLabel: "Continuar",
+            cancelLabel: "Cancelar",
+            tone: "danger",
+        });
+        if (!accepted) return;
+
+        const requiredText = `${channel.name} BORRAR`;
+        const typed = await confirmTextDialog({
+            title: "Confirmación final",
+            message: "Escribe el nombre del lienzo seguido de BORRAR.",
+            requiredText,
+            inputLabel: "Nombre del lienzo + BORRAR",
+            confirmLabel: "Eliminar definitivamente",
+            cancelLabel: "Cancelar",
+            tone: "danger",
+        });
+        if (typed !== requiredText) return;
+
+        try {
+            await deleteChannel(channel.uuid, typed);
+            await refreshChannels();
+            setExpandedUuid(null);
+            await showAlert({ title: "Lienzo eliminado", message: `“${channel.name}” se eliminó permanentemente.`, tone: "success" });
+        } catch (error) {
+            await showAlert({ title: "No se pudo eliminar", message: error.response?.data?.message || "Inténtalo nuevamente.", tone: "danger" });
+        }
+    };
+
     const handleLeave = async (channel) => {
         const accepted = await confirmDialog({
             title: `¿Abandonar “${channel.name}”?`,
@@ -307,16 +419,31 @@ export default function EditorHub() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-[1440px] py-8 pt-7 text-[13px]">
-            <div className="mb-4 md:flex items-end justify-between gap-6 max-[760px]:items-start">
-                <div>
-                    {/* <span className="dc-kicker">EDITORES</span> */}
-                    <h1 className="dc-page-title">
-                        ERES <span className="dc-page-title-accent">EDITOR</span>
-                    </h1>
-                    {/* <p className="m-0 text-[13px] text-[var(--dc-text)]">Accede rápido a tus espacios o a los lienzos donde colaboras.</p> */}
+        <div className="dc-app-page text-[13px]">
+            <div className="mb-4">
+                {/* <span className="dc-kicker">EDITORES</span> */}
+                <h1 className="dc-page-title">LOS LIENZOS</h1>
+                {/* <p className="m-0 text-[13px] text-[var(--dc-text)]">Accede rápido a tus espacios o a los lienzos donde colaboras.</p> */}
+            </div>
+
+            <div className="dc-editorhub-toolbar mb-5 border-b border-[var(--dc-line)]">
+                <div className="dc-editorhub-tabs dc-section-tabs" role="tablist" aria-label="Filtrar lienzos">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === tab.id}
+                            className={`dc-section-tab${activeTab === tab.id ? " is-active" : ""}`}
+                            onClick={() => setActiveTab(tab.id)}
+                        >
+                            {tab.label}
+                            <span>{tab.count}</span>
+                        </button>
+                    ))}
                 </div>
-                <div className="mb-3.5 flex items-center gap-2.5 max-[760px]:mt-3 max-[760px]:w-full max-[760px]:flex-col max-[760px]:items-stretch">
+
+                <div className="dc-editorhub-filters">
                     <label className="flex min-h-11 items-center gap-2 border border-[var(--dc-line)] bg-[var(--dc-panel)] px-[11px] text-[12px] font-bold text-[var(--dc-muted)]">
                         <span className="shrink-0">ORDENAR POR</span>
                         <select
@@ -328,7 +455,7 @@ export default function EditorHub() {
                             <option value="name">Nombre (A - Z)</option>
                         </select>
                     </label>
-                    <div className="grid min-h-11 min-w-[260px] grid-cols-[18px_minmax(0,1fr)_30px] items-center gap-[9px] border border-[var(--dc-line)] bg-[var(--dc-panel)] px-[11px] pl-[13px] text-[var(--dc-muted)] focus-within:border-[var(--dc-accent)] focus-within:text-[var(--dc-accent)] max-[760px]:min-w-0">
+                    <div className="grid min-h-11 min-w-[260px] grid-cols-[18px_minmax(0,1fr)_30px] items-center gap-[9px] border border-[var(--dc-line)] bg-[var(--dc-panel)] px-[11px] pl-[13px] text-[var(--dc-muted)] focus-within:border-[var(--dc-accent-titles)] focus-within:text-[var(--dc-accent-titles)] max-[760px]:min-w-0">
                         <Search size={16} />
                         <input
                             className="h-[42px] w-full border-0 bg-transparent text-[13px] font-medium text-[var(--dc-text)] outline-none"
@@ -348,23 +475,6 @@ export default function EditorHub() {
                         )}
                     </div>
                 </div>
-            </div>
-
-            <div className="mb-5 flex flex-wrap items-center gap-1 border-b border-[var(--dc-line)]" role="tablist" aria-label="Filtrar lienzos">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={activeTab === tab.id}
-                        className={`relative inline-flex min-h-10 items-center gap-2 px-3.5 text-[13px] font-bold transition ${activeTab === tab.id ? "text-[var(--dc-text-strong)]" : "text-[var(--dc-muted)] hover:text-[var(--dc-text)]"}`}
-                        onClick={() => setActiveTab(tab.id)}
-                    >
-                        {tab.label}
-                        <span className="text-[11px] font-black opacity-60">{tab.count}</span>
-                        {activeTab === tab.id && <span className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-[var(--dc-accent-one)]" />}
-                    </button>
-                ))}
             </div>
 
             {invitations.length > 0 && (
@@ -474,87 +584,33 @@ export default function EditorHub() {
                 </section>
             ) : null}
 
-            <div className={`grid ${gridColumns} gap-2.5 max-[760px]:grid-cols-1`}>
+            <div className="dc-home2-canvas-list">
                 {filtered.map((channel) => {
                     const status =
                         !channel.owned && channel.collaboration?.canEdit === false
                             ? { label: "Suspendido", tone: "studio" }
                             : channelStatus(channel);
+
                     return (
-                        <article
-                            className="grid min-w-0 gap-[13px] bg-[var(--dc-panel)] p-[15px] shadow-[0_8px_24px_var(--dc-shadow-soft)] transition hover:-translate-y-px hover:bg-[var(--dc-surface-hover)]"
+                        <ExpandableCanvasCard
                             key={`${channel.relation}-${channel.uuid}`}
-                        >
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="dc-kicker">{channel.relation}</span>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        className={`grid h-8 w-8 place-items-center border transition ${channel.isFavorite ? "border-[#c99b24] bg-[rgba(243,201,77,0.12)] text-[#f3c94d]" : "border-[var(--dc-line)] bg-[var(--dc-surface-2)] text-[var(--dc-muted)] hover:border-[#c99b24] hover:text-[#f3c94d]"}`}
-                                        onClick={() => handleFavorite(channel)}
-                                        disabled={favoriteBusyUuids.has(channel.uuid)}
-                                        title={channel.isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
-                                        aria-label={channel.isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
-                                        aria-pressed={Boolean(channel.isFavorite)}
-                                    >
-                                        <Star size={15} fill={channel.isFavorite ? "currentColor" : "none"} />
-                                    </button>
-                                    <span className={`dc-home-canvas-status ${status.tone}`}>
-                                        <i />
-                                        {status.label}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="min-w-0">
-                                <h2 className="mb-1 mt-0 truncate text-[19px]">{channel.name}</h2>
-                                <p className="m-0 flex items-center gap-1.5 truncate text-[13px] text-[var(--dc-muted)]">
-                                    <Clock3 size={13} className="shrink-0" /> {lastUsedLabel(channel.lastUsedAt)}
-                                </p>
-                            </div>
-                            <div className="flex min-h-7 flex-wrap items-center gap-x-3.5 gap-y-2 text-[var(--dc-muted)] [&>span]:inline-flex [&>span]:items-center [&>span]:gap-[5px] [&>span]:text-[13px] [&>span]:font-bold">
-                                <span>
-                                    <Users size={14} />{" "}
-                                    {channel.activeCollaboratorCount ?? channel.collaboratorCount ?? 0} equipo
-                                </span>
-                                <span>
-                                    <FileStack size={14} /> {channel.savedDesignCount || 0} diseños
-                                </span>
-                                {(channel.runtime?.editorUsers || []).length > 0 && (
-                                    <div className="flex items-center gap-2">
-                                        <PresenceStack editors={channel.runtime.editorUsers} max={4} />
-                                        <span className="text-[12px] font-bold text-[var(--dc-muted)]">{channel.runtime.editorUsers.length} dentro</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-[7px] pt-0.5 max-[680px]:flex-col max-[680px]:items-stretch">
-                                {channel.owned || channel.collaboration?.canEdit !== false ? (
-                                    <Link
-                                        className="inline-flex min-h-9 flex-1 items-center justify-center gap-[7px] border border-[var(--dc-accent-one)] bg-[var(--dc-accent-one)] px-[11px] text-[13px] font-bold leading-none text-[var(--dc-text-inverse)]"
-                                        to={`/app/editor/${channel.publicKey}`}
-                                    >
-                                        <MonitorPlay size={16} /> Abrir editor <ExternalLink size={14} />
-                                    </Link>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="inline-flex min-h-9 flex-1 items-center justify-center gap-[7px] border border-[var(--dc-line)] bg-[var(--dc-surface-2)] px-[11px] text-[13px] font-bold text-[var(--dc-muted)] opacity-60"
-                                        disabled
-                                    >
-                                        <MonitorPlay size={16} /> Acceso suspendido
-                                    </button>
-                                )}
-                                {channel.owned && <CopyObsButton publicKey={channel.publicKey} />}
-                                {!channel.owned && (
-                                    <button
-                                        type="button"
-                                        className="inline-flex min-h-9 items-center justify-center gap-[7px] border border-[var(--dc-button-danger-border)] bg-[var(--dc-button-danger-bg)] px-[11px] text-[13px] font-bold text-[var(--dc-button-danger-text)] hover:brightness-110"
-                                        onClick={() => handleLeave(channel)}
-                                    >
-                                        <LogOut size={15} /> Abandonar
-                                    </button>
-                                )}
-                            </div>
-                        </article>
+                            channel={channel}
+                            expanded={channel.owned && expandedUuid === channel.uuid}
+                            collaborators={collaborators[channel.uuid] || []}
+                            loadingCollaborators={Boolean(loadingCollaborators[channel.uuid])}
+                            busy={savingUuid === channel.uuid}
+                            onToggle={toggleChannel}
+                            onSave={saveChannel}
+                            onInvite={inviteToChannel}
+                            onToggleCollaborator={toggleCollaborator}
+                            onRemoveCollaborator={removeChannelCollaborator}
+                            onDelete={deleteOwnedChannel}
+                            onLeave={handleLeave}
+                            onFavorite={handleFavorite}
+                            favoriteBusy={favoriteBusyUuids.has(channel.uuid)}
+                            status={status}
+                            lastUsedText={lastUsedLabel(channel.lastUsedAt)}
+                        />
                     );
                 })}
             </div>

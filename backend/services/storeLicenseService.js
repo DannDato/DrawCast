@@ -11,6 +11,7 @@ import {
   ownedChannelByUuid
 } from './storeCatalogService.js';
 import { getChannelEntitlements, invalidateChannelEntitlements } from './channelEntitlementAccessService.js';
+import { getStoreSettings } from './storeSettingsService.js';
 
 export function storeSimulationEnabled() {
   return process.env.NODE_ENV !== 'production' && process.env.STORE_SIMULATION_ENABLED !== 'false';
@@ -33,6 +34,10 @@ export async function simulateStorePurchase(userId, productUuid, { acknowledgeUn
 
   const product = await findStoreProductByUuid(String(productUuid || '').trim());
   if (!product) throw storeError(404, 'STORE_PRODUCT_NOT_FOUND', 'Producto no encontrado.');
+  const { minimumPurchaseCents, currency } = getStoreSettings();
+  if (product.currency !== currency || Number(product.priceCents) < minimumPurchaseCents) {
+    throw storeError(409, 'CART_MINIMUM_NOT_MET', 'Agrega tus productos al carrito para alcanzar el mínimo de compra.');
+  }
 
   const { entries } = await getStoreCatalogForUser(userId);
   const catalogEntry = entries.find((entry) => Number(entry.product.id) === Number(product.id));
@@ -139,59 +144,6 @@ export async function assignLicenseToChannel(userId, licenseUuid, channelUuid) {
   return { assignment, channel, entitlements, license: updatedLicense };
 }
 
-export async function releaseLicenseAssignment(userId, licenseUuid, assignmentUuid) {
-  const license = await findUserLicenseByUuid(userId, String(licenseUuid || '').trim());
-  if (!license) throw storeError(404, 'LICENSE_NOT_FOUND', 'Licencia no encontrada.');
-
-  const product = license.product;
-  if (!product || product.targetScope !== 'channel') throw storeError(400, 'LICENSE_NOT_ASSIGNABLE', 'Esta mejora se aplica a la cuenta y no tiene asignación de lienzo.');
-
-  const releasedAt = new Date();
-  const result = await db.transaction(async (transaction) => {
-    const lockedLicense = await models.UserLicense.findOne({
-      where: { id: license.id, userId: Number(userId) },
-      transaction,
-      lock: transaction.LOCK.UPDATE
-    });
-    if (!lockedLicense) throw storeError(404, 'LICENSE_NOT_FOUND', 'Licencia no encontrada.');
-
-    const assignment = await models.LicenseAssignment.findOne({
-      where: {
-        uuid: String(assignmentUuid || '').trim(),
-        licenseId: license.id,
-        status: 'ACTIVE'
-      },
-      transaction,
-      lock: transaction.LOCK.UPDATE
-    });
-    if (!assignment) throw storeError(404, 'LICENSE_ASSIGNMENT_NOT_FOUND', 'La licencia ya no está aplicada a ese lienzo.');
-
-    const channel = await models.Channel.findOne({
-      where: { id: assignment.channelId, ownerId: Number(userId) },
-      transaction,
-      lock: transaction.LOCK.UPDATE
-    });
-    if (!channel) throw storeError(403, 'CHANNEL_NOT_OWNED', 'Sólo puedes retirar licencias de lienzos de tu propiedad.');
-
-    await assignment.update({ status: 'RELEASED', releasedAt }, { transaction });
-    await models.ChannelEntitlement.update(
-      { status: 'RELEASED', endsAt: releasedAt },
-      {
-        where: {
-          channelId: channel.id,
-          sourceType: 'license',
-          sourceRef: `assignment:${assignment.uuid}`,
-          status: 'ACTIVE'
-        },
-        transaction
-      }
-    );
-
-    return { assignment, channel };
-  });
-
-  invalidateChannelEntitlements(result.channel.id);
-  const entitlements = await getChannelEntitlements(result.channel.id, { fresh: true });
-  const updatedLicense = await findUserLicenseByUuid(userId, license.uuid);
-  return { assignment: result.assignment, channel: result.channel, entitlements, license: updatedLicense };
+export async function releaseLicenseAssignment() {
+  throw storeError(403, 'LICENSE_ASSIGNMENT_PERMANENT', 'La asignación de una licencia es permanente. No se puede retirar ni transferir a otro lienzo.');
 }

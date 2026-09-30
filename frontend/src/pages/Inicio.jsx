@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, ExternalLink, MonitorPlay, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Boxes, MonitorPlay, Plus, Sparkles, Store } from "lucide-react";
 
 import ExpandableCanvasCard from "../components/channels/ExpandableCanvasCard";
+import FeaturedStreamerCard from "../components/home/FeaturedStreamerCard";
 
 import {
     createChannel,
@@ -411,12 +412,23 @@ export default function Inicio() {
     };
 
     return (
-        <div className="dc-home2-page">
-            <header className="dc-home2-header">
-                <div />                
-            </header>
+        <div className="dc-home2-page dc-app-page">
+            <h1 className="dc-page-title">INICIO</h1>
 
-           
+            <nav className="dc-home2-quick-links" aria-label="Accesos rápidos">
+                <button type="button" onClick={() => navigate("/app/editor")}>
+                    <MonitorPlay size={15} />
+                    Lienzos
+                </button>
+                <button type="button" onClick={() => navigate("/app/inventory")}>
+                    <Boxes size={15} />
+                    Inventario
+                </button>
+                <button type="button" onClick={() => navigate("/app/store")}>
+                    <Store size={15} />
+                    Tienda
+                </button>
+            </nav>
 
             <section
                 className="dc-home2-canvas-list"
@@ -706,7 +718,7 @@ export default function Inicio() {
             {channels.length > 0 && (
                 <>
                     <div className="dc-home2-section-title">
-                        <h2>SUGERENCIAS</h2>
+                        {/* <h2>SUGERENCIAS</h2> */}
                     </div>
 
                     <section className="dc-home2-suggestions">
@@ -804,43 +816,7 @@ export default function Inicio() {
                             </article>
                         )}
 
-                        <article className="dc-home2-featured-card">
-                            <div className="dc-home2-featured-media">
-                                <MonitorPlay size={44} />
-                            </div>
-
-                            <div>
-                                <span className="dc-home2-canvas-kicker">
-                                    STREAMER RECOMENDADO
-                                </span>
-
-                                <h3>
-                                    {featured?.name ||
-                                        "Descubre un canal"}
-                                </h3>
-
-                                <p>
-                                    {featured?.channelUrl
-                                        ? "Un canal de la comunidad TRAZIO."
-                                        : "Cuando haya un canal destacado aparecerá aquí."}
-                                </p>
-
-                                {featured?.channelUrl && (
-                                    <a
-                                        href={
-                                            featured.channelUrl
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        Visitar canal
-                                        <ExternalLink
-                                            size={15}
-                                        />
-                                    </a>
-                                )}
-                            </div>
-                        </article>
+                        <FeaturedStreamerCard channel={featured} />
                     </section>
                 </>
             )}

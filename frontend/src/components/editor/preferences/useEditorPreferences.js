@@ -6,6 +6,7 @@ import { DEFAULT_SHAPE_CONFIG } from '../tools/shapes/shapeTool';
 import { DEFAULT_IMAGE_CONFIG } from '../tools/images/imageTool';
 import { DEFAULT_TEXT_CONFIG, resolveTextFontFamily } from '../tools/text/textTool';
 import { DEFAULT_TIMER_CONFIG } from '../tools/timer/timerTool';
+import { DEFAULT_ROULETTE_CONFIG } from '../tools/roulette/rouletteTool';
 
 export default function useEditorPreferences() {
   const [userSettings, setUserSettings] = useState(undefined);
@@ -14,6 +15,7 @@ export default function useEditorPreferences() {
   const [imageConfig, setImageConfig] = useState(DEFAULT_IMAGE_CONFIG);
   const [textConfig, setTextConfig] = useState(DEFAULT_TEXT_CONFIG);
   const [timerConfig, setTimerConfig] = useState(DEFAULT_TIMER_CONFIG);
+  const [rouletteConfig, setRouletteConfig] = useState(DEFAULT_ROULETTE_CONFIG);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +31,7 @@ export default function useEditorPreferences() {
         setImageConfig({ ...DEFAULT_IMAGE_CONFIG, ...preferences.image });
         setTextConfig({ ...DEFAULT_TEXT_CONFIG, ...preferences.text, fontFamily: resolveTextFontFamily(preferences.text.fontKey) });
         setTimerConfig({ ...DEFAULT_TIMER_CONFIG, ...preferences.timer, fontFamily: resolveTextFontFamily(preferences.timer.fontKey) });
+        setRouletteConfig({ ...DEFAULT_ROULETTE_CONFIG, ...preferences.roulette });
       } catch {
         // El editor puede seguir funcionando con sus defaults aunque falle la configuración de cuenta.
       }
@@ -39,5 +42,5 @@ export default function useEditorPreferences() {
     return () => { active = false; };
   }, []);
 
-  return { userSettings, drawConfig, setDrawConfig, shapeConfig, setShapeConfig, imageConfig, setImageConfig, textConfig, setTextConfig, timerConfig, setTimerConfig };
+  return { userSettings, drawConfig, setDrawConfig, shapeConfig, setShapeConfig, imageConfig, setImageConfig, textConfig, setTextConfig, timerConfig, setTimerConfig, rouletteConfig, setRouletteConfig };
 }

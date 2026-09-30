@@ -3,7 +3,9 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { HelmetProvider } from "react-helmet-async";
 import App from './App';
+import CartProvider from './context/CartProvider';
 import { SystemAlertProvider } from './components/ui/SystemAlert';
+import GlobalLoadingOverlay from './components/ui/GlobalLoadingOverlay';
 import './index.css';
 
     
@@ -12,7 +14,10 @@ createRoot(document.getElementById('root')).render(
         <BrowserRouter>
             <AuthProvider>
                 <SystemAlertProvider>
-                    <App />
+                    <CartProvider>
+                        <App />
+                        <GlobalLoadingOverlay />
+                    </CartProvider>
                 </SystemAlertProvider>
             </AuthProvider>
         </BrowserRouter>

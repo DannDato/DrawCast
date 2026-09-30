@@ -11,6 +11,7 @@ router.use(verifyToken);
 router.use(mutationLimiter);
 router.get('/mine', asyncHandler(ChannelController.mine));
 router.get('/featured', asyncHandler(ChannelController.featured));
+router.get('/featured/:channelUuid/preview', asyncHandler(ChannelController.featuredPreview));
 router.post('/', asyncHandler(ChannelController.create));
 router.get('/invitations/pending', asyncHandler(ChannelController.pendingInvitations));
 router.post('/invitations/accept', asyncHandler(ChannelController.accept));

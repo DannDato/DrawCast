@@ -21,7 +21,8 @@ import {
   Volume2,
   X
 } from 'lucide-react';
-import { getStoreCatalog, simulateStorePurchase } from '../api/store';
+import { getStoreCatalog } from '../api/store';
+import { useCart } from '../context/cartContext';
 
 const ICONS = {
   sparkles: Sparkles,
@@ -39,7 +40,7 @@ const ICONS = {
 };
 
 const SECTION_COPY = {
-  packs: { title: 'Packs', copy: 'Varias capacidades en una sola licencia, sin lógica especial en el Editor.' },
+  packs: { title: 'Packs', copy: 'Combina tus herramientas favoritas en una sola licencia.' },
   tools: { title: 'Herramientas', copy: 'Desbloquea sólo lo que necesitas.' },
   expansions: { title: 'Expansiones', copy: 'Aumentan los límites de un lienzo compatible.' },
   canvases: { title: 'Lienzos', copy: 'Capacidad adicional para tu cuenta.' }
@@ -59,9 +60,9 @@ const TAB_SECTIONS = {
 };
 
 function money(product) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: product.currency || 'USD',
+    currency: product.currency || 'MXN',
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   }).format((product.priceCents || 0) / 100);
@@ -80,12 +81,12 @@ function productIcon(product, size = 22) {
 
 function productImage(product) {
   const image = product?.metadata?.image;
-  return typeof image === 'string' && image.trim() ? image.trim() : '';
+  return typeof image === 'string' && image.trim() ? image.trim() : '/img/product-fallback.webp';
 }
 
 function requirementCopy(product) {
   const descriptions = [...new Set((product.requirements || []).map((item) => item.description).filter(Boolean))];
-  if (!descriptions.length) return 'Requiere la capacidad base o Lienzo Plus.';
+  if (!descriptions.length) return 'Requiere la herramienta correspondiente o Lienzo Plus.';
   return descriptions.find((text) => /Plus o/i.test(text)) || descriptions[0];
 }
 
@@ -103,7 +104,7 @@ function StoreProductStatus({ product, plusName }) {
   return null;
 }
 
-function StoreCategoryRow({ products, plusCoverageComplete, plusName, onOpen, onInventory }) {
+function StoreCategoryRow({ products, plusName, onOpen, onAdd, adding }) {
   const rowRef = useRef(null);
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef(null);
@@ -213,7 +214,7 @@ function StoreCategoryRow({ products, plusCoverageComplete, plusName, onOpen, on
         onPointerUp={resume}
       >
         {products.map((product) => (
-          <StoreProductCard key={product.uuid} product={product} plusCoverageComplete={plusCoverageComplete} plusName={plusName} onOpen={onOpen} onInventory={onInventory} />
+          <StoreProductCard key={product.uuid} product={product} plusName={plusName} onOpen={onOpen} onAdd={onAdd} adding={adding} />
         ))}
       </div>
       <button type="button" className="dc-store-carousel-arrow is-right" aria-label="Ver más productos" disabled={!scrollState.right} onClick={() => scrollByCards(1)}>
@@ -223,34 +224,19 @@ function StoreCategoryRow({ products, plusCoverageComplete, plusName, onOpen, on
   );
 }
 
-function StoreProductCard({ product, plusCoverageComplete, plusName, onOpen, onInventory }) {
-  const state = productState(product);
-  const requiresConfirmation = state === 'requires_base';
+function StoreProductCard({ product, plusName, onOpen, onAdd, adding }) {
+  const requiresConfirmation = product.eligibility?.requirementsMet === false;
   const purchaseBlocked = product.eligibility?.purchaseAvailable === false;
-  const redundantByPlus = plusCoverageComplete && ['tool', 'pack'].includes(product.kind);
   const image = productImage(product);
 
-  const handleAction = () => {
-    if (purchaseBlocked && ['owned_applied', 'in_inventory'].includes(state)) {
-      onInventory();
-      return;
-    }
-    if (purchaseBlocked && state === 'included_in_plus') return;
-    onOpen(product);
-  };
-
-  const actionLabel = (() => {
-    if (state === 'included_in_plus') return 'Incluido en Plus';
-    if (state === 'owned_applied' || state === 'in_inventory') return 'Ir a Inventario';
-    if (requiresConfirmation) return 'Ver de todos modos';
-    return `Comprar ${money(product)}`;
-  })();
+  const handleAction = () => onAdd(product);
+  const actionLabel = purchaseBlocked ? 'No disponible' : 'Agregar al carrito';
 
   return (
-    <article className={`dc-store-product ${requiresConfirmation ? 'is-requirement-unmet' : ''} ${redundantByPlus ? 'is-plus-redundant' : ''}`}>
+    <article className={`dc-store-product ${requiresConfirmation ? 'is-requirement-unmet' : ''}`}>
       <StoreProductStatus product={product} plusName={plusName} />
       <div className={`dc-store-product-preview ${image ? 'has-image' : ''}`} aria-hidden="true">
-        {image ? <img src={image} alt="" loading="lazy" /> : <span>{productIcon(product, 27)}</span>}
+        {image ? <img src={image} alt="" loading="lazy" decoding="async" onError={(event) => { if (!event.currentTarget.src.endsWith('/img/product-fallback.webp')) event.currentTarget.src = '/img/product-fallback.webp'; }} /> : <span>{productIcon(product, 27)}</span>}
       </div>
       <div className="dc-store-product-copy">
         <div className="dc-store-product-title-row">
@@ -261,7 +247,8 @@ function StoreProductCard({ product, plusCoverageComplete, plusName, onOpen, onI
           <div className="dc-store-price"><b>{money(product)}</b><span>{intervalLabel(product)}</span></div>
         </div>
         <p>{product.description}</p>
-        <button type="button" className={purchaseBlocked || requiresConfirmation ? 'secondary' : 'primary'} disabled={state === 'included_in_plus'} onClick={handleAction}>
+        <button type="button" className="dc-store-detail-link" onClick={() => onOpen(product)}>Ver detalles</button>
+        <button type="button" className={purchaseBlocked || requiresConfirmation ? 'secondary' : 'primary'} disabled={adding || purchaseBlocked} onClick={handleAction}>
           {actionLabel} {!purchaseBlocked && <ArrowRight size={15} />}
         </button>
       </div>
@@ -269,7 +256,7 @@ function StoreProductCard({ product, plusCoverageComplete, plusName, onOpen, onI
   );
 }
 
-function PlusHero({ product, intelligence, onOpen, onInventory }) {
+function PlusHero({ product, intelligence, onOpen, onAdd, adding }) {
   if (!product) return null;
   const appliedCount = Number(intelligence?.plusAppliedChannelCount || 0);
   const uncoveredCount = Number(intelligence?.plusUncoveredChannelCount || 0);
@@ -277,15 +264,9 @@ function PlusHero({ product, intelligence, onOpen, onInventory }) {
   const plusApplied = intelligence?.plusApplied === true;
   const plusOwned = intelligence?.plusOwned === true;
   const coverageComplete = intelligence?.plusCoverageComplete === true;
-  const ctaLabel = coverageComplete
-    ? 'Administrar en Inventario'
-    : inventoryAvailable
-      ? 'Aplicar desde Inventario'
-      : plusOwned
-        ? 'Comprar otro Plus'
-        : 'Desbloquear todo';
+  const ctaLabel = 'Agregar al carrito';
   const [nameLead, ...nameTail] = String(product.name || 'Lienzo Plus').split(/\s+/);
-  const handleClick = coverageComplete || inventoryAvailable ? onInventory : () => onOpen(product);
+  const handleClick = () => onAdd(product);
 
   return (
     <section className={`dc-store-plus ${plusApplied ? 'is-active' : ''}`}>
@@ -304,57 +285,21 @@ function PlusHero({ product, intelligence, onOpen, onInventory }) {
       <div className="dc-store-plus-buy">
         <span>POR LIENZO</span>
         <div><b>{money(product)}</b><small>{intervalLabel(product)}</small></div>
-        <button type="button" onClick={handleClick}>{ctaLabel} <ArrowRight size={16} /></button>
-        <small>{coverageComplete ? 'Las herramientas y packs incluidos se marcan como redundantes porque todos tus lienzos están cubiertos.' : 'Cada licencia Plus se aplica a un lienzo concreto.'}</small>
+        <button type="button" onClick={handleClick} disabled={adding}>{ctaLabel} <ArrowRight size={16} /></button>
+        <button type="button" className="dc-store-detail-link" onClick={() => onOpen(product)}>Ver detalles</button>
+        <small>{coverageComplete ? 'Tus lienzos actuales cuentan con Plus. Puedes agregar licencias para tus próximos lienzos.' : 'Cada licencia Plus se aplica a un lienzo concreto.'}</small>
       </div>
     </section>
   );
 }
 
-function StorePreviewModal({ product, checkoutEnabled, simulationEnabled, onClose, onPurchased, onInventory }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [confirmingRisk, setConfirmingRisk] = useState(false);
+function StorePreviewModal({ product, onClose, onAdd, adding, error }) {
   if (!product) return null;
-
   const state = productState(product);
   const purchaseBlocked = product.eligibility?.purchaseAvailable === false;
-  const requiresConfirmation = state === 'requires_base';
-
-  const purchase = async ({ acknowledgeUnmetRequirements = false } = {}) => {
-    if (!simulationEnabled || busy || purchaseBlocked) return;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await simulateStorePurchase(product.uuid, { acknowledgeUnmetRequirements });
-      onPurchased(result?.license);
-    } catch (reason) {
-      setError(reason?.response?.data?.message || reason?.message || 'No se pudo crear la licencia de prueba.');
-      setBusy(false);
-    }
-  };
-
-  const handlePrimary = () => {
-    if (purchaseBlocked) {
-      if (state === 'owned_applied' || state === 'in_inventory') onInventory();
-      return;
-    }
-    if (requiresConfirmation && !confirmingRisk) {
-      setConfirmingRisk(true);
-      setError('');
-      return;
-    }
-    purchase({ acknowledgeUnmetRequirements: requiresConfirmation });
-  };
-
-  const primaryLabel = (() => {
-    if (state === 'included_in_plus') return 'Incluido en Lienzo Plus';
-    if (state === 'owned_applied') return 'Ver en Inventario';
-    if (state === 'in_inventory') return 'Aplicar desde Inventario';
-    if (checkoutEnabled) return requiresConfirmation ? 'Comprar de todos modos' : 'Continuar al pago';
-    if (simulationEnabled) return busy ? 'Creando licencia…' : requiresConfirmation ? 'Comprar de todos modos' : 'Agregar al inventario';
-    return 'Cobros próximamente';
-  })();
+  const requiresConfirmation = product.eligibility?.requirementsMet === false;
+  const handlePrimary = () => onAdd(product);
+  const primaryLabel = purchaseBlocked ? 'No disponible' : 'Agregar al carrito';
 
   return (
     <div className="dc-store-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -365,22 +310,20 @@ function StorePreviewModal({ product, checkoutEnabled, simulationEnabled, onClos
           <button type="button" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
         </header>
         <div className="dc-store-modal-body">
-          <div className="dc-store-modal-price"><span>Cobro al activar</span><b>{money(product)} <small>{intervalLabel(product)}</small></b></div>
+          {error && <div className="dc-store-state error" role="alert">{error}</div>}
+          <div className="dc-store-modal-price"><span>Precio de la licencia</span><b>{money(product)} <small>{intervalLabel(product)}</small></b></div>
           <p>{product.description}</p>
-          {state === 'included_in_plus' && <div className="dc-store-modal-lock"><Sparkles size={18} /><div><b>No necesitas comprarlo</b><span>Tu plan principal ya incluye esta capacidad.</span></div></div>}
-          {state === 'owned_applied' && <div className="dc-store-modal-lock"><Check size={18} /><div><b>Ya lo tienes</b><span>Este producto ya está aplicado en uno de tus lienzos.</span></div></div>}
-          {state === 'in_inventory' && <div className="dc-store-modal-lock"><ShoppingBag size={18} /><div><b>Ya está en tu Inventario</b><span>Usa la licencia que ya tienes antes de comprar otra.</span></div></div>}
+          {state === 'included_in_plus' && <div className="dc-store-modal-lock"><Sparkles size={18} /><div><b>Incluido en tus lienzos actuales</b><span>Puedes comprar otra licencia para un lienzo nuevo.</span></div></div>}
+          {state === 'owned_applied' && <div className="dc-store-modal-lock"><Check size={18} /><div><b>Ya lo tienes</b><span>Ya tienes licencias aplicadas. Puedes comprar más para otros lienzos.</span></div></div>}
+          {state === 'in_inventory' && <div className="dc-store-modal-lock"><ShoppingBag size={18} /><div><b>Ya está en tu Inventario</b><span>Tienes licencias disponibles y puedes agregar más para tus próximos lienzos.</span></div></div>}
           {requiresConfirmation && <>
-            <div className="dc-store-modal-lock"><LockKeyhole size={18} /><div><b>No tienes la capacidad base</b><span>{requirementCopy(product)}</span></div></div>
-            <div className="dc-store-modal-warning"><Sparkles size={18} /><div><b>Te recomendamos comprar primero la herramienta o Lienzo Plus.</b><span>Puedes comprar esta expansión ahora, pero permanecerá en tu Inventario y no podrás aplicarla hasta tener un lienzo compatible.</span></div></div>
+            <div className="dc-store-modal-lock"><LockKeyhole size={18} /><div><b>Necesitas la herramienta correspondiente</b><span>{requirementCopy(product)}</span></div></div>
+            <div className="dc-store-modal-warning"><Sparkles size={18} /><div><b>Te recomendamos comprar primero la herramienta o Lienzo Plus.</b><span>Esta expansión requiere un lienzo compatible para poder aplicarse. Agregarla al carrito no desbloquea la herramienta base.</span></div></div>
           </>}
-          {requiresConfirmation && confirmingRisk && <div className="dc-store-modal-confirm"><b>¿Estás seguro?</b><span>Estás comprando una expansión que actualmente no puedes usar. La compra no desbloquea la herramienta base.</span></div>}
-          {simulationEnabled && !checkoutEnabled && !requiresConfirmation && !purchaseBlocked && <div className="dc-store-modal-note"><Sparkles size={17} /><span>Modo de prueba: crea una licencia real en tu inventario sin hacer ningún cobro.</span></div>}
-          {error && <div className="dc-store-state error">{error}</div>}
         </div>
         <footer>
-          {confirmingRisk ? <button type="button" onClick={() => setConfirmingRisk(false)} disabled={busy}>Volver</button> : <button type="button" onClick={onClose}>Cerrar</button>}
-          <button type="button" className="primary" disabled={busy || state === 'included_in_plus' || (!purchaseBlocked && !checkoutEnabled && !simulationEnabled)} onClick={handlePrimary}>{primaryLabel}</button>
+          <button type="button" onClick={onClose}>Cerrar</button>
+          <button type="button" className="primary" disabled={adding || purchaseBlocked} onClick={handlePrimary}>{primaryLabel}</button>
         </footer>
       </section>
     </div>
@@ -389,6 +332,8 @@ function StorePreviewModal({ product, checkoutEnabled, simulationEnabled, onClos
 
 export default function Store() {
   const navigate = useNavigate();
+  const { add, busy: adding, error: cartError } = useCart();
+  const [cartNotice, setCartNotice] = useState('');
   const [searchParams] = useSearchParams();
   const [catalog, setCatalog] = useState({ checkoutEnabled: false, simulationEnabled: false, intelligence: {}, products: [] });
   const [loading, setLoading] = useState(true);
@@ -441,25 +386,35 @@ export default function Store() {
 
   const sectionTab = (section) => section === 'canvases' ? 'expansions' : section;
 
-  const goInventory = () => navigate('/app/inventory');
+  const addProduct = async (product) => {
+    setCartNotice('');
+    const result = await add(product.uuid);
+    if (result) {
+      setSelectedProduct(null);
+      setCartNotice(`${product.name} se agregó al carrito.`);
+    }
+  };
+
 
   return (
     <div className="dc-store-page">
       <div className="dc-store-page-bg" aria-hidden="true" />
-      <div className="dc-store-shell">
+      <div className="dc-store-shell dc-app-page">
         <header className="dc-store-page-head">
           <div>
             <span className="dc-store-eyebrow"><ShoppingBag size={14} /> TIENDA</span>
             {/* <h1>MEJORAS <strong>//</strong> TRAZIO</h1> */}
             <p>Compra licencias para tu cuenta y aplícalas desde Inventario.</p>
           </div>
-          <span className="dc-store-billing-pill">PRECIOS · USD</span>
+          <span className="dc-store-billing-pill">PRECIOS · MXN</span>
         </header>
 
+        {cartNotice && <div className="dc-store-state" role="status">{cartNotice} <button type="button" onClick={() => navigate('/app/cart')}>Ver carrito</button></div>}
+        {cartError && <div className="dc-store-state error" role="alert">{cartError}</div>}
         {loading && <div className="dc-store-state">Cargando catálogo…</div>}
         {error && <div className="dc-store-state error">{error}</div>}
         {!loading && !error && <>
-          <PlusHero product={plus} intelligence={catalog.intelligence} onOpen={setSelectedProduct} onInventory={goInventory} />
+          <PlusHero product={plus} intelligence={catalog.intelligence} onOpen={setSelectedProduct} onAdd={addProduct} adding={adding} />
 
           <div className="dc-store-tabs" role="tablist" aria-label="Filtrar productos de la tienda">
             {tabs.map((tab) => (
@@ -487,10 +442,10 @@ export default function Store() {
                   )}
                 </div>
                 {activeTab === 'all' ? (
-                  <StoreCategoryRow products={products} plusCoverageComplete={catalog.intelligence?.plusCoverageComplete === true} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onInventory={goInventory} />
+                  <StoreCategoryRow products={products} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onAdd={addProduct} adding={adding} />
                 ) : (
                   <div className="dc-store-grid">
-                    {products.map((product) => <StoreProductCard key={product.uuid} product={product} plusCoverageComplete={catalog.intelligence?.plusCoverageComplete === true} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onInventory={goInventory} />)}
+                    {products.map((product) => <StoreProductCard key={product.uuid} product={product} plusName={catalog.intelligence?.plusProductName} onOpen={setSelectedProduct} onAdd={addProduct} adding={adding} />)}
                   </div>
                 )}
               </section>
@@ -501,11 +456,11 @@ export default function Store() {
       <StorePreviewModal
         key={selectedProduct?.uuid || 'store-preview'}
         product={selectedProduct}
-        checkoutEnabled={catalog.checkoutEnabled}
-        simulationEnabled={catalog.simulationEnabled}
+        error={cartError}
+        onAdd={addProduct}
+        adding={adding}
         onClose={() => setSelectedProduct(null)}
-        onPurchased={goInventory}
-        onInventory={goInventory}
+       
       />
     </div>
   );

@@ -29,6 +29,7 @@ const entitlements = {
 test('featureForObject mapea objetos del editor a capabilities', () => {
   assert.equal(featureForObject({ tipo: 'text' }), 'editor.text');
   assert.equal(featureForObject({ tipo: 'timer' }), 'editor.timer');
+  assert.equal(featureForObject({ tipo: 'roulette' }), 'editor.shape');
   assert.equal(featureForObject({ tipo: 'image' }), 'editor.image');
   assert.equal(featureForObject({ tipo: 'shape', shapeType: 'line' }), 'editor.line');
   assert.equal(featureForObject({ tipo: 'shape', shapeType: 'rect' }), 'editor.shape');

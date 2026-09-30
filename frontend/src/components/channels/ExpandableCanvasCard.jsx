@@ -4,11 +4,14 @@ import {
     Activity,
     ChevronDown,
     ChevronRight,
+    Clock3,
     Copy,
     ExternalLink,
     FileStack,
+    LogOut,
     MonitorPlay,
     Save,
+    Star,
     Trash2,
     UserMinus,
     UserPlus,
@@ -63,14 +66,22 @@ export default function ExpandableCanvasCard({
     onToggleCollaborator,
     onRemoveCollaborator,
     onDelete,
+    onLeave,
+    onFavorite,
+    favoriteBusy = false,
+    status = null,
+    lastUsedText = null,
 }) {
     const [draft, setDraft] = useState({ name: channel.name || "", channelUrl: channel.channelUrl || "" });
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteBusy, setInviteBusy] = useState(false);
+    const owned = channel.owned !== false;
+    const allowExpand = owned;
+    const canOpenEditor = owned || channel.collaboration?.canEdit !== false;
     const editorPath = `/app/editor/${channel.publicKey}`;
     const overlayUrl = `${window.location.origin}/overlay/${channel.publicKey}`;
     const handle = channelHandle(channel.channelUrl);
-
+    const relation = channel.relation || (owned ? "TU LIENZO" : "LIENZO COMPARTIDO");
 
     const save = async () => {
         if (!draft.name.trim() || busy) return;
@@ -88,30 +99,68 @@ export default function ExpandableCanvasCard({
         }
     };
 
+    const identity = (
+        <>
+            <div className="dc-home2-canvas-identity">
+                <span className="dc-home2-canvas-kicker">{relation}</span>
+                <strong>{channel.name}</strong>
+                <span>{channel.channelUrl ? `${channel.platform?.toUpperCase() || "CANAL"}${handle ? ` · @${handle}` : ""}` : "Sin canal vinculado"}</span>
+            </div>
+            <div className="dc-home2-canvas-stats" aria-label="Resumen del lienzo">
+                {lastUsedText && <span><Clock3 size={15} /> {lastUsedText}</span>}
+                <span><Users size={15} /> {channel.activeCollaboratorCount ?? channel.collaboratorCount ?? 0}</span>
+                <span><FileStack size={15} /> {channel.savedDesignCount ?? 0}</span>
+                {(channel.runtime?.editorCount || 0) > 0 && <span><Activity size={15} /> {channel.runtime.editorCount}</span>}
+                {status && <span className={`dc-home-canvas-status ${status.tone || "idle"}`}><i />{status.label}</span>}
+                {onFavorite && (
+                    <button
+                        type="button"
+                        className={`dc-home2-favorite ${channel.isFavorite ? "is-active" : ""}`}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onFavorite(channel);
+                        }}
+                        disabled={favoriteBusy}
+                        aria-label={channel.isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
+                        aria-pressed={Boolean(channel.isFavorite)}
+                        title={channel.isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
+                    >
+                        <Star size={15} fill={channel.isFavorite ? "currentColor" : "none"} />
+                    </button>
+                )}
+            </div>
+        </>
+    );
+
     return (
-        <article className={`dc-home2-canvas ${expanded ? "is-open" : ""}`}>
+        <article className={`dc-home2-canvas ${expanded && allowExpand ? "is-open" : ""}`}>
             <div className="dc-home2-canvas-summary">
-                <button type="button" className="dc-home2-canvas-toggle" onClick={() => onToggle?.(channel)} aria-expanded={expanded}>
-                    <div className="dc-home2-canvas-identity">
-                        <span className="dc-home2-canvas-kicker">{channel.owned === false ? "LIENZO COMPARTIDO" : "TU LIENZO"}</span>
-                        <strong>{channel.name}</strong>
-                        <span>{channel.channelUrl ? `${channel.platform?.toUpperCase() || "CANAL"}${handle ? ` · @${handle}` : ""}` : "Sin canal vinculado"}</span>
+                {allowExpand ? (
+                    <button type="button" className="dc-home2-canvas-toggle" onClick={() => onToggle?.(channel)} aria-expanded={expanded}>
+                        {identity}
+                        {expanded ? <ChevronDown size={21} /> : <ChevronRight size={21} />}
+                    </button>
+                ) : (
+                    <div className="dc-home2-canvas-toggle is-static">
+                        {identity}
                     </div>
-                    <div className="dc-home2-canvas-stats" aria-label="Resumen del lienzo">
-                        <span><Users size={15} /> {channel.collaboratorCount ?? 0}</span>
-                        <span><FileStack size={15} /> {channel.savedDesignCount ?? 0}</span>
-                        {(channel.runtime?.editorCount || 0) > 0 && <span><Activity size={15} /> {channel.runtime.editorCount}</span>}
-                    </div>
-                    {expanded ? <ChevronDown size={21} /> : <ChevronRight size={21} />}
-                </button>
+                )}
 
                 <div className="dc-home2-canvas-shortcuts">
-                    <Link className="dc-home2-action primary" to={editorPath} onClick={(event) => event.stopPropagation()}><MonitorPlay size={15} /> Editor</Link>
-                    <CopyButton value={overlayUrl}>OBS</CopyButton>
+                    {canOpenEditor ? (
+                        <Link className="dc-home2-action primary" to={editorPath} onClick={(event) => event.stopPropagation()}><MonitorPlay size={15} /> Editor</Link>
+                    ) : (
+                        <button type="button" className="dc-home2-action" disabled><MonitorPlay size={15} /> Suspendido</button>
+                    )}
+                    {owned ? (
+                        <CopyButton value={overlayUrl}>OBS</CopyButton>
+                    ) : (
+                        <button type="button" className="dc-home2-action danger" onClick={(event) => { event.stopPropagation(); onLeave?.(channel); }}><LogOut size={15} /> Abandonar</button>
+                    )}
                 </div>
             </div>
 
-            {expanded && (
+            {allowExpand && expanded && (
                 <div className="dc-home2-canvas-detail">
                     <div className="dc-home2-edit-grid">
                         <label>

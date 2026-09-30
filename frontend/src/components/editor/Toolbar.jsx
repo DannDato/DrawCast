@@ -1,5 +1,7 @@
 import { createElement, useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
+  ArrowLeft,
   ChevronDown,
   Clock3,
   Eraser,
@@ -17,11 +19,13 @@ import {
   Radio,
   Save,
   Play,
+  Settings,
   Settings2,
   Power,
   Shapes,
   Slash,
   Timer,
+  Circle,
   Type,
   Volume2,
   VolumeX
@@ -41,7 +45,8 @@ const insertTools = [
   { id: 'image', label: 'Imagen / GIF', icon: Image },
   { id: 'shape', label: 'Forma', icon: Shapes },
   { id: 'line', label: 'Línea', icon: Slash },
-  { id: 'timer', label: 'Temporizador', icon: Timer }
+  { id: 'timer', label: 'Temporizador', icon: Timer },
+  { id: 'roulette', label: 'Ruleta', icon: Circle }
 ];
 
 function PremiumLock() {
@@ -106,8 +111,13 @@ export default function Toolbar({
   quickSoundSlotLimit = 0
 }) {
   const [openMenu, setOpenMenu] = useState(null);
+  const location = useLocation();
+  const backToCanvas = new URLSearchParams(location.search);
+  const backFromLaunchpad = backToCanvas.get('view') === 'launchpad';
+  backToCanvas.set('view', 'editor');
   const rootRef = useRef(null);
   const imageInputRef = useRef(null);
+  const handledImagePickerRequestRef = useRef(0);
   const insertActive = insertTools.some((item) => item.id === tool);
   const controlDisabled = !connected || Boolean(controlBusy);
   const workspaceDisabled = controlDisabled || editorLocked;
@@ -125,7 +135,10 @@ export default function Toolbar({
   };
 
   useEffect(() => {
-    if (!imagePickerRequest || workspaceDisabled || !entitlementsReady || !isFeatureEnabled('editor.image')) return;
+    if (!imagePickerRequest || imagePickerRequest <= handledImagePickerRequestRef.current) return;
+    if (workspaceDisabled || !entitlementsReady || !isFeatureEnabled('editor.image')) return;
+
+    handledImagePickerRequestRef.current = imagePickerRequest;
     imageInputRef.current?.click();
   }, [entitlementsReady, imagePickerRequest, isFeatureEnabled, workspaceDisabled]);
 
@@ -166,7 +179,7 @@ export default function Toolbar({
 
   const chooseInsertTool = (id, event) => {
     if (workspaceDisabled) return;
-    const feature = { image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer' }[id];
+    const feature = { image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer', roulette: 'editor.shape' }[id];
     if (featureLocked(feature)) return onLockedFeature?.(feature, insertTools.find((item) => item.id === id)?.label || id);
     setOpenMenu(null);
 
@@ -187,6 +200,9 @@ export default function Toolbar({
 
   return (
     <div className={`dc-toolbar-horizontal ${editorLocked ? 'is-editor-locked' : ''}`} ref={rootRef}>
+      <Link to={backFromLaunchpad ? { pathname: location.pathname, search: `?${backToCanvas}`, hash: location.hash } : '/app/editor'} className="dc-toolbar-icon dc-toolbar-navigation" title={backFromLaunchpad ? 'Volver al lienzo' : 'Volver a lienzos'} aria-label={backFromLaunchpad ? 'Volver al lienzo' : 'Volver a lienzos'}>
+        <ArrowLeft size={16} />
+      </Link>
       {launchpadMode ? (
         <button type="button" className={lockedClass(featureLocked('editor.launchpad'), 'dc-toolbar-wide')} onClick={lockedAction('editor.launchpad', 'Launchpad', onAssignLaunchpadSounds)} disabled={audioDisabled && !featureLocked('editor.launchpad')} aria-disabled={audioDisabled || featureLocked('editor.launchpad')}>
           <Settings2 size={15} />
@@ -327,11 +343,11 @@ export default function Toolbar({
               </button>
             ))}
             {insertTools.map(({ id, label, icon }) => (
-              <button key={id} type="button" className={`${tool === id ? 'active' : ''} ${featureLocked({ image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer' }[id]) ? 'dc-plus-locked' : ''}`} onClick={(event) => chooseInsertTool(id, event)}>
+              <button key={id} type="button" className={`${tool === id ? 'active' : ''} ${featureLocked({ image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer', roulette: 'editor.shape' }[id]) ? 'dc-plus-locked' : ''}`} onClick={(event) => chooseInsertTool(id, event)}>
                 {createElement(icon, { size: 15 })}
                 <span>{label}</span>
                 <kbd>{TOOL_SHORTCUTS[id]}</kbd>
-                {featureLocked({ image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer' }[id]) && <PremiumLock />}
+                {featureLocked({ image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer', roulette: 'editor.shape' }[id]) && <PremiumLock />}
               </button>
             ))}
           </div>
@@ -398,6 +414,10 @@ export default function Toolbar({
           <span>{connected ? 'En línea' : 'Sin conexión'}</span>
         </span>
       </div>
+
+      <Link to="/app/settings?section=editor" className="dc-toolbar-icon dc-toolbar-navigation" title="Preferencias del editor" aria-label="Preferencias del editor">
+        <Settings size={16} />
+      </Link>
     </div>
   );
 }

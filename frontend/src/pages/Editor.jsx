@@ -14,11 +14,11 @@ import SoundSlotsModal from '../components/editor/sounds/SoundSlotsModal';
 import LaunchpadConfigModal from '../components/editor/sounds/LaunchpadConfigModal';
 import LaunchpadSurface from '../components/editor/sounds/LaunchpadSurface';
 import { useSystemAlert } from '../components/ui/SystemAlert';
-import { makeShape, makeText, makeTimer } from '../components/editor/objectFactory';
+import { makeShape, makeText, makeTimer, makeRoulette } from '../components/editor/objectFactory';
 import { createGroupPatches, duplicateSelection, selectedGroupIds, ungroupPatches } from '../components/editor/groups/groupUtils';
 import { moveSelectionOneLevel, reorderLayerUnitToIndex } from '../components/editor/layers/layerUtils';
 import { applyTextStyle, updateTextContent } from '../components/editor/tools/text/textTool';
-import { adjustTimerSeconds, applyTimerConfig, toggleTimer } from '../components/editor/tools/timer/timerTool';
+import { adjustTimerSeconds, applyTimerConfig, restartTimer, toggleTimer } from '../components/editor/tools/timer/timerTool';
 import { appendStrokeToLayer, clearDrawLayer, DRAW_LAYER_MAX_BYTES, isDrawLayer, makeDrawLayer, pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { applyHistoryEntry, cloneValue, makeDrawStrokeHistoryEntry, makeHistoryEntry, pushHistoryEntry } from '../components/editor/history/historyUtils';
 import { createClipboardPayload, materializeClipboardPayload, serializeClipboardPayload } from '../components/editor/clipboard/clipboardUtils';
@@ -33,6 +33,8 @@ import useEditorMedia from '../components/editor/tools/images/useEditorMedia';
 import { decodeDesignSnapshot, ensureSceneDrawLayer } from '../components/editor/scene/sceneUtils';
 import { TOOL_LABELS } from '../components/editor/hotkeys/shortcuts';
 import { DEFAULT_LINE_CONFIG } from '../components/editor/tools/lines/lineTool';
+import { cancelRouletteSpin, removeRouletteWinner, rouletteWinnerAtRotation, shuffleRouletteEntries, spinRoulette } from '../components/editor/tools/roulette/rouletteTool';
+import useRouletteTickSound from '../components/editor/tools/roulette/useRouletteTickSound';
 import { EMPTY_CHANNEL_ENTITLEMENTS, FEATURE_LABELS, TOOL_FEATURE, entitlementLimit, featureEnabled, normalizeChannelEntitlements, objectFeature } from '../components/editor/entitlements/editorEntitlements';
 
 export default function Editor() {
@@ -41,7 +43,7 @@ export default function Editor() {
   const { confirmDialog, showAlert } = useSystemAlert();
   const {
     userSettings, drawConfig, setDrawConfig, shapeConfig, setShapeConfig, imageConfig, setImageConfig,
-    textConfig, setTextConfig, timerConfig, setTimerConfig
+    textConfig, setTextConfig, timerConfig, setTimerConfig, rouletteConfig, setRouletteConfig
   } = useEditorPreferences();
   const [channelUuid, setChannelUuid] = useState(null);
   const [entitlements, setEntitlements] = useState(EMPTY_CHANNEL_ENTITLEMENTS);
@@ -66,6 +68,7 @@ export default function Editor() {
     try { return localStorage.getItem('TRAZIO.editor.snap') !== 'off'; } catch { return true; }
   });
   const [liveEnabled, setLiveEnabled] = useState(true);
+  useRouletteTickSound(objects);
   const [overlayHidden, setOverlayHidden] = useState(false);
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -514,7 +517,7 @@ export default function Editor() {
       return [];
     }
     try {
-      const rows = await getSavedDesigns(channelUuid);
+      const rows = await getSavedDesigns(channelUuid, { showLoading: false });
       const ordered = [...rows].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
       setRecentDesigns(ordered);
       return ordered;
@@ -584,7 +587,7 @@ export default function Editor() {
   };
 
   const openInsertProperties = ({ id, clientX, clientY } = {}) => {
-    if (!['text', 'shape', 'line', 'timer'].includes(id)) return;
+    if (!['text', 'shape', 'line', 'timer', 'roulette'].includes(id)) return;
     openPropertiesAt({ clientX, clientY });
   };
 
@@ -1314,6 +1317,60 @@ export default function Editor() {
     commitHistory('Ajustar temporizador');
   };
 
+  const restartSelectedTimer = () => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'timer') return;
+    beginHistory('Reiniciar temporizador');
+    upsert(restartTimer(current));
+    commitHistory('Reiniciar temporizador');
+  };
+
+  const createRoulette = (draft) => {
+    if (!requireFrontendFeature('editor.shape', 'Ruleta')) return;
+    add(makeRoulette(draft));
+    setTool('select');
+  };
+
+  const patchSelectedRoulette = (patchData) => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'roulette') return;
+    beginHistory('Editar ruleta');
+    upsert({ ...current, ...patchData });
+    commitHistory('Editar ruleta');
+  };
+
+  const spinSelectedRoulette = () => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'roulette') return;
+    beginHistory('Girar ruleta');
+    upsert(spinRoulette(current));
+    commitHistory('Girar ruleta');
+  };
+
+  const stopSelectedRoulette = () => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'roulette' || !current.rouletteRunning) return;
+    beginHistory('Cancelar ruleta');
+    upsert(cancelRouletteSpin(current));
+    commitHistory('Cancelar ruleta');
+  };
+
+  const shuffleSelectedRoulette = () => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'roulette') return;
+    beginHistory('Mezclar ruleta');
+    upsert(shuffleRouletteEntries(current));
+    commitHistory('Mezclar ruleta');
+  };
+
+  const removeSelectedRouletteWinner = () => {
+    const current = singleSelected;
+    if (!current || current.tipo !== 'roulette' || !rouletteWinnerAtRotation(current)) return;
+    beginHistory('Eliminar opción ganadora');
+    upsert(removeRouletteWinner(current));
+    commitHistory('Eliminar opción ganadora');
+  };
+
   if (denied) return <div className="fixed inset-0 grid place-content-center bg-[var(--dc-bg)] text-center text-[var(--dc-text)]">NO TIENES ACCESO A ESTE CANAL // <Link className="text-[var(--dc-accent-four)]" to="/app">VOLVER AL INICIO</Link></div>;
 
   return (
@@ -1408,6 +1465,8 @@ export default function Editor() {
           textConfig={textConfig}
           onTextCommit={commitText}
           onTimerCreate={createTimer}
+          rouletteConfig={rouletteConfig}
+          onRouletteCreate={createRoulette}
           onMediaDrop={({ file, url, point }) => { if (!requireFrontendFeature('editor.image', 'Imagen / GIF')) return; return file ? uploadFile(file, point) : importRemote(url, point); }}
           guideImageUrl={guideImageUrl}
           remoteCursors={remoteCursorList}
@@ -1438,6 +1497,8 @@ export default function Editor() {
           setTextConfig={setTextConfig}
           timerConfig={timerConfig}
           setTimerConfig={setTimerConfig}
+          rouletteConfig={rouletteConfig}
+          setRouletteConfig={setRouletteConfig}
           channelUuid={channelUuid}
           onUploadFile={uploadFile}
           onImportUrl={importRemote}
@@ -1446,6 +1507,12 @@ export default function Editor() {
           onPatchTimer={patchSelectedTimer}
           onToggleTimer={toggleSelectedTimer}
           onAdjustTimer={adjustSelectedTimer}
+          onRestartTimer={restartSelectedTimer}
+          onPatchRoulette={patchSelectedRoulette}
+          onSpinRoulette={spinSelectedRoulette}
+          onStopRoulette={stopSelectedRoulette}
+          onShuffleRoulette={shuffleSelectedRoulette}
+          onRemoveRouletteWinner={removeSelectedRouletteWinner}
           onDelete={() => removeLayers()}
           onGroup={groupSelection}
           onUngroup={ungroupSelection}

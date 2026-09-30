@@ -14,7 +14,7 @@ test('Lienzo Plus es el producto principal y concede canvas.plus', () => {
   assert.ok(plus);
   assert.equal(plus.featured, true);
   assert.equal(plus.targetScope, 'channel');
-  assert.equal(plus.priceCents, 400);
+  assert.equal(plus.priceCents, 7200);
   assert.deepEqual(plus.bundles, ['canvas.plus']);
 });
 
@@ -53,7 +53,7 @@ test('Nuevo lienzo vive en scope account y no depende de un channel', () => {
   const canvas = STORE_PRODUCTS.find((product) => product.key === 'account.canvas_slot.1');
   assert.ok(canvas);
   assert.equal(canvas.targetScope, 'account');
-  assert.equal(canvas.priceCents, 300);
+  assert.equal(canvas.priceCents, 5400);
   assert.deepEqual(canvas.bundles, ['account.canvas_slot.1']);
 });
 
@@ -120,7 +120,7 @@ test('publicStoreProduct normaliza metadata JSON serializado para la tienda', ()
     targetScope: 'channel',
     name: 'Launchpad Lite',
     priceCents: 200,
-    currency: 'USD',
+    currency: 'MXN',
     billingInterval: 'month',
     featured: false,
     sortOrder: 150,
@@ -208,6 +208,40 @@ test('la inteligencia de tienda calcula redundancia por cobertura de lienzos, no
 test('metadata.stackable puede sobreescribir el comportamiento por tipo para futura administración', () => {
   assert.equal(storeProductIsStackable({ kind: 'tool', metadata: { stackable: true } }), true);
   assert.equal(storeProductIsStackable({ kind: 'addon', metadata: { stackable: false } }), false);
+});
+
+test('seed sincroniza precio y moneda sin modificar otros campos y es idempotente', async (t) => {
+  const transaction = {};
+  let updates = 0;
+  const products = new Map(STORE_PRODUCTS.map((definition, index) => [definition.key, {
+    id: index + 1,
+    priceCents: 1,
+    currency: 'USD',
+    name: 'Nombre personalizado',
+    active: false,
+    async update(values, options) {
+      assert.deepEqual(Object.keys(values).sort(), ['currency', 'priceCents']);
+      assert.equal(options.transaction, transaction);
+      Object.assign(this, values);
+      updates += 1;
+    }
+  }]));
+  t.mock.method(models.EntitlementBundle, 'findAll', async () => ENTITLEMENT_BUNDLES.map((bundle, index) => ({ id: index + 1, key: bundle.key })));
+  t.mock.method(models.StoreProduct, 'findOrCreate', async ({ where }) => [products.get(where.key), false]);
+  t.mock.method(models.StoreProductBundle, 'findOrCreate', async () => [{}, false]);
+  t.mock.method(models.StoreProductRequirement, 'findOrCreate', async () => [{}, false]);
+
+  await bootstrapStoreCatalog({ transaction, syncPrices: true });
+  assert.equal(updates, STORE_PRODUCTS.length);
+  for (const definition of STORE_PRODUCTS) {
+    const product = products.get(definition.key);
+    assert.equal(product.priceCents, definition.priceCents);
+    assert.equal(product.currency, 'MXN');
+    assert.equal(product.name, 'Nombre personalizado');
+    assert.equal(product.active, false);
+  }
+  await bootstrapStoreCatalog({ transaction, syncPrices: true });
+  assert.equal(updates, STORE_PRODUCTS.length);
 });
 
 test('bootstrap de tienda completa relaciones faltantes sin reescribir productos existentes', async () => {

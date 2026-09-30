@@ -1,4 +1,4 @@
-export const TOOL_LABELS = { select: 'Selección', hand: 'Manita', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', line: 'Línea', text: 'Texto', timer: 'Temporizador' };
+export const TOOL_LABELS = { select: 'Selección', hand: 'Manita', draw: 'Pincel', eraser: 'Borrador', image: 'Imagen / GIF', shape: 'Formas', line: 'Línea', text: 'Texto', timer: 'Temporizador', roulette: 'Ruleta' };
 
 export const TOOL_SHORTCUTS = {
   select: 'V',
@@ -9,7 +9,8 @@ export const TOOL_SHORTCUTS = {
   shape: 'S / G',
   line: 'L',
   text: 'T',
-  timer: 'R'
+  timer: 'R',
+  roulette: 'U'
 };
 
 export const GUIDE_SHORTCUTS = {
@@ -32,7 +33,8 @@ export const HOTKEY_SECTIONS = [
       ['S / G', 'Formas'],
       ['L', 'Línea recta · Shift ajusta el ángulo a 45°'],
       ['T', 'Texto'],
-      ['R', 'Temporizador']
+      ['R', 'Temporizador'],
+      ['U', 'Ruleta']
     ]
   },
   {

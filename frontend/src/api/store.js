@@ -29,10 +29,3 @@ export const assignStoreLicense = async (licenseUuid, channelUuid) => {
   invalidateRequestCache('channels:');
   return result;
 };
-
-export const releaseStoreLicense = async (licenseUuid, assignmentUuid) => {
-  const result = await api.delete(`/store/licenses/${licenseUuid}/assignments/${assignmentUuid}`).then((response) => response.data);
-  invalidateRequestCache('store:');
-  invalidateRequestCache('channels:');
-  return result;
-};

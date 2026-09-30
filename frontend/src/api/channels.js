@@ -3,6 +3,7 @@ import { cachedRequest, invalidateRequestCache } from './requestCache';
 
 const CHANNELS_KEY = 'channels:mine';
 const FEATURED_KEY = 'channels:featured';
+const featuredPreviewKey = (channelUuid) => `channels:featured:${channelUuid}:preview`;
 const INVITATIONS_KEY = 'channels:invitations:pending';
 const collaboratorsKey = (channelUuid) => `channels:${channelUuid}:collaborators`;
 const entitlementsKey = (channelUuid) => `channels:${channelUuid}:entitlements`;
@@ -17,6 +18,13 @@ export const getFeaturedChannel = ({ force = false } = {}) => cachedRequest(
   FEATURED_KEY,
   () => api.get('/channels/featured').then((response) => response.data),
   { ttl: 300000, force }
+);
+
+
+export const getFeaturedStreamPreview = (channelUuid, { force = false } = {}) => cachedRequest(
+  featuredPreviewKey(channelUuid),
+  () => api.get(`/channels/featured/${channelUuid}/preview`, { showLoading: false }).then((response) => response.data),
+  { ttl: 45000, force }
 );
 
 
@@ -52,9 +60,9 @@ export const acceptInvitation = async (token) => {
   return result;
 };
 
-export const getPendingInvitations = ({ force = false } = {}) => cachedRequest(
+export const getPendingInvitations = ({ force = false, showLoading = true } = {}) => cachedRequest(
   INVITATIONS_KEY,
-  () => api.get('/channels/invitations/pending').then((response) => response.data),
+  () => api.get('/channels/invitations/pending', { showLoading }).then((response) => response.data),
   { ttl: 15000, force }
 );
 
@@ -117,7 +125,7 @@ export const setChannelFavorite = async (channelUuid, isFavorite) => {
 };
 
 export const markChannelUsed = async (channelUuid) => {
-  const result = await api.post(`/channels/${channelUuid}/usage`).then((response) => response.data);
+  const result = await api.post(`/channels/${channelUuid}/usage`, undefined, { showLoading: false }).then((response) => response.data);
   invalidateRequestCache(CHANNELS_KEY);
   return result;
 };

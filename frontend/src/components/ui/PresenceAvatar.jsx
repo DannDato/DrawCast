@@ -13,11 +13,10 @@ export function PresenceAvatar({ editor }) {
   const username = String(editor?.username || '').trim();
   const displayName = String(editor?.displayName || username || 'Editor').trim();
   const handle = username ? `@${username}` : displayName;
-  const title = `${displayName}${username ? ` · ${handle}` : ''}${editor?.isOwner ? ' · propietario' : ''}${editor?.canEdit === false ? ' · esperando Live' : ''}`;
   const hasImage = Boolean(editor?.avatarUrl && !imageFailed);
 
   return (
-    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor?.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor?.colorSlot ? `var(--dc-cursor-${editor.colorSlot})` : 'var(--dc-accent-three)' }} title={title}>
+    <span className={`dc-presence-avatar ${hasImage ? 'has-image' : 'has-initials'} ${editor?.canEdit === false ? 'is-waiting' : ''}`} style={{ '--dc-editor-color': editor?.colorSlot ? `var(--dc-cursor-${editor.colorSlot})` : 'var(--dc-accent-three)' }}>
       <span className="dc-presence-avatar-media">
         {hasImage
           ? <img src={editor.avatarUrl} alt="" onError={() => setImageFailed(true)} />

@@ -1,14 +1,26 @@
 import { getThemeColor } from '../../../utils/theme';
 import { drawObject } from './drawObject';
+import { rouletteNeedsAnimationFrame } from '../tools/roulette/rouletteTool';
+import { timerHasFinishAnimation, timerIsStillRunning } from '../tools/timer/timerTool';
 
 export function orderedObjects(objects) {
   return Object.values(objects || {}).sort((a, b) => (Number(a.zIndex) || 0) - (Number(b.zIndex) || 0));
 }
 
 
-export function sceneHasRunningTimers(objects) {
+export function sceneHasRunningTimers(objects, nowMs = Date.now()) {
   const list = Array.isArray(objects) ? objects : Object.values(objects || {});
-  return list.some((object) => object && !object.hidden && object.tipo === 'timer' && Boolean(object.timerRunning ?? object.running));
+  return list.some((object) => object && !object.hidden && object.tipo === 'timer' && timerIsStillRunning(object, nowMs));
+}
+
+export function sceneHasTimerFinishAnimations(objects, nowMs = Date.now()) {
+  const list = Array.isArray(objects) ? objects : Object.values(objects || {});
+  return list.some((object) => object && !object.hidden && object.tipo === 'timer' && timerHasFinishAnimation(object, nowMs));
+}
+
+export function sceneHasRunningRoulettes(objects, nowMs = Date.now()) {
+  const list = Array.isArray(objects) ? objects : Object.values(objects || {});
+  return list.some((object) => object && !object.hidden && object.tipo === 'roulette' && rouletteNeedsAnimationFrame(object, nowMs));
 }
 
 export function drawGrid(ctx, width = 1920, height = 1080, step = 96) {

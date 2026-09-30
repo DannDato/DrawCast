@@ -1,3 +1,4 @@
+import { getStoreSettings } from '../../services/storeSettingsService.js';
 import {
   getStoreCatalogForUser,
   getUserInventory,
@@ -41,7 +42,7 @@ export class StoreController {
     res.json({
       checkoutEnabled: false,
       simulationEnabled: storeSimulationEnabled(),
-      currency: 'USD',
+      currency: getStoreSettings().currency,
       intelligence,
       products: entries.map(({ product, eligibility }) => publicStoreProduct(product, { eligibility }))
     });
@@ -72,12 +73,6 @@ export class StoreController {
   }
 
   static async releaseLicense(req, res) {
-    const result = await releaseLicenseAssignment(req.user.id, req.params.licenseUuid, req.params.assignmentUuid);
-    await broadcastEntitlements(req, result.channel.id, result.entitlements);
-    res.json({
-      license: publicUserLicense(result.license),
-      channel: { uuid: result.channel.uuid, name: result.channel.name },
-      entitlements: publicChannelEntitlements(result.entitlements)
-    });
+    await releaseLicenseAssignment();
   }
 }

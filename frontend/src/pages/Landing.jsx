@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Check, Clock3, MonitorUp, PenTool, Radio, Type, Users } from "lucide-react";
 
-import DoodleBackground from "../components/ui/DoodleBackground";
+import PublicBackground from "../components/ui/PublicBackground";
+import PublicNavbar from "../components/ui/PublicNavbar";
 import PublicFooter from "../components/footer/PublicFooter";
 
 const SHOW_PLANS = false;
@@ -22,12 +23,12 @@ export default function Landing() {
             frameId = 0;
 
             if (reduceMotion.matches) {
-                root.style.setProperty("--dc-landing-doodle-y", "0px");
-                root.style.setProperty("--dc-landing-wash-y", "0px");
-                root.style.setProperty("--dc-landing-dots-x", "0px");
-                root.style.setProperty("--dc-landing-dots-y", "0px");
-                root.style.setProperty("--dc-landing-dots-soft-x", "4px");
-                root.style.setProperty("--dc-landing-dots-soft-y", "6px");
+                root.style.setProperty("--dc-public-doodle-y", "0px");
+                root.style.setProperty("--dc-public-halo-y", "0px");
+                root.style.setProperty("--dc-public-dots-x", "0px");
+                root.style.setProperty("--dc-public-dots-y", "0px");
+                root.style.setProperty("--dc-public-dots-soft-x", "4px");
+                root.style.setProperty("--dc-public-dots-soft-y", "6px");
                 return;
             }
 
@@ -35,14 +36,14 @@ export default function Landing() {
             const depth = Math.tanh(scrollY / 2200);
 
             // Capas profundas: movimiento acotado para que nunca descubran el borde del viewport.
-            root.style.setProperty("--dc-landing-doodle-y", `${(-58 * depth).toFixed(2)}px`);
-            root.style.setProperty("--dc-landing-wash-y", `${(-18 * depth).toFixed(2)}px`);
+            root.style.setProperty("--dc-public-doodle-y", `${(-58 * depth).toFixed(2)}px`);
+            root.style.setProperty("--dc-public-halo-y", `${(-18 * depth).toFixed(2)}px`);
 
             // La trama es repetible, así que puede viajar un poco más y reforzar la profundidad.
-            root.style.setProperty("--dc-landing-dots-x", `${((scrollY * 0.024) % 18).toFixed(2)}px`);
-            root.style.setProperty("--dc-landing-dots-y", `${((scrollY * 0.085) % 18).toFixed(2)}px`);
-            root.style.setProperty("--dc-landing-dots-soft-x", `${(4 - (scrollY * 0.013) % 13).toFixed(2)}px`);
-            root.style.setProperty("--dc-landing-dots-soft-y", `${(6 - (scrollY * 0.041) % 13).toFixed(2)}px`);
+            root.style.setProperty("--dc-public-dots-x", `${((scrollY * 0.024) % 18).toFixed(2)}px`);
+            root.style.setProperty("--dc-public-dots-y", `${((scrollY * 0.085) % 18).toFixed(2)}px`);
+            root.style.setProperty("--dc-public-dots-soft-x", `${(4 - (scrollY * 0.013) % 13).toFixed(2)}px`);
+            root.style.setProperty("--dc-public-dots-soft-y", `${(6 - (scrollY * 0.041) % 13).toFixed(2)}px`);
         };
 
         const scheduleDepth = () => {
@@ -62,11 +63,9 @@ export default function Landing() {
     }, []);
 
     return (
-        <main ref={landingRef} className="dc-landing-depth min-h-screen overflow-hidden bg-[var(--dc-bg)] text-[var(--dc-text)]">
-            <DoodleBackground className="dc-landing-doodle blur-xs" />
-            <div className="dc-landing-wash" aria-hidden="true"></div>
-            <div className="dc-landing-stipple" aria-hidden="true"></div>
-            <div className="dc-landing-content">
+        <main ref={landingRef} className="dc-public-stage min-h-screen overflow-hidden text-[var(--dc-text)]">
+            <PublicBackground />
+            <div className="dc-public-content">
                 <Helmet>
                     <title>Trazio — Overlays para OBS en tiempo real</title>
                     <meta
@@ -85,21 +84,7 @@ export default function Landing() {
                 {/* HERO */}
                 <section className="mx-auto flex min-h-screen w-full max-w-[1240px] flex-col px-6 md:px-10 xl:px-0">
 
-                    <nav className="flex flex-col gap-5 border-b border-[var(--dc-text)]/15 py-5 sm:flex-row sm:items-center sm:justify-between">
-                        <strong className="font-['Bebas_Neue'] text-2xl font-normal tracking-[0.06em] md:text-[28px]">
-                            <strong>TRAZIO </strong><span className="text-[var(--dc-accent-one)]"> //</span>
-                        </strong>
-
-                        <div className="flex items-center gap-2">
-                            <Link className="border border-[var(--dc-text)] px-4 py-3 font-mono text-[10px] font-bold tracking-wide transition hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)] sm:px-5 sm:text-xs md:px-6" to="/login">
-                                Iniciar Sesión
-                            </Link>
-
-                            <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-4 py-3 font-mono text-[10px] font-bold tracking-wide text-[var(--dc-text)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-5 sm:text-xs md:px-6" to="/register">
-                                Crear cuenta
-                            </Link>
-                        </div>
-                    </nav>
+                    <PublicNavbar />
 
                     <div className="flex flex-col pt-10 md:pt-40 justify-between gap-10">
                         <div>

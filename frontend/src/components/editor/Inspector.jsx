@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Copy, Group, Maximize2, Minimize2, Move, RotateCcw,
 import ImagePanel from './ImagePanel';
 import TextControls from './tools/text/TextControls';
 import TimerControls from './tools/timer/TimerControls';
+import RouletteControls from './tools/roulette/RouletteControls';
 import DrawingControls from './tools/drawing/DrawingControls';
 import { DEFAULT_SHAPE_CONFIG, SHAPE_TYPES } from './tools/shapes/shapeTool';
 
@@ -25,7 +26,8 @@ const TOOL_NAMES = {
   shape: 'Formas',
   line: 'Línea',
   text: 'Texto',
-  timer: 'Temporizador'
+  timer: 'Temporizador',
+  roulette: 'Ruleta'
 };
 
 function NumberField({ value, onChange, min }) {
@@ -53,6 +55,8 @@ export default function Inspector({
   setTextConfig,
   timerConfig,
   setTimerConfig,
+  rouletteConfig,
+  setRouletteConfig,
   channelUuid,
   onUploadFile,
   onImportUrl,
@@ -61,6 +65,12 @@ export default function Inspector({
   onPatchTimer,
   onToggleTimer,
   onAdjustTimer,
+  onRestartTimer,
+  onPatchRoulette,
+  onSpinRoulette,
+  onStopRoulette,
+  onShuffleRoulette,
+  onRemoveRouletteWinner,
   onDelete,
   onGroup,
   onUngroup,
@@ -102,12 +112,14 @@ export default function Inspector({
   const isImage = selected?.tipo === 'image' || selected?.tipo === 'imagen';
   const isText = selected?.tipo === 'text' || selected?.tipo === 'texto';
   const isTimer = selected?.tipo === 'timer';
+  const isRoulette = selected?.tipo === 'roulette';
   const isMulti = selectionCount > 1;
   const canGroup = selectedObjects.filter((object) => [object?.x, object?.y, object?.w, object?.h].every((value) => Number.isFinite(Number(value)))).length >= 2;
   const showShapePanel = tool === 'shape' || (isShape && !isLine);
   const showImagePanel = tool === 'image' || isImage;
   const showTextPanel = tool === 'text' || isText;
   const showTimerPanel = tool === 'timer' || isTimer;
+  const showRoulettePanel = tool === 'roulette' || isRoulette;
   const showDrawingPanel = tool === 'draw' || tool === 'eraser';
   const selectedLayerName = selected ? String(selected.layerName ?? selected.fileName ?? selected.name ?? selected.tipo ?? 'CAPA') : '';
 
@@ -353,6 +365,21 @@ export default function Inspector({
             onPatchSelected={onPatchTimer}
             onToggle={onToggleTimer}
             onAdjust={onAdjustTimer}
+            onRestart={onRestartTimer}
+          />
+        )}
+
+
+        {showRoulettePanel && (
+          <RouletteControls
+            selected={isRoulette ? selected : null}
+            config={rouletteConfig}
+            setConfig={setRouletteConfig}
+            onPatchSelected={onPatchRoulette}
+            onSpin={onSpinRoulette}
+            onStop={onStopRoulette}
+            onShuffle={onShuffleRoulette}
+            onRemoveWinner={onRemoveRouletteWinner}
           />
         )}
 
@@ -370,7 +397,7 @@ export default function Inspector({
           </section>
         )}
 
-        {!selected && !isMulti && !showShapePanel && !showLinePanel && !showImagePanel && !showTextPanel && !showTimerPanel && tool !== 'draw' && tool !== 'eraser' && <p className="dc-inspector-empty text-[var(--dc-muted)]">Selecciona una capa para ver sus propiedades.</p>}
+        {!selected && !isMulti && !showShapePanel && !showLinePanel && !showImagePanel && !showTextPanel && !showTimerPanel && !showRoulettePanel && tool !== 'draw' && tool !== 'eraser' && <p className="dc-inspector-empty text-[var(--dc-muted)]">Selecciona una capa para ver sus propiedades.</p>}
 
         {selected && (
           <section>
