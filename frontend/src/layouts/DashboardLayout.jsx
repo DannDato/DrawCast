@@ -161,7 +161,7 @@ export default function DashboardLayout() {
                             mobile ? "px-3 py-2.5" : "h-9 px-3"
                         } ${
                             isActive
-                            ? "border-[var(--dc-accent-three)] bg-[var(--dc-accent-three-soft)] text-[var(--dc-accent-four)]"
+                            ? "text-[var(--dc-accent-three)] border-transparent"
                             : "border-transparent text-[var(--dc-nav-text)] hover:scale-110 hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"
                         }`
                     }
@@ -174,7 +174,7 @@ export default function DashboardLayout() {
                         <span
                         className={`${
                             mobile ? "ml-auto" : "-mr-1"
-                        } grid h-[16px] min-w-[16px] place-items-center rounded-full bg-[var(--dc-danger-strong)] px-[4px] text-[9px] font-black leading-none text-[var(--dc-text)] shadow-[0_0_0_2px_var(--dc-nav-bg)]`}
+                        } grid h-[16px] min-w-[16px] place-items-center rounded-full b px-[4px] text-[9px] font-black leading-none text-[var(--dc-text)] shadow-[0_0_0_2px_var(--dc-nav-bg)]`}
                         >
                             {invitationCount > 99 ? "99+" : invitationCount}
                         </span>
@@ -215,8 +215,8 @@ export default function DashboardLayout() {
                             });
                         }}
                     >
-                        <strong className="dc-nav-brand whitespace-nowrap">
-                            {import.meta.env.VITE_APP_NAME || "TRAZIO"} <b>//</b>
+                        <strong className="">
+                            {import.meta.env.VITE_APP_NAME || "TRAZIO"} <b><b className="text-[var(--dc-accent-three)]">//</b></b>
                         </strong>
 
                         <span className="max-w-[130px] truncate text-[12px] font-semibold text-[var(--dc-text)] sm:max-w-[180px]">

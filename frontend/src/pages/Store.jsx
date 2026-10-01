@@ -244,7 +244,7 @@ function StoreProductCard({ product, plusName, onOpen, onAdd, adding }) {
             {product.badge && <span className="dc-store-mini-badge">{product.badge}</span>}
             <h3>{product.name}</h3>
           </div>
-          <div className="dc-store-price"><b>{money(product)}</b><span>{intervalLabel(product)}</span></div>
+          <div className="dc-store-price text-[var(--dc-accent-three)]"><b>{money(product)}</b><span>{intervalLabel(product)}</span></div>
         </div>
         <p>{product.description}</p>
         <button type="button" className="dc-store-detail-link" onClick={() => onOpen(product)}>Ver detalles</button>
@@ -400,14 +400,7 @@ export default function Store() {
     <div className="dc-store-page">
       <div className="dc-store-page-bg" aria-hidden="true" />
       <div className="dc-store-shell dc-app-page">
-        <header className="dc-store-page-head">
-          <div>
-            <span className="dc-store-eyebrow"><ShoppingBag size={14} /> TIENDA</span>
-            {/* <h1>MEJORAS <strong>//</strong> TRAZIO</h1> */}
-            <p>Compra licencias para tu cuenta y aplícalas desde Inventario.</p>
-          </div>
-          <span className="dc-store-billing-pill">PRECIOS · MXN</span>
-        </header>
+        
 
         {cartNotice && <div className="dc-store-state" role="status">{cartNotice} <button type="button" onClick={() => navigate('/app/cart')}>Ver carrito</button></div>}
         {cartError && <div className="dc-store-state error" role="alert">{cartError}</div>}

@@ -2350,25 +2350,25 @@
 }
 
 .dc-tool-tip {
-  border-color: color-mix(in srgb, var(--dc-accent-three) 42%, var(--dc-line));
+  border-color: color-mix(in srgb, var(--dc-accent-one) 42%, var(--dc-line));
   color: var(--dc-accent-four);
 }
 
 .dc-connection-dot:not(.online) {
-  background: var(--dc-accent-three);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--dc-accent-three) 65%, transparent);
+  background: var(--dc-accent-one);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--dc-accent-one) 65%, transparent);
 }
 
 .dc-inspector input:focus,
 .dc-inspector select:focus {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
 }
 .dc-inspector input[type='range'],
 .dc-inspector input[type='checkbox'] { accent-color: var(--dc-accent-one); }
 
 .dc-help {
-  border-left-color: var(--dc-accent-three);
-  background: var(--dc-accent-three-soft);
+  border-left-color: var(--dc-accent-one);
+  background: var(--dc-accent-one-soft);
 }
 
 .dc-upload {
@@ -2393,7 +2393,7 @@
 .dc-image-search-submit:hover,
 .dc-image-search-row button:hover,
 .dc-image-result-card:hover {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
 }
 
@@ -2403,7 +2403,7 @@
 }
 
 .dc-timer-actions button:hover:not(:disabled) {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
 }
 .dc-timer-actions button.primary {
@@ -2415,7 +2415,7 @@
 .dc-layers .dc-layer-icon-btn:hover,
 .dc-selection-grid button:hover,
 .dc-secondary-wide:hover {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
 }
 .dc-layers .dc-layer-selection-actions button.danger,
@@ -2445,15 +2445,15 @@
 .dc-layer-group.selected > .dc-layer-group-head,
 .dc-editor-layers-sidebar .dc-layer-row.selected,
 .dc-editor-layers-sidebar .dc-layer-group.selected > .dc-layer-group-head {
-  background: var(--dc-accent-three-soft);
+  background: var(--dc-accent-one-soft);
   box-shadow: inset 2px 0 0 var(--dc-accent-one);
 }
-.dc-layer-group-head > svg { color: var(--dc-accent-three); }
+.dc-layer-group-head > svg { color: var(--dc-accent-one); }
 
 .dc-brush-mode-grid button:hover {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
-  background: var(--dc-accent-three-soft);
+  background: var(--dc-accent-one-soft);
 }
 .dc-brush-mode-grid button.active {
   border-color: var(--dc-accent-one);
@@ -2461,18 +2461,18 @@
   background: var(--dc-accent-one-soft);
 }
 
-.dc-status-chip.connection { color: var(--dc-accent-three); }
+.dc-status-chip.connection { color: var(--dc-accent-one); }
 .dc-status-hotkeys:hover {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
 }
 
 .dc-hotkeys-modal {
-  box-shadow: 0 30px 100px var(--dc-black), inset 0 2px 0 var(--dc-accent-three);
+  box-shadow: 0 30px 100px var(--dc-black), inset 0 2px 0 var(--dc-accent-one);
 }
-.dc-hotkeys-kicker { color: var(--dc-accent-three); }
+.dc-hotkeys-kicker { color: var(--dc-accent-one); }
 .dc-hotkeys-close:hover {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
 }
 .dc-hotkey-section h3 {
@@ -2483,14 +2483,14 @@
 .dc-inspector-head > div:first-child > span { color: var(--dc-accent-four); }
 .dc-inspector-size button:hover,
 .dc-inspector-size button.active {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
-  background: var(--dc-accent-three-soft);
+  background: var(--dc-accent-one-soft);
 }
 
 .dc-toolbar-designs:hover {
-  border-color: var(--dc-accent-three) !important;
-  background: var(--dc-accent-three-soft) !important;
+  border-color: var(--dc-accent-one) !important;
+  background: var(--dc-accent-one-soft) !important;
   color: var(--dc-accent-four) !important;
 }
 .dc-designs-kicker { color: var(--dc-accent-four); }
@@ -2500,7 +2500,7 @@
 .dc-designs-list-head button:hover,
 .dc-design-card-actions button:hover,
 .dc-designs-footer button:hover {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
 }
 .dc-designs-save-row button.primary {
   border-color: var(--dc-accent-one);
@@ -2508,14 +2508,14 @@
   color: var(--dc-text-inverse);
 }
 .dc-design-card.active {
-  border-color: color-mix(in srgb, var(--dc-accent-three) 62%, var(--dc-line-strong));
+  border-color: color-mix(in srgb, var(--dc-accent-one) 62%, var(--dc-line-strong));
   box-shadow: inset 2px 0 0 var(--dc-accent-one);
-  background: var(--dc-accent-three-soft);
+  background: var(--dc-accent-one-soft);
 }
 
 .dc-toolbar-menu-trigger.active,
 .dc-toolbar-wide.active {
-  background: var(--dc-accent-three-soft);
+  background: var(--dc-accent-one-soft);
   color: var(--dc-accent-four);
   box-shadow: inset 0 -2px 0 var(--dc-accent-one);
 }
@@ -2533,15 +2533,15 @@
 }
 
 .dc-canvas-zoom button:hover:not(:disabled) {
-  background: var(--dc-accent-three-soft);
+  background: var(--dc-accent-one-soft);
   color: var(--dc-accent-four);
 }
 
 .dc-image-search-results {
-  scrollbar-color: color-mix(in srgb, var(--dc-accent-three) 55%, var(--dc-line-strong)) var(--dc-bg);
+  scrollbar-color: color-mix(in srgb, var(--dc-accent-one) 55%, var(--dc-line-strong)) var(--dc-bg);
 }
 .dc-image-search-results::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--dc-accent-three) 55%, var(--dc-line-strong));
+  background: color-mix(in srgb, var(--dc-accent-one) 55%, var(--dc-line-strong));
 }
 
 
@@ -2622,12 +2622,12 @@
 
 .dc-timer-mode button:hover,
 .dc-timer-mode button.active {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
 }
 
 .dc-timer-mode button.active {
-  background: var(--dc-accent-three-soft);
+  background: var(--dc-accent-one-soft);
 }
 
 .dc-timer-time-grid {
@@ -2676,7 +2676,7 @@
 
 .dc-timer-transport button:hover:not(:disabled),
 .dc-timer-quick button:hover:not(:disabled) {
-  border-color: var(--dc-accent-three);
+  border-color: var(--dc-accent-one);
   color: var(--dc-accent-four);
 }
 

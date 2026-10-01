@@ -6,7 +6,7 @@
 .dc-store-page-head h1{margin:7px 0 8px;font-family:'Bebas Neue',Impact,sans-serif;font-size:clamp(2.8rem,6vw,5.4rem);font-weight:400;line-height:.86;letter-spacing:-.025em;color:var(--dc-text)}
 .dc-store-page-head h1 strong{font-weight:400;color:var(--dc-accent-titles)}
 .dc-store-page-head p{max-width:740px;margin:0;color:var(--dc-text);font-size:13px;line-height:1.55}
-.dc-store-eyebrow{display:inline-flex;align-items:center;gap:6px;color:var(--dc-accent-titles);font-size:12px;font-weight:900;letter-spacing:.1em}
+.dc-store-eyebrow{display:inline-flex;align-items:center;gap:6px;color:var(--dc-text);font-size:12px;font-weight:900;letter-spacing:.1em}
 .dc-store-billing-pill{flex:0 0 auto;background:color-mix(in srgb,var(--dc-panel) 88%,transparent);padding:8px 10px;color:var(--dc-text);font:800 12px/1 Outfit,sans-serif;letter-spacing:.08em}
 .dc-store-state{display:grid;min-height:260px;place-items:center;background:var(--dc-panel);color:var(--dc-text);font-size:13px}
 .dc-store-state.error{color:var(--dc-danger-text)}
@@ -63,10 +63,10 @@
 .dc-store-product-status.available{color:var(--dc-accent-one)}
 .dc-store-product-copy{position:relative;z-index:2;padding:16px}
 .dc-store-product-title-row{display:flex;justify-content:space-between;gap:14px}
-.dc-store-product-title-row h3{margin:4px 0 0;color:var(--dc-text);font-size:15px}
+.dc-store-product-title-row h3{margin:4px 0 0;font-size:15px}
 .dc-store-mini-badge{color:var(--dc-accent-two);font-size:12px;font-weight:900;letter-spacing:.08em}
-.dc-store-price{display:flex;align-items:baseline;gap:5px;white-space:nowrap}
-.dc-store-price b{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.7rem;font-weight:400;color:var(--dc-text)}
+.dc-store-price{display:flex;align-items:baseline;gap:5px;white-space:nowrap;}
+.dc-store-price b{font-family:'Bebas Neue',Impact,sans-serif;font-size:1.7rem;font-weight:400;color:var(--dc-accent-three)}
 .dc-store-price span{color:var(--dc-text);font-size:12px}
 .dc-store-product-copy>p{min-height:56px;margin:10px 0;color:var(--dc-text);font-size:12px;line-height:1.5}
 .dc-store-requirement{display:flex;min-height:34px;align-items:center;gap:7px;margin:0 0 10px;color:var(--dc-accent-two);font-size:12px;line-height:1.35}
@@ -259,6 +259,6 @@
 
 .dc-inventory-tile{position:relative;padding-top:42px}
 .dc-inventory-tile>.dc-inventory-tile-status{position:absolute;top:8px;left:8px;right:8px;display:flex;align-items:center;justify-content:center;gap:4px;min-height:22px;padding:3px 5px;font:800 10px/1.2 Outfit,sans-serif}
-.dc-inventory-tile-status.is-applied{background:var(--dc-accent-three-soft);color:var(--dc-accent-three)}
+.dc-inventory-tile-status.is-applied{background:var(--dc-accent-one-soft);color:var(--dc-accent-one)}
 .dc-inventory-tile-status.is-available{background:var(--dc-surface-raised);color:var(--dc-text)}
 .dc-inventory-tile-status.is-inactive{background:var(--dc-danger-bg-soft);color:var(--dc-danger)}

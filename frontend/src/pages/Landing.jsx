@@ -109,7 +109,7 @@ export default function Landing() {
                             </p>
 
                             <div className="mt-10 flex flex-wrap items-center gap-3">
-                                <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
+                                <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
                                     CREA TU CUENTA YA!
                                 </Link>
                             </div>
@@ -144,8 +144,8 @@ export default function Landing() {
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
                         <h2 className="mt-5 font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
-                            TÚ CONTROLAS AQUÍ <span className="text-[var(--dc-accent-two)]">//</span>
-                            <span className="text-[var(--dc-accent-three)]"> SALE ALLÁ.</span>
+                            TÚ CONTROLAS AQUÍ <span className="text-[var(--dc-accent-three)]">//</span>
+                            <span className="text-[var(--dc-accent-one)]"> SALE ALLÁ.</span>
                         </h2>
 
                         <p className="mt-8  text-base leading-7 text-[var(--dc-text)] md:text-lg md:leading-8">
@@ -353,7 +353,7 @@ export default function Landing() {
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
 
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,6rem)]">
-                            <span className="text-[var(--dc-accent-one)]"> UNA URL <span className="text-[var(--dc-text-muted)]">|</span> </span>
+                            <span className="text-[var(--dc-accent-three)]"> UNA URL <span className="text-[var(--dc-text-muted)]">|</span> </span>
                             <span className="text-[var(--dc-text)]"> UNA FUENTE <span className="text-[var(--dc-text-muted)]">|</span> </span> 
                             <span className="text-[var(--dc-accent-three)]"> CONTROL TOTAL</span>
                         </h2>
@@ -633,9 +633,9 @@ export default function Landing() {
                     <div className="mx-auto w-full max-w-[1240px] px-6 py-28 text-center md:px-10 md:py-32 xl:px-0">
 
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(5rem,18vw,10rem)] uppercase leading-[0.75] md:text-[clamp(5rem,11vw,10rem)]">
-                            ¿LISTO PARA
+                            ¿LISTX PARA
                             <br />
-                            <span className="text-[var(--dc-accent-two)]">TRANSMITIR?</span>
+                            <span className="text-[var(--dc-accent-three)]">TRANSMITIR?</span>
                         </h2>
 
                         <p className="mx-auto mt-10 ] text-base leading-7 text-[var(--dc-text)] md:text-lg md:leading-8">
