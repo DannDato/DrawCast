@@ -16,6 +16,7 @@ export function validateEnv() {
   if ((process.env.COOKIE_SAME_SITE || 'lax').toLowerCase() === 'none' && process.env.COOKIE_SECURE !== 'true') throw new Error('COOKIE_SAME_SITE=none requiere COOKIE_SECURE=true.');
   if ((process.env.NODE_ENV || 'development') === 'production' && process.env.COOKIE_SECURE !== 'true') throw new Error('En producción COOKIE_SECURE debe ser true.');
   if ((process.env.NODE_ENV || 'development') === 'production' && (!process.env.CLOUDFLARE_CAPTCHA_KEY || !process.env.CLOUDFLARE_CAPTCHA_SECRET)) throw new Error('En producción CLOUDFLARE_CAPTCHA_KEY y CLOUDFLARE_CAPTCHA_SECRET son obligatorias.');
+  if (process.env.STRIPE_ENABLED === 'true' && (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET)) throw new Error('STRIPE_ENABLED=true requiere STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET.');
   const origins = String(process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '').split(',').map((value) => value.trim()).filter(Boolean);
   if (!origins.length) throw new Error('Configura FRONTEND_URL o CORS_ORIGINS con al menos un origen permitido.');
   for (const origin of origins) { try { const url = new URL(origin); if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin.replace(/\/$/, '')) throw new Error(); } catch { throw new Error(`Origen inválido en FRONTEND_URL/CORS_ORIGINS: ${origin}`); } }

@@ -13,9 +13,12 @@ import logger from './helpers/winston.js';
 import { handleError } from './handlers/handleError.js';
 import { apiLimiter, verifyBrowserOrigin } from './middlewares/security.js';
 import { configureSockets } from './sockets/index.js';
+import { StripeController } from './controllers/store/stripeController.js';
+import { asyncHandler } from './middlewares/asyncHandler.js';
 
 validateEnv();
 const app=express(); const httpServer=createServer(app);
+const appFolder=process.env.APP_FOLDER||'/api';
 const origins=String(process.env.CORS_ORIGINS||env.frontendUrl).split(',').map(v=>v.trim().replace(/\/$/, '')).filter(Boolean);
 const originAllowed=(origin)=>!origin||origins.includes(origin.replace(/\/$/, ''));
 const io=new Server(httpServer,{
@@ -30,10 +33,11 @@ app.disable('x-powered-by'); app.set('trust proxy',env.trustProxy); app.use(helm
   referrerPolicy:{policy:'no-referrer'},
   hsts:env.nodeEnv==='production'?{maxAge:31536000,includeSubDomains:true,preload:false}:false
 }));
-app.use((req,res,next)=>{res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=(), payment=(), usb=()');next();});
+app.use((req,res,next)=>{res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=(), payment=(self), usb=()');next();});
 app.use(cors({origin(origin,cb){if(!origin||origins.includes(origin))return cb(null,true);cb(new Error('Origen no permitido por CORS'));},credentials:true,methods:['GET','POST','PUT','PATCH','DELETE']}));
+// Stripe necesita el cuerpo raw para verificar Stripe-Signature. Esta ruta debe ir antes de express.json y de la protección CSRF del navegador.
+app.post(`${appFolder}/store/stripe/webhook`, express.raw({type:'application/json',limit:'1mb'}), asyncHandler(StripeController.webhook));
 app.use(cookieParser()); app.use(verifyBrowserOrigin); app.use(express.json({limit:process.env.JSON_BODY_LIMIT||'10mb'})); app.use(express.urlencoded({extended:true,limit:process.env.JSON_BODY_LIMIT||'10mb'})); app.use(apiLimiter);
-const appFolder=process.env.APP_FOLDER||'/api';
 app.use(appFolder,routes);
 app.use((req,res)=>res.status(404).json({message:'Ruta no encontrada'})); app.use(handleError); configureSockets(io);
 await db.authenticate();

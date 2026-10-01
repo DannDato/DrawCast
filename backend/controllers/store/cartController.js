@@ -1,4 +1,4 @@
-import { changeUserCart, getUserCart, reviewUserCart } from '../../services/storeCartService.js';
+import { changeUserCart, getUserCart, prepareUserCheckout } from '../../services/storeCartService.js';
 
 export class CartController {
   static async get(req, res) {
@@ -17,7 +17,7 @@ export class CartController {
     res.json(await changeUserCart(req.user.id, { productUuid: req.params.productUuid, action: 'remove' }));
   }
 
-  static async review(req, res) {
-    res.json(await reviewUserCart(req.user.id));
+  static async checkout(req, res) {
+    res.json(await prepareUserCheckout(req.user.id, req.body));
   }
 }

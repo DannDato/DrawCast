@@ -6,6 +6,8 @@ import {
   publicUserLicense
 } from '../../services/storeCatalogService.js';
 import { assignLicenseToChannel, releaseLicenseAssignment, simulateStorePurchase, storeSimulationEnabled } from '../../services/storeLicenseService.js';
+import { completeApprovedStoreOrder } from '../../services/storeOrderService.js';
+import { stripeEnabled } from '../../services/stripePaymentService.js';
 import { publicChannelEntitlements, publicOverlayBranding } from '../../services/channelEntitlementAccessService.js';
 import { getChannelControl, getChannelPresence, getEditorAccess, getPublishedChannelState, setLiveEnabled } from '../../services/channelRuntimeService.js';
 
@@ -40,7 +42,7 @@ export class StoreController {
   static async catalog(req, res) {
     const { entries, intelligence } = await getStoreCatalogForUser(req.user.id);
     res.json({
-      checkoutEnabled: false,
+      checkoutEnabled: stripeEnabled(),
       simulationEnabled: storeSimulationEnabled(),
       currency: getStoreSettings().currency,
       intelligence,
@@ -60,6 +62,22 @@ export class StoreController {
       acknowledgeUnmetRequirements: req.body?.acknowledgeUnmetRequirements === true
     });
     res.status(201).json({ license: publicUserLicense(license) });
+  }
+
+
+  static async approveOrderPaymentDev(req, res) {
+    if (!storeSimulationEnabled()) {
+      return res.status(404).json({ error: 'La aprobación simulada de pago no está disponible.', code: 'STORE_SIMULATION_DISABLED' });
+    }
+    const result = await completeApprovedStoreOrder(req.user.id, req.params.orderUuid, {
+      provider: 'dev',
+      paymentRef: `dev:${req.params.orderUuid}`
+    });
+    res.status(result.alreadyCompleted ? 200 : 201).json({
+      order: { uuid: result.order.uuid, status: result.order.status },
+      licenseCount: result.licenses.length,
+      inventoryReady: true
+    });
   }
 
   static async assignLicense(req, res) {

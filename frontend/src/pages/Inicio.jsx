@@ -724,12 +724,10 @@ export default function Inicio() {
                     <section className="dc-home2-suggestions">
                         {!plusCoverageComplete ? (
                             <article className="dc-home2-plus-card">
-                                <div>
+                                <div className="dc-home2-promo-copy">
                                     <span className="dc-home2-canvas-kicker">
-                                        <Sparkles
-                                            size={14}
-                                        />
-                                        Esto es para ti!
+                                        <Sparkles size={14} />
+                                        ESTO ES PARA TI
                                     </span>
 
                                     <h2>
@@ -741,6 +739,16 @@ export default function Inicio() {
                                         {plus?.description ||
                                             "Desbloquea las herramientas premium del lienzo y mantenlas disponibles para todos tus colaboradores."}
                                     </p>
+                                </div>
+
+                                <div className="dc-home2-plus-mark">
+                                    <Sparkles size={54} strokeWidth={1.7} />
+                                </div>
+
+                                <div className="dc-home2-promo-footer">
+                                    <span className="dc-home2-promo-caption">
+                                        TODO EN UN SOLO LIENZO
+                                    </span>
 
                                     <button
                                         type="button"
@@ -751,19 +759,13 @@ export default function Inicio() {
                                         }
                                     >
                                         Ver en Tienda
-                                        <ArrowRight
-                                            size={16}
-                                        />
+                                        <ArrowRight size={16} />
                                     </button>
-                                </div>
-
-                                <div className="dc-home2-plus-mark">
-                                    <Sparkles size={56} />
                                 </div>
                             </article>
                         ) : (
                             <article className="dc-home2-plus-card is-expansions">
-                                <div>
+                                <div className="dc-home2-promo-copy">
                                     <span className="dc-home2-canvas-kicker">
                                         <Plus size={14} />
                                         SIGUE CRECIENDO
@@ -772,28 +774,29 @@ export default function Inicio() {
                                     <h2>Expansiones</h2>
 
                                     <p>
-                                        Aumenta los límites de
-                                        tus lienzos Plus sin
-                                        cambiar de plan.
+                                        Aumenta los límites de tus lienzos Plus
+                                        sin cambiar de plan.
                                     </p>
 
                                     <div className="dc-home2-expansion-list">
                                         {expansionProducts
                                             .slice(0, 3)
-                                            .map(
-                                                (product) => (
-                                                    <span
-                                                        key={
-                                                            product.uuid
-                                                        }
-                                                    >
-                                                        {
-                                                            product.name
-                                                        }
-                                                    </span>
-                                                ),
-                                            )}
+                                            .map((product) => (
+                                                <span key={product.uuid}>
+                                                    {product.name}
+                                                </span>
+                                            ))}
                                     </div>
+                                </div>
+
+                                <div className="dc-home2-plus-mark">
+                                    <Plus size={54} strokeWidth={1.7} />
+                                </div>
+
+                                <div className="dc-home2-promo-footer">
+                                    <span className="dc-home2-promo-caption">
+                                        MÁS CAPACIDAD · MISMO LIENZO
+                                    </span>
 
                                     <button
                                         type="button"
@@ -804,14 +807,8 @@ export default function Inicio() {
                                         }
                                     >
                                         Ver expansiones
-                                        <ArrowRight
-                                            size={16}
-                                        />
+                                        <ArrowRight size={16} />
                                     </button>
-                                </div>
-
-                                <div className="dc-home2-plus-mark">
-                                    <Plus size={56} />
                                 </div>
                             </article>
                         )}

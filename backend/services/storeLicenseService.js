@@ -14,7 +14,7 @@ import { getChannelEntitlements, invalidateChannelEntitlements } from './channel
 import { getStoreSettings } from './storeSettingsService.js';
 
 export function storeSimulationEnabled() {
-  return process.env.NODE_ENV !== 'production' && process.env.STORE_SIMULATION_ENABLED !== 'false';
+  return process.env.NODE_ENV !== 'production' && process.env.STRIPE_ENABLED !== 'true' && process.env.STORE_SIMULATION_ENABLED !== 'false';
 }
 
 function storeError(status, code, message) {

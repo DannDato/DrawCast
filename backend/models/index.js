@@ -29,6 +29,8 @@ import ChannelEntitlementFactory from './channelEntitlement.model.js';
 import StoreProductFactory from './storeProduct.model.js';
 import StoreProductBundleFactory from './storeProductBundle.model.js';
 import StoreProductRequirementFactory from './storeProductRequirement.model.js';
+import StoreOrderFactory from './storeOrder.model.js';
+import StoreOrderItemFactory from './storeOrderItem.model.js';
 import UserLicenseFactory from './userLicense.model.js';
 import LicenseAssignmentFactory from './licenseAssignment.model.js';
 
@@ -61,6 +63,8 @@ const models = {
   StoreProduct: StoreProductFactory(db),
   StoreProductBundle: StoreProductBundleFactory(db),
   StoreProductRequirement: StoreProductRequirementFactory(db),
+  StoreOrder: StoreOrderFactory(db),
+  StoreOrderItem: StoreOrderItemFactory(db),
   UserLicense: UserLicenseFactory(db),
   LicenseAssignment: LicenseAssignmentFactory(db),
   AuditLog: AuditFactory(auditDb),
@@ -134,6 +138,13 @@ models.StoreProductRequirement.belongsTo(models.StoreProduct, { foreignKey: 'pro
 
 models.User.hasMany(models.UserLicense, { foreignKey: 'userId', as: 'licenses', onDelete: 'CASCADE' });
 models.UserLicense.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
+models.User.hasMany(models.StoreOrder, { foreignKey: 'userId', as: 'storeOrders', onDelete: 'RESTRICT' });
+models.StoreOrder.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
+models.StoreOrder.hasMany(models.StoreOrderItem, { foreignKey: 'orderId', as: 'items', onDelete: 'RESTRICT' });
+models.StoreOrderItem.belongsTo(models.StoreOrder, { foreignKey: 'orderId', as: 'order' });
+models.StoreProduct.hasMany(models.StoreOrderItem, { foreignKey: 'productId', as: 'orderItems', onDelete: 'SET NULL' });
+models.StoreOrderItem.belongsTo(models.StoreProduct, { foreignKey: 'productId', as: 'product', onDelete: 'SET NULL' });
+
 models.StoreProduct.hasMany(models.UserLicense, { foreignKey: 'productId', as: 'licenses', onDelete: 'RESTRICT' });
 models.UserLicense.belongsTo(models.StoreProduct, { foreignKey: 'productId', as: 'product' });
 

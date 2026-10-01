@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { CartContext } from './cartContext';
-import { addCartItem, getCart, removeCartItem, reviewCart, updateCartItem } from '../api/cart';
+import { addCartItem, getCart, prepareCheckout, removeCartItem, updateCartItem } from '../api/cart';
 
 function UserCartProvider({ authenticated, children }) {
   const [cart, setCart] = useState(null);
@@ -52,7 +52,7 @@ function UserCartProvider({ authenticated, children }) {
   };
 
   return (
-    <CartContext.Provider value={{ cart, loading, busy, error, refresh, add: (uuid) => mutate(() => addCartItem(uuid)), update: (uuid, quantity) => mutate(() => updateCartItem(uuid, quantity)), remove: (uuid) => mutate(() => removeCartItem(uuid)), review: () => mutate(reviewCart) }}>
+    <CartContext.Provider value={{ cart, loading, busy, error, refresh, add: (uuid) => mutate(() => addCartItem(uuid)), update: (uuid, quantity) => mutate(() => updateCartItem(uuid, quantity)), remove: (uuid) => mutate(() => removeCartItem(uuid)), checkout: () => mutate(() => prepareCheckout(cart?.checkoutFingerprint)) }}>
       {children}
     </CartContext.Provider>
   );
