@@ -112,12 +112,20 @@ export async function bootstrapStoreCatalog({ transaction, syncPrices = false } 
   }
 }
 
+export function storeProductIsPubliclyPurchasable(product) {
+  if (!product || rowValue(product, 'active') === false) return false;
+  const rawMetadata = decodeJsonValue(rowValue(product, 'metadata'));
+  const metadata = rawMetadata && typeof rawMetadata === 'object' && !Array.isArray(rawMetadata) ? rawMetadata : {};
+  return metadata.storeVisible !== false && metadata.adminOnly !== true;
+}
+
 export async function getStoreCatalog() {
-  return models.StoreProduct.findAll({
+  const products = await models.StoreProduct.findAll({
     where: { active: true },
     order: [['sortOrder', 'ASC'], ['name', 'ASC']],
     include: productIncludes()
   });
+  return products.filter(storeProductIsPubliclyPurchasable);
 }
 
 export function publicStoreProduct(product, extras = {}) {
@@ -437,7 +445,8 @@ export function publicUserLicense(license, extras = {}) {
 }
 
 export async function findStoreProductByUuid(productUuid) {
-  return models.StoreProduct.findOne({ where: { uuid: productUuid, active: true }, include: productIncludes() });
+  const product = await models.StoreProduct.findOne({ where: { uuid: productUuid, active: true }, include: productIncludes() });
+  return storeProductIsPubliclyPurchasable(product) ? product : null;
 }
 
 export async function findUserLicenseByUuid(userId, licenseUuid) {

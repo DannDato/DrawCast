@@ -17,6 +17,7 @@ import Store from './pages/Store';
 import Cart from './pages/Cart';
 import Inventory from './pages/Inventory';
 import Inicio from './pages/Inicio';
+import SystemAdmin from './pages/SystemAdmin';
 import { CookiesPage, FaqPage, PrivacyPage, SecurityPage, TermsPage } from './pages/PublicPages';
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/app/cart" element={<Cart />} />
         <Route path="/app/store" element={<Store />} />
         <Route path="/app/inventory" element={<Inventory />} />
+        <Route path="/app/admin" element={<ProtectedRoute role="SUPER_ADMIN" permission="admin.system.access" explicitPermission><SystemAdmin /></ProtectedRoute>} />
         <Route path="/app/diagnostico" element={<Navigate to="/app/settings?section=diagnostics" replace />} />
       </Route>
 

@@ -6,6 +6,7 @@ export const ENTITLEMENT_BUNDLE_KEYS = Object.freeze({
   ACCOUNT_FREE: 'account.free',
   CANVAS_FREE: 'canvas.free',
   CANVAS_PLUS: 'canvas.plus',
+  CANVAS_COLLAB: 'canvas.collab',
   ACCOUNT_CANVAS_SLOT_1: 'account.canvas_slot.1',
   TOOL_TEXT: 'tool.text',
   TOOL_SHAPES: 'tool.shapes',
@@ -140,6 +141,40 @@ export const ENTITLEMENT_BUNDLES = Object.freeze([
     }
   }
 ,
+  {
+    key: ENTITLEMENT_BUNDLE_KEYS.CANVAS_COLLAB,
+    scope: 'channel',
+    kind: 'plan',
+    name: 'Licencia Collab',
+    description: 'Desbloquea las capacidades de Plus para colaboradores, conservando la marca de agua del Overlay.',
+    priority: 100,
+    grants: {
+      'editor.select': true,
+      'editor.pan': true,
+      'editor.brush': true,
+      'editor.eraser': true,
+      'editor.image': true,
+      'editor.snap': true,
+      'editor.overlay': true,
+      'editor.collaboration': true,
+      'editor.guides': true,
+      'editor.designs': true,
+      'editor.text': true,
+      'editor.live_studio': true,
+      'editor.quick_sounds': true,
+      'editor.custom_sounds': true,
+      'editor.timer': true,
+      'editor.line': true,
+      'editor.shape': true,
+      'editor.launchpad': true,
+      'limit.layers': 5,
+      'limit.design_slots': 3,
+      'limit.guide_slots': 3,
+      'limit.quick_sound_slots': 3,
+      'limit.custom_sound_slots': 5,
+      'limit.launchpad_pads': 24
+    }
+  },
   {
     key: ENTITLEMENT_BUNDLE_KEYS.ACCOUNT_CANVAS_SLOT_1,
     scope: 'account',

@@ -30,6 +30,27 @@ test('Free y Plus se resuelven por prioridad sin depender del usuario colaborado
   assert.deepEqual(resolved.bundles, ['canvas.free', 'canvas.plus']);
 });
 
+
+test('Collab replica las capacidades de Plus excepto quitar la marca de agua', () => {
+  const plus = ENTITLEMENT_BUNDLES.find((bundle) => bundle.key === 'canvas.plus');
+  const collab = ENTITLEMENT_BUNDLES.find((bundle) => bundle.key === 'canvas.collab');
+  assert.ok(plus);
+  assert.ok(collab);
+
+  const plusWithoutWatermark = { ...plus.grants };
+  delete plusWithoutWatermark['overlay.remove_watermark'];
+  assert.deepEqual(collab.grants, plusWithoutWatermark);
+  assert.equal(collab.grants['overlay.remove_watermark'], undefined);
+
+  const watermark = capability('overlay.remove_watermark', 'boolean');
+  const text = capability('editor.text', 'boolean');
+  const free = { key: 'canvas.free', priority: 0, active: true, grants: [grant(watermark, false), grant(text, false)] };
+  const collabRuntime = { key: 'canvas.collab', priority: 100, active: true, grants: [grant(text, true)] };
+  const resolved = resolveEntitlementValues([watermark, text], [free, collabRuntime]);
+  assert.equal(resolved.features['editor.text'], true);
+  assert.equal(resolved.features['overlay.remove_watermark'], false);
+});
+
 test('los packs futuros pueden sumar límites sin duplicar reglas del Editor', () => {
   const guideSlots = capability('limit.guide_slots', 'integer', { expandable: true, hardMax: 12 });
   const plus = { key: 'canvas.plus', priority: 100, active: true, grants: [grant(guideSlots, 3)] };

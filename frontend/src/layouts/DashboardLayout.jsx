@@ -7,6 +7,7 @@ import {
     Menu,
     PenTool,
     Settings,
+    ShieldCheck,
     ShoppingBag,
     User,
     X,
@@ -25,6 +26,7 @@ const items = [
 
 export default function DashboardLayout() {
     const { user, logout } = useAuth();
+    const canAdminSystem = user?.role?.key === 'SUPER_ADMIN' && user?.permissions?.includes('admin.system.access');
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -102,6 +104,7 @@ export default function DashboardLayout() {
     }, []);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAccountMenuOpen(false);
         setMobileOpen(false);
     }, [location.pathname]);
@@ -293,6 +296,18 @@ export default function DashboardLayout() {
                                         Configuración
                                     </button>
 
+                                    {canAdminSystem && (
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-bold text-[var(--dc-text)] transition hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"
+                                            onClick={() => goTo("/app/admin")}
+                                        >
+                                            <ShieldCheck size={15} />
+                                            Administración
+                                        </button>
+                                    )}
+
                                     <div className="my-1 h-px bg-[var(--dc-line)]" />
 
                                     <button
@@ -373,6 +388,17 @@ export default function DashboardLayout() {
                                 <Settings size={16} />
                                 Configuración
                             </button>
+
+                            {canAdminSystem && (
+                                <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[12px] font-bold text-[var(--dc-text)] transition hover:bg-[var(--dc-button-secondary-hover)]"
+                                    onClick={() => goTo("/app/admin")}
+                                >
+                                    <ShieldCheck size={16} />
+                                    Administración
+                                </button>
+                            )}
 
                             <button
                                 type="button"

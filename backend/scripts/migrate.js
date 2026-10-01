@@ -54,7 +54,37 @@ if (tables.includes('channels')) {
   }
 }
 
-await db.sync({ alter: true });
+// No usamos sync({ alter: true }) como sistema de migraciones. En MariaDB,
+// Sequelize puede generar índices UNIQUE equivalentes con nombres distintos en
+// ejecuciones sucesivas (username, username_2, ...), hasta alcanzar el límite
+// de 64 keys por tabla. Las modificaciones de esquema deben vivir en
+// runTrackedMigration(); sync() queda únicamente para crear tablas ausentes.
+async function pruneDuplicateSingleColumnUniqueIndexes(tableName, columns) {
+  if (!tables.includes(tableName)) return;
+
+  const indexes = await queryInterface.showIndex(tableName);
+  for (const column of columns) {
+    const matching = indexes.filter((index) => {
+      if (index.name === 'PRIMARY' || !index.unique) return false;
+      const fields = (index.fields || []).map((field) => field.attribute || field.name).filter(Boolean);
+      return fields.length === 1 && fields[0] === column;
+    });
+    if (matching.length <= 1) continue;
+
+    // Preferimos índices con nombre estable/legible y retiramos sólo duplicados
+    // que protegen exactamente la misma columna UNIQUE.
+    const preferredNames = [`${tableName}_${column}_uq`, column];
+    const keep = matching.find((index) => preferredNames.includes(index.name)) || matching[0];
+    for (const index of matching) {
+      if (index.name === keep.name) continue;
+      await queryInterface.removeIndex(tableName, index.name);
+      console.log(`Índice UNIQUE duplicado eliminado: ${tableName}.${index.name} (${column})`);
+    }
+  }
+}
+
+await pruneDuplicateSingleColumnUniqueIndexes('users', ['uuid', 'username', 'email']);
+await db.sync();
 
 async function runTrackedMigration(key, migrate) {
   const migrationTable = 'trazio_migrations';

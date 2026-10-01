@@ -18,6 +18,7 @@ import { validatePasswordPolicy } from '../../services/passwordPolicy.js';
 import { clearLoginFailures, loginAllowed, registerLoginFailure } from '../../services/loginProtectionService.js';
 import { notifySecurity } from '../../services/securityNotificationService.js';
 import { getSettingBoolean } from '../../services/settingsService.js';
+import { grantWelcomePlusLicense } from '../../services/welcomeLicenseService.js';
 import { exchangeGoogleCode, googleCodeFlowConfigured, googleIdentityConfigured, verifyGoogleCredential } from '../../services/googleOAuthService.js';
 import logger from '../../helpers/winston.js';
 import { env } from '../../config/env.js';
@@ -190,6 +191,7 @@ async function resolveOAuthIdentity(identity, requestedUsername = null) {
       roleKey: 'USER'
     }, { transaction });
     await applyRolePreset(user.id, 'USER', transaction);
+    await grantWelcomePlusLicense(user, transaction);
     account = await attachOAuthAccount(user, identity, transaction);
     await transaction.commit();
     return { account, user, inactive: false, requiresUsername: false };
@@ -269,6 +271,7 @@ class AuthController {
     if (exists) return res.status(409).json({ message: 'Usuario o correo ya registrado' });
 
     let user;
+    const transaction = await db.transaction();
     try {
       user = await models.User.create({
         username: cleanUsername,
@@ -276,13 +279,15 @@ class AuthController {
         passwordHash: await hashPassword(password),
         displayName: String(displayName || '').trim() || cleanUsername,
         roleKey: 'USER'
-      });
+      }, { transaction });
+      await applyRolePreset(user.id, 'USER', transaction);
+      await grantWelcomePlusLicense(user, transaction);
+      await transaction.commit();
     } catch (error) {
+      await transaction.rollback();
       if (error instanceof UniqueConstraintError) return res.status(409).json({ message: 'Usuario o correo ya registrado' });
       throw error;
     }
-
-    await applyRolePreset(user.id, 'USER');
     await audit(req, { event: 'auth.register', category: 'auth', userId: user.id });
 
     const challenge = await issueOtpChallenge(req, user);

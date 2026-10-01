@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { ENTITLEMENT_BUNDLES, ENTITLEMENT_CAPABILITIES } from '../bootstrap/catalogs/entitlements.js';
 import { STORE_PRODUCTS } from '../bootstrap/catalogs/store.js';
 import { models } from '../models/index.js';
-import { bootstrapStoreCatalog, publicStoreProduct, requirementsSatisfied, storeProductCommerceState, storeProductIsStackable, validateStoreCatalogDefinitions } from '../services/storeCatalogService.js';
+import { bootstrapStoreCatalog, publicStoreProduct, requirementsSatisfied, storeProductCommerceState, storeProductIsPubliclyPurchasable, storeProductIsStackable, validateStoreCatalogDefinitions } from '../services/storeCatalogService.js';
 
 test('el catálogo de tienda referencia bundles/capabilities existentes y scopes compatibles', () => {
   assert.equal(validateStoreCatalogDefinitions(STORE_PRODUCTS, ENTITLEMENT_BUNDLES, ENTITLEMENT_CAPABILITIES), true);
@@ -14,8 +14,21 @@ test('Lienzo Plus es el producto principal y concede canvas.plus', () => {
   assert.ok(plus);
   assert.equal(plus.featured, true);
   assert.equal(plus.targetScope, 'channel');
-  assert.equal(plus.priceCents, 7200);
+  assert.equal(plus.priceCents, 9900);
   assert.deepEqual(plus.bundles, ['canvas.plus']);
+});
+
+
+test('Licencia Collab existe como producto administrativo permanente y no comprable', () => {
+  const collab = STORE_PRODUCTS.find((product) => product.key === 'canvas.collab');
+  assert.ok(collab);
+  assert.equal(collab.targetScope, 'channel');
+  assert.equal(collab.billingInterval, 'one_time');
+  assert.equal(collab.priceCents, 0);
+  assert.deepEqual(collab.bundles, ['canvas.collab']);
+  assert.equal(collab.metadata?.storeVisible, false);
+  assert.equal(collab.metadata?.adminOnly, true);
+  assert.equal(storeProductIsPubliclyPurchasable(collab), false);
 });
 
 test('las expansiones están modeladas como bundles add y pueden depender de Plus o feature base', () => {
@@ -53,7 +66,7 @@ test('Nuevo lienzo vive en scope account y no depende de un channel', () => {
   const canvas = STORE_PRODUCTS.find((product) => product.key === 'account.canvas_slot.1');
   assert.ok(canvas);
   assert.equal(canvas.targetScope, 'account');
-  assert.equal(canvas.priceCents, 5400);
+  assert.equal(canvas.priceCents, 6700);
   assert.deepEqual(canvas.bundles, ['account.canvas_slot.1']);
 });
 

@@ -19,8 +19,13 @@ const roles = [
 ];
 
 const permissions = [
-  ['menu.dashboard', 'Ver inicio'],
-  ['menu.profile', 'Ver perfil']
+  ['menu.dashboard', 'Ver inicio', 'Permite acceder al inicio de la aplicación.'],
+  ['menu.profile', 'Ver perfil', 'Permite acceder al perfil propio.'],
+  ['admin.system.access', 'Administración del sistema', 'Permite entrar al panel de administración del sistema.'],
+  ['admin.users.read', 'Consultar usuarios', 'Permite consultar usuarios desde la administración del sistema.'],
+  ['admin.users.permissions.manage', 'Administrar permisos de usuarios', 'Permite modificar permisos explícitos de otros usuarios.'],
+  ['admin.collaborators.read', 'Consultar colaboradores', 'Permite consultar la asignación administrativa de Licencias Collab.'],
+  ['admin.collaborators.manage', 'Administrar Licencias Collab', 'Permite asignar y revocar Licencias Collab permanentes.']
 ];
 
 const settings = [
@@ -40,8 +45,11 @@ async function seed() {
     if (created) createdRoleKeys.add(key);
   }
 
-  for (const [key, name] of permissions) {
-    await models.Permission.findOrCreate({ where: { key }, defaults: { name, active: true } });
+  for (const [key, name, description] of permissions) {
+    const [permission] = await models.Permission.findOrCreate({ where: { key }, defaults: { name, description, active: true } });
+    if (permission.name !== name || permission.description !== description || !permission.active) {
+      await permission.update({ name, description, active: true });
+    }
   }
 
   for (const [key, value, description, isPublic] of settings) {
@@ -52,7 +60,8 @@ async function seed() {
   await db.transaction((transaction) => bootstrapStoreCatalog({ transaction, syncPrices: true }));
   console.log('Precios y moneda del catálogo actualizados.');
 
-  const baseKeys = permissions.map(([key]) => key);
+  const baseKeys = ['menu.dashboard', 'menu.profile'];
+  const allPermissionKeys = (await models.Permission.findAll({ where: { active: true }, attributes: ['key'], order: [['key', 'ASC']] })).map((permission) => permission.key);
   for (const roleKey of createdRoleKeys) await setRolePreset(roleKey, baseKeys);
 
   const email = String(process.env.BOOTSTRAP_ADMIN_EMAIL || '').trim().toLowerCase();
@@ -75,6 +84,15 @@ async function seed() {
     console.log(created ? `Usuario bootstrap creado: ${user.email}` : `Usuario bootstrap ya existente, sin cambios: ${user.email}`);
   } else {
     console.log('Seed completado sin usuario bootstrap. Define BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD si deseas crearlo.');
+  }
+
+  const rootUser = await models.User.findByPk(1);
+  if (rootUser) {
+    if (rootUser.roleKey !== 'SUPER_ADMIN') await rootUser.update({ roleKey: 'SUPER_ADMIN' });
+    await setUserPermissions(rootUser.id, allPermissionKeys);
+    console.log(`Super Admin raíz asegurado: ${rootUser.email} (usuario interno #1).`);
+  } else {
+    console.log('No existe todavía el usuario interno #1; el seed no creó un Super Admin raíz.');
   }
 
   console.log('Seed base completado.');

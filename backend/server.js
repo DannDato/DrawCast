@@ -27,6 +27,7 @@ const io=new Server(httpServer,{
   maxHttpBufferSize:Number(process.env.SOCKET_MAX_BYTES||10000000)
 });
 app.set('io', io);
+app.set('trust proxy', 1);
 app.disable('x-powered-by'); app.set('trust proxy',env.trustProxy); app.use(helmet({
   contentSecurityPolicy:false,
   crossOriginResourcePolicy:{policy:'cross-origin'},

@@ -33,3 +33,11 @@ export const requirePermissions = (...required) => (req, res, next) => {
   if (required.every((permission) => keys.has(permission))) return next();
   return res.status(403).json({ message: 'Permisos insuficientes', required });
 };
+
+export const requireSuperAdminPermissions = (...required) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ message: 'Sesión requerida' });
+  if (req.user.roleKey !== 'SUPER_ADMIN') return res.status(403).json({ message: 'Acceso exclusivo para Super Admin' });
+  const keys = new Set(req.permissions || []);
+  if (required.every((permission) => keys.has(permission))) return next();
+  return res.status(403).json({ message: 'Permisos insuficientes', required });
+};
