@@ -24,7 +24,7 @@ export default function GoogleAuthButton({ mode = 'signin', onError }) {
   const handleCode = useCallback(async (code) => {
     try {
       clearPendingVerifyAccess();
-      const { data } = await api.post('/auth/google/code', { code }, { headers: { 'X-Requested-With': 'XmlHttpRequest' } });
+      const { data } = await api.post('/auth/google/code', { code, redirectUri: window.location.origin }, { headers: { 'X-Requested-With': 'XmlHttpRequest' } });
       if (data.requiresUsername) {
         navigate('/register?oauthUsername=1');
         return;

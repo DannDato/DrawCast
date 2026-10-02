@@ -453,8 +453,11 @@ class AuthController {
     if (req.get('x-requested-with') !== 'XmlHttpRequest') return res.status(400).json({ message: 'Solicitud de Google no válida' });
 
     let payload;
-    try { payload = await exchangeGoogleCode(String(req.body.code || '')); }
-    catch { return res.status(401).json({ message: 'No se pudo validar la cuenta de Google' }); }
+    try { payload = await exchangeGoogleCode(String(req.body.code || ''), req.body.redirectUri); }
+    catch (error) {
+      logger.warn('Google OAuth code exchange failed', { error: error.message, redirectUri: String(req.body.redirectUri || '') });
+      return res.status(401).json({ message: 'No se pudo validar la cuenta de Google. Revisa la configuración OAuth del dominio.' });
+    }
 
     const identity = oauthIdentity({
       provider: 'google', providerUserId: payload.sub, email: payload.email,

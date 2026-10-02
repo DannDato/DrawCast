@@ -18,7 +18,7 @@ export default function GoogleConnectButton({ onConnected, onError, iconOnly = f
 
   const handleCode = useCallback(async (code) => {
     try {
-      const { data } = await api.post('/user/profile/google/connect/code', { code }, { headers: { 'X-Requested-With': 'XmlHttpRequest' } });
+      const { data } = await api.post('/user/profile/google/connect/code', { code, redirectUri: window.location.origin }, { headers: { 'X-Requested-With': 'XmlHttpRequest' } });
       await onConnected?.(data);
     } catch (error) {
       onError?.(error.response?.data?.message || 'No se pudo conectar Google');

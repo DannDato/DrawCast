@@ -18,11 +18,14 @@ import {
 } from "../api/channels";
 
 import { getStoreCatalog } from "../api/store";
+import useSystemModules from "../hooks/useSystemModules";
 import { useSystemAlert } from "../components/ui/SystemAlert";
 
 export default function Inicio() {
     const navigate = useNavigate();
     const { showAlert, confirmDialog, confirmTextDialog } = useSystemAlert();
+    const { modules } = useSystemModules();
+    const storeEnabled = modules !== null && modules?.store?.enabled !== false;
 
     const [data, setData] = useState({ ownedChannels: [] });
     const [featured, setFeatured] = useState(null);
@@ -50,30 +53,21 @@ export default function Inicio() {
     useEffect(() => {
         let active = true;
 
-        Promise.all([
+        Promise.allSettled([
             getChannels({ force: true }),
             getFeaturedChannel(),
-            getStoreCatalog(),
         ])
-            .then(([channelsResult, featuredResult, catalogResult]) => {
+            .then(([channelsResult, featuredResult]) => {
                 if (!active) return;
 
-                setData(channelsResult || { ownedChannels: [] });
-                setFeatured(featuredResult?.channel || null);
-                setCatalog(
-                    catalogResult || {
-                        intelligence: {},
-                        products: [],
-                    },
-                );
+                if (channelsResult.status === "fulfilled") {
+                    setData(channelsResult.value || { ownedChannels: [] });
+                }
 
-                setPlus(
-                    (catalogResult?.products || []).find(
-                        (product) => product.featured,
-                    ) || null,
-                );
+                if (featuredResult.status === "fulfilled") {
+                    setFeatured(featuredResult.value?.channel || null);
+                }
             })
-            .catch(() => {})
             .finally(() => {
                 if (active) setLoading(false);
             });
@@ -82,6 +76,35 @@ export default function Inicio() {
             active = false;
         };
     }, []);
+
+    useEffect(() => {
+        let active = true;
+
+        if (modules === null) return () => { active = false; };
+
+        if (!storeEnabled) {
+            setCatalog({ intelligence: {}, products: [] });
+            setPlus(null);
+            return () => { active = false; };
+        }
+
+        getStoreCatalog()
+            .then((catalogResult) => {
+                if (!active) return;
+
+                setCatalog(catalogResult || { intelligence: {}, products: [] });
+                setPlus((catalogResult?.products || []).find((product) => product.featured) || null);
+            })
+            .catch(() => {
+                if (!active) return;
+                setCatalog({ intelligence: {}, products: [] });
+                setPlus(null);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [modules, storeEnabled]);
 
     const canvasLimit = Number(data?.limits?.canvases || 1);
     const canvasUsed = Number(data?.limits?.used ?? channels.length);
@@ -107,7 +130,16 @@ export default function Inicio() {
 
     const beginCreate = () => {
         if (!canCreateCanvas) {
-            navigate("/app/store?product=account.canvas_slot.1");
+            if (storeEnabled) {
+                navigate("/app/store?product=account.canvas_slot.1");
+                return;
+            }
+
+            showAlert({
+                title: "Tienda no disponible",
+                message: "No puedes añadir otro lienzo mientras la Tienda esté deshabilitada.",
+                tone: "info",
+            });
             return;
         }
 
@@ -424,10 +456,12 @@ export default function Inicio() {
                     <Boxes size={15} />
                     Inventario
                 </button>
-                <button type="button" onClick={() => navigate("/app/store")}>
-                    <Store size={15} />
-                    Tienda
-                </button>
+                {storeEnabled && (
+                    <button type="button" onClick={() => navigate("/app/store")}>
+                        <Store size={15} />
+                        Tienda
+                    </button>
+                )}
             </nav>
 
             <section
@@ -715,14 +749,14 @@ export default function Inicio() {
                 </div>
             </section>
 
-            {channels.length > 0 && (
+            {channels.length > 0 && (storeEnabled || featured) && (
                 <>
                     <div className="dc-home2-section-title">
                         {/* <h2>SUGERENCIAS</h2> */}
                     </div>
 
                     <section className="dc-home2-suggestions">
-                        {!plusCoverageComplete ? (
+                        {storeEnabled && (!plusCoverageComplete ? (
                             <article className="dc-home2-plus-card">
                                 <div className="dc-home2-promo-copy">
                                     <span className="dc-home2-canvas-kicker">
@@ -811,7 +845,7 @@ export default function Inicio() {
                                     </button>
                                 </div>
                             </article>
-                        )}
+                        ))}
 
                         <FeaturedStreamerCard channel={featured} />
                     </section>

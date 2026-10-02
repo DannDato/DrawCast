@@ -13,6 +13,7 @@ import { sendEmailChangeCode } from '../../services/emailService.js';
 import { notifySecurity } from '../../services/securityNotificationService.js';
 import { exchangeGoogleCode, googleCodeFlowConfigured, googleIdentityConfigured, verifyGoogleCredential } from '../../services/googleOAuthService.js';
 import { env } from '../../config/env.js';
+import logger from '../../helpers/winston.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, '../..');
@@ -104,8 +105,11 @@ class ProfileController {
     if (!googleCodeFlowConfigured()) return res.status(503).json({ message: 'Google OAuth no configurado' });
     if (req.get('x-requested-with') !== 'XmlHttpRequest') return res.status(400).json({ message: 'Solicitud de Google no válida' });
     let payload;
-    try { payload = await exchangeGoogleCode(String(req.body.code || '')); }
-    catch { return res.status(401).json({ message: 'No se pudo validar la cuenta de Google' }); }
+    try { payload = await exchangeGoogleCode(String(req.body.code || ''), req.body.redirectUri); }
+    catch (error) {
+      logger.warn('Google OAuth profile code exchange failed', { error: error.message, redirectUri: String(req.body.redirectUri || ''), userId: req.user.id });
+      return res.status(401).json({ message: 'No se pudo validar la cuenta de Google. Revisa la configuración OAuth del dominio.' });
+    }
     return this.finishGoogleConnection(req, res, payload);
   };
 

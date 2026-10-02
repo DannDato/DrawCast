@@ -2,12 +2,38 @@ import { OAuth2Client } from 'google-auth-library';
 
 const verifier = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-function frontendOrigin() {
+function normalizeOrigin(value) {
   try {
-    return new URL(process.env.FRONTEND_URL || 'http://localhost:5173').origin;
+    const url = new URL(String(value || '').trim());
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    return url.origin;
   } catch {
-    return 'http://localhost:5173';
+    return null;
   }
+}
+
+function configuredFrontendOrigins() {
+  const values = [
+    ...(String(process.env.CORS_ORIGINS || '').split(',')),
+    process.env.FRONTEND_URL || ''
+  ];
+  return new Set(values.map(normalizeOrigin).filter(Boolean));
+}
+
+function frontendOrigin() {
+  return normalizeOrigin(process.env.FRONTEND_URL) || 'http://localhost:5173';
+}
+
+export function resolveGooglePopupRedirectUri(requestedRedirectUri) {
+  const requestedOrigin = normalizeOrigin(requestedRedirectUri);
+  if (!requestedOrigin) return frontendOrigin();
+
+  const allowedOrigins = configuredFrontendOrigins();
+  if (!allowedOrigins.size || !allowedOrigins.has(requestedOrigin)) {
+    throw new Error(`Origen OAuth de Google no permitido: ${requestedOrigin}`);
+  }
+
+  return requestedOrigin;
 }
 
 export function googleIdentityConfigured() {
@@ -26,11 +52,11 @@ export async function verifyGoogleCredential(credential) {
   return payload;
 }
 
-export async function exchangeGoogleCode(code) {
+export async function exchangeGoogleCode(code, requestedRedirectUri = null) {
   if (!googleCodeFlowConfigured()) throw new Error('Google OAuth no configurado');
   if (!code) throw new Error('Código de Google requerido');
 
-  const redirectUri = frontendOrigin();
+  const redirectUri = resolveGooglePopupRedirectUri(requestedRedirectUri);
   const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, redirectUri);
   const { tokens } = await client.getToken({ code, redirect_uri: redirectUri });
   if (!tokens.id_token) throw new Error('Google no devolvió una identidad válida');
