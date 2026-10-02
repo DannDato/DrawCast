@@ -8,6 +8,7 @@ import {
     PenTool,
     Settings,
     ShoppingBag,
+    ShieldCheck,
     User,
     X,
 } from "lucide-react";
@@ -36,6 +37,7 @@ export default function DashboardLayout() {
     const [navigationPending, startNavigation] = useTransition();
 
     const accountMenuRef = useRef(null);
+    const canAccessSystemAdmin = user?.role?.key === "SUPER_ADMIN" && user?.permissions?.includes("admin.system.access");
 
     // Detectar si la ruta actual es el editor dinámico
     const isFullEditor = /^\/app\/editor\/[^/]+\/?$/.test(location.pathname);
@@ -324,6 +326,18 @@ export default function DashboardLayout() {
                                         Configuración
                                     </button>
 
+                                    {canAccessSystemAdmin && (
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-bold text-[var(--dc-text)] transition hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"
+                                            onClick={() => goTo("/app/admin")}
+                                        >
+                                            <ShieldCheck size={15} />
+                                            Administración del sistema
+                                        </button>
+                                    )}
+
                                     <div className="my-1 h-px bg-[var(--dc-line)]" />
 
                                     <button
@@ -404,6 +418,17 @@ export default function DashboardLayout() {
                                 <Settings size={16} />
                                 Configuración
                             </button>
+
+                            {canAccessSystemAdmin && (
+                                <button
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[12px] font-bold text-[var(--dc-text)] transition hover:bg-[var(--dc-button-secondary-hover)]"
+                                    onClick={() => goTo("/app/admin")}
+                                >
+                                    <ShieldCheck size={16} />
+                                    Administración del sistema
+                                </button>
+                            )}
 
                             <button
                                 type="button"
