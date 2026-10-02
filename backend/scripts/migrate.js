@@ -259,9 +259,6 @@ await runTrackedMigration('119_6_license_entitlement_integrity', async (transact
     models.EntitlementCapability.findOne({ where: { key: 'limit.launchpad_pads' }, transaction })
   ]);
 
-  // Repite de forma explícita la reparación de 119.5 porque ese patch histórico podía
-  // haberse aplicado bajo una carpeta DrawCast/ anidada. Esta migración vive ya en la
-  // ruta real backend/ y deja el contrato de Launchpad Lite aislado una sola vez.
   if (launchpadProduct && launchpadBundle && launchpadFeature && launchpadPads) {
     await models.StoreProductBundle.destroy({
       where: { productId: launchpadProduct.id, bundleId: { [Op.ne]: launchpadBundle.id } },
