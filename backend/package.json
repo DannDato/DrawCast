@@ -12,7 +12,10 @@
     "bootstrap": "npm run migrate && npm run seed",
     "check": "node --check server.js && node scripts/check-imports.js",
     "cleanup": "node scripts/cleanup.js",
-    "entitlement": "node scripts/entitlement.js"
+    "entitlement": "node scripts/entitlement.js",
+    "admin:promote": "node scripts/admin-user.js promote",
+    "admin:root": "node scripts/admin-user.js root",
+    "admin:demote": "node scripts/admin-user.js demote"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

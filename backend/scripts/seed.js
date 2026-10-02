@@ -5,6 +5,7 @@ import { hashPassword } from '../services/authService.js';
 import { setRolePreset, setUserPermissions } from '../helpers/permissions.js';
 import { bootstrapEntitlementCatalog } from '../services/entitlementCatalogService.js';
 import { bootstrapStoreCatalog } from '../services/storeCatalogService.js';
+import { getRootAdminUuid, setRootAdmin } from '../services/rootAdminService.js';
 
 const statuses = [
   ['ACTIVE', 'Activo', true],
@@ -92,13 +93,22 @@ async function seed() {
     console.log('Seed completado sin usuario bootstrap. Define BOOTSTRAP_ADMIN_EMAIL y BOOTSTRAP_ADMIN_PASSWORD si deseas crearlo.');
   }
 
-  const rootUser = await models.User.findByPk(1);
-  if (rootUser) {
-    if (rootUser.roleKey !== 'SUPER_ADMIN') await rootUser.update({ roleKey: 'SUPER_ADMIN' });
-    await setUserPermissions(rootUser.id, allPermissionKeys);
-    console.log(`Super Admin raíz asegurado: ${rootUser.email} (usuario interno #1).`);
+  const configuredRootUuid = await getRootAdminUuid();
+  let rootUser = configuredRootUuid ? await models.User.findOne({ where: { uuid: configuredRootUuid } }) : null;
+
+  if (!rootUser) {
+    rootUser = await models.User.findByPk(1);
+    if (rootUser) {
+      await setRootAdmin(rootUser);
+      console.log(`Root inicial adoptado desde el usuario interno #1: ${rootUser.email}.`);
+    } else if (configuredRootUuid) {
+      console.log(`El root configurado (${configuredRootUuid}) ya no existe. Usa npm run admin:root -- <usuario> para reasignarlo.`);
+    } else {
+      console.log('No hay usuario root configurado. Usa npm run admin:root -- <usuario> cuando exista una cuenta.');
+    }
   } else {
-    console.log('No existe todavía el usuario interno #1; el seed no creó un Super Admin raíz.');
+    await setRootAdmin(rootUser);
+    console.log(`Super Admin raíz asegurado: ${rootUser.email} (${rootUser.uuid}).`);
   }
 
   console.log('Seed base completado.');

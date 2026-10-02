@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import { db, models } from '../../models/index.js';
 import { audit } from '../../helpers/audit.js';
 import { setUserPermissions } from '../../helpers/permissions.js';
+import { getRootAdminUuid, isRootAdminUser } from '../../services/rootAdminService.js';
 import { STORE_PRODUCT_KEYS } from '../../bootstrap/catalogs/store.js';
 import { getChannelEntitlements, invalidateChannelEntitlements } from '../../services/channelEntitlementAccessService.js';
 import { broadcastChannelEntitlements } from '../../services/channelEntitlementBroadcastService.js';
@@ -10,7 +11,7 @@ import { createRegistrationInvite } from '../../services/registrationInviteServi
 
 const MAX_USERS = 100;
 
-function serializeAdminUser(user, permissions = []) {
+function serializeAdminUser(user, permissions = [], rootUuid = null) {
   return {
     uuid: user.uuid,
     username: user.username,
@@ -19,7 +20,7 @@ function serializeAdminUser(user, permissions = []) {
     roleKey: user.roleKey,
     statusKey: user.statusKey,
     permissions,
-    protectedRoot: Number(user.id) === 1
+    protectedRoot: Boolean(rootUuid && user.uuid === rootUuid)
   };
 }
 
@@ -191,9 +192,12 @@ export const SystemAdminController = {
       order: [['id', 'ASC']],
       limit: MAX_USERS
     });
-    const permissionMap = await permissionMapForUsers(users.map((user) => user.id));
+    const [permissionMap, rootUuid] = await Promise.all([
+      permissionMapForUsers(users.map((user) => user.id)),
+      getRootAdminUuid()
+    ]);
     return res.json({
-      users: users.map((user) => serializeAdminUser(user, permissionMap.get(Number(user.id)) || [])),
+      users: users.map((user) => serializeAdminUser(user, permissionMap.get(Number(user.id)) || [], rootUuid)),
       limit: MAX_USERS
     });
   },
@@ -339,7 +343,7 @@ export const SystemAdminController = {
 
     const target = await models.User.findOne({ where: { uuid: String(req.params.userUuid || '') }, attributes: ['id', 'uuid', 'username', 'email', 'displayName', 'roleKey', 'statusKey'] });
     if (!target) return res.status(404).json({ message: 'Usuario no encontrado.' });
-    if (Number(target.id) === 1) return res.status(409).json({ message: 'Los permisos del Super Admin raíz se administran desde el seed del sistema.' });
+    if (await isRootAdminUser(target)) return res.status(409).json({ message: 'Los permisos del Super Admin raíz se administran desde consola.' });
 
     const requested = [...new Set(permissionKeys.map((key) => key.trim()))];
     const validRows = requested.length ? await models.Permission.findAll({ where: { key: { [Op.in]: requested }, active: true }, attributes: ['key'] }) : [];
@@ -355,6 +359,6 @@ export const SystemAdminController = {
       metadata: { username: target.username, permissions }
     });
 
-    return res.json({ user: serializeAdminUser(target, permissions) });
+    return res.json({ user: serializeAdminUser(target, permissions, await getRootAdminUuid()) });
   }
 };
