@@ -7,6 +7,7 @@ const MAX_LAUNCHPAD_PADS = 24;
 export default function useEditorSounds({ userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus, quickSoundsEnabled = false, customSoundsEnabled = false, launchpadEnabled = false, quickSoundSlotLimit = 0, customSoundLimit = 0, launchpadPadLimit = 0 }) {
   const [soundsOpen, setSoundsOpen] = useState(false);
   const [launchpadConfigOpen, setLaunchpadConfigOpen] = useState(false);
+  const [ownSoundsOpen, setOwnSoundsOpen] = useState(false);
   const [soundLibrary, setSoundLibrary] = useState([]);
   const [customSoundLibrary, setCustomSoundLibrary] = useState([]);
   const [soundSlots, setSoundSlots] = useState(Array(24).fill(null));
@@ -189,8 +190,8 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
     const saved = await saveUserSoundSlots(cleanSlots);
     setSoundSlots(Array.from({ length: 24 }, (_, index) => saved[index] || null));
     setSoundSlotsConfigured(true);
-    setSoundsOpen(false);
     setMediaStatus('Asignación de sonidos guardada.');
+    return saved;
   };
 
   const uploadOwnSound = async (file) => {
@@ -208,6 +209,17 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
     if (!channelUuid) throw new Error('No pudimos identificar este lienzo.');
     await deleteChannelSound(channelUuid, soundId);
     setCustomSoundLibrary((current) => current.filter((sound) => sound.id !== soundId));
+  };
+
+
+  const openOwnSounds = async () => {
+    if (!customSoundsEnabled) { setMediaStatus('Sonidos personalizados está bloqueado en este lienzo.'); return; }
+    setOwnSoundsOpen(true);
+    try {
+      await refreshSoundLibrary();
+    } catch {
+      setMediaStatus('No se pudieron actualizar tus sonidos.');
+    }
   };
 
   const openLaunchpadAssignments = async () => {
@@ -228,7 +240,6 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
     const saved = await saveUserLaunchpadSlots(cleanSlots);
     setLaunchpadSlots(Array.from({ length: MAX_LAUNCHPAD_PADS }, (_, index) => saved[index] || null));
     setLaunchpadSlotsConfigured(true);
-    setLaunchpadConfigOpen(false);
     setMediaStatus('Launchpad actualizado.');
   };
 
@@ -260,10 +271,10 @@ export default function useEditorSounds({ userSettings, channelUuid, publicKey, 
   const resolveSoundUrl = (sound) => getSoundUrl(sound.id, sound.version, sound.scope || 'library', publicKey);
 
   return {
-    soundsOpen, setSoundsOpen, launchpadConfigOpen, setLaunchpadConfigOpen,
+    soundsOpen, setSoundsOpen, launchpadConfigOpen, setLaunchpadConfigOpen, ownSoundsOpen, setOwnSoundsOpen,
     soundLibrary, customSoundLibrary, soundSlots, launchpadSlots, allSounds, soundSlotItems,
     soundPlayback, soundMonitorEnabled, setSoundMonitorEnabled, playSound,
-    openSoundAssignments, saveSoundAssignments, openLaunchpadAssignments, saveLaunchpadAssignments,
+    openSoundAssignments, saveSoundAssignments, openOwnSounds, openLaunchpadAssignments, saveLaunchpadAssignments,
     refreshSoundLibrary, uploadOwnSound, deleteOwnSound, resolveSoundUrl
   };
 }

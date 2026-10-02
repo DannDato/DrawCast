@@ -1587,3 +1587,66 @@
 .dc-section-tab.is-active::after{transform:scaleX(1)}
 .dc-section-tab:focus-visible{outline:0;background:var(--dc-surface-active);color:var(--dc-text-strong)}
 @media(max-width:760px){.dc-section-tabs{overflow-x:auto;flex-wrap:nowrap}.dc-section-tab{flex:0 0 auto}}
+
+/* PATCH 181 // mobile public/auth spacing */
+@media (max-width: 620px) {
+    .dc-auth-page {
+        min-height: 100dvh;
+        background: var(--dc-surface-overlay);
+    }
+
+    .dc-auth-page .dc-public-halos,
+    .dc-auth-page .dc-public-doodle,
+    .dc-auth-page .dc-public-dots,
+    .dc-auth-public-nav,
+    .dc-auth-public-footer,
+    .dc-auth-system {
+        display: none !important;
+    }
+
+    .dc-auth-public-content {
+        min-height: 100dvh;
+    }
+
+    .dc-auth-stage {
+        display: block;
+        min-height: 100dvh;
+        padding: 0;
+    }
+
+    .dc-auth-card {
+        width: 100%;
+        min-height: 100dvh;
+        padding: 36px 22px 32px;
+        background: var(--dc-surface-overlay);
+        box-shadow: none;
+    }
+}
+
+/* PATCH 181.1 // mobile auth providers: icon-only row */
+@media (max-width: 620px) {
+    .dc-auth-provider-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .dc-oauth-button {
+        width: 100%;
+        min-width: 0;
+        min-height: 52px;
+        display: grid;
+        grid-template-columns: 1fr;
+        place-items: center;
+        padding: 0;
+    }
+
+    .dc-oauth-icon {
+        grid-column: 1;
+        width: 24px;
+        height: 24px;
+    }
+
+    .dc-oauth-button > span:last-child {
+        display: none;
+    }
+}

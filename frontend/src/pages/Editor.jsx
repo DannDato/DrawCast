@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Redo2, Undo2 } from 'lucide-react';
+import { ChevronDown, Layers3, Redo2, Undo2 } from 'lucide-react';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
 import { assignStoreLicense, getStoreLicenses } from '../api/store';
 import { getChannelEntitlements, getChannels, markChannelUsed } from '../api/channels';
@@ -13,6 +13,7 @@ import HotkeysModal from '../components/editor/hotkeys/HotkeysModal';
 import SavedDesignsModal from '../components/editor/SavedDesignsModal';
 import SoundSlotsModal from '../components/editor/sounds/SoundSlotsModal';
 import LaunchpadConfigModal from '../components/editor/sounds/LaunchpadConfigModal';
+import OwnSoundsModal from '../components/editor/sounds/OwnSoundsModal';
 import LaunchpadSurface from '../components/editor/sounds/LaunchpadSurface';
 import { useSystemAlert } from '../components/ui/SystemAlert';
 import { makeShape, makeText, makeTimer, makeRoulette } from '../components/editor/objectFactory';
@@ -116,6 +117,7 @@ export default function Editor() {
   const [isOwner, setIsOwner] = useState(false);
   const [controlBusy, setControlBusy] = useState('');
   const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const [mobileLayersOpen, setMobileLayersOpen] = useState(false);
   const [propertiesAnchor, setPropertiesAnchor] = useState(null);
   const [remoteCursors, setRemoteCursors] = useState({});
   const [fitViewRequest, setFitViewRequest] = useState(0);
@@ -472,11 +474,11 @@ export default function Editor() {
   });
 
   const {
-    soundsOpen, setSoundsOpen, launchpadConfigOpen, setLaunchpadConfigOpen,
+    soundsOpen, setSoundsOpen, launchpadConfigOpen, setLaunchpadConfigOpen, ownSoundsOpen, setOwnSoundsOpen,
     soundLibrary, customSoundLibrary, soundSlots, launchpadSlots, allSounds, soundSlotItems,
     soundPlayback, soundMonitorEnabled, setSoundMonitorEnabled, playSound,
-    openSoundAssignments, saveSoundAssignments, openLaunchpadAssignments, saveLaunchpadAssignments,
-    refreshSoundLibrary, uploadOwnSound, deleteOwnSound, resolveSoundUrl
+    openSoundAssignments, saveSoundAssignments, openOwnSounds, openLaunchpadAssignments, saveLaunchpadAssignments,
+    uploadOwnSound, deleteOwnSound, resolveSoundUrl
   } = useEditorSounds({
     userSettings, channelUuid, publicKey, connected, overlayHidden, presence, emitChannelAction, setMediaStatus,
     quickSoundsEnabled: canFeature('editor.quick_sounds'),
@@ -593,6 +595,7 @@ export default function Editor() {
 
   const handleToggleWorkspaceMode = () => {
     if (effectiveWorkspaceMode === 'canvas' && !requireFrontendFeature('editor.launchpad', 'Launchpad')) return;
+    setMobileLayersOpen(false);
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set('view', effectiveWorkspaceMode === 'canvas' ? 'launchpad' : 'canvas');
@@ -1505,12 +1508,26 @@ export default function Editor() {
           onToggleSoundMonitor={() => setSoundMonitorEnabled((value) => !value)}
           onAssignSounds={openSoundAssignments}
           onAssignLaunchpadSounds={openLaunchpadAssignments}
+          onUploadSounds={openOwnSounds}
           entitlementsReady={entitlementsReady}
           isFeatureEnabled={canFeature}
           onLockedFeature={showLockedFeature}
           guideSlotLimit={guideSlotLimit}
           quickSoundSlotLimit={quickSoundSlotLimit}
         />
+        {effectiveWorkspaceMode === 'canvas' && (
+          <button
+            type="button"
+            className={`dc-editor-mobile-layers-toggle ${mobileLayersOpen ? 'active' : ''}`}
+            onClick={() => setMobileLayersOpen((value) => !value)}
+            aria-expanded={mobileLayersOpen}
+            aria-controls="dc-mobile-layers-drawer"
+          >
+            <Layers3 size={14} />
+            <span>CAPAS</span>
+            <ChevronDown size={14} />
+          </button>
+        )}
       </div>
 
       <main className={`dc-workspace ${effectiveWorkspaceMode === 'launchpad' ? 'is-launchpad' : ''}`}>
@@ -1616,6 +1633,33 @@ export default function Editor() {
         />}
 
 
+        {mobileLayersOpen && (
+          <div id="dc-mobile-layers-drawer" className="dc-mobile-layers-drawer">
+            <LayersPanel
+              objects={objects}
+              selectedIds={selectedIds}
+              onSelect={select}
+              onSelectMany={setSelection}
+              onPatch={(id, patchData) => patchWithHistory(id, patchData, 'Editar capa')}
+              onPatchMany={(updates) => applyUpdatesWithHistory(updates, 'Editar capas')}
+              onRemove={removeLayers}
+              onReorder={reorderLayers}
+              onNewDrawLayer={createDrawLayer}
+              onMoveLayer={moveSelectedLayer}
+              canMoveLayer={selectedIds.length > 0}
+              onProperties={toggleProperties}
+              propertiesOpen={propertiesOpen}
+              onClearAll={requestClear}
+              disabled={!connected || editingLocked}
+              onGroup={groupSelection}
+              onUngroup={ungroupSelection}
+              onDuplicate={duplicateSelected}
+              layerLimit={layerLimit}
+              onLayerLimit={() => setMediaStatus(`Llegaste al límite de ${layerLimit} capas de este lienzo.`)}
+            />
+          </div>
+        )}
+
         {editingLocked && (
           <div className="dc-collab-lock-overlay" role="status" aria-live="polite">
             <div className="dc-collab-lock-card">
@@ -1677,8 +1721,9 @@ export default function Editor() {
 
       {guidesOpen && <GuidesModal guides={guides} onSave={saveGuide} onDelete={deleteGuide} onClose={() => setGuidesOpen(false)} disabled={!channelUuid || editingLocked} slotLimit={guideSlotLimit} />}
       <HotkeysModal open={hotkeysOpen} onClose={() => setHotkeysOpen(false)} />
-      {soundsOpen && <SoundSlotsModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={soundSlots} slotCount={quickSoundSlotLimit} customSoundsEnabled={canFeature('editor.custom_sounds')} customSoundLimit={customSoundLimit} onLockedFeature={showLockedFeature} onClose={() => setSoundsOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveSoundAssignments} />}
-      {launchpadConfigOpen && <LaunchpadConfigModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={launchpadSlots} padCount={launchpadPadLimit} customSoundsEnabled={canFeature('editor.custom_sounds')} customSoundLimit={customSoundLimit} onLockedFeature={showLockedFeature} onClose={() => setLaunchpadConfigOpen(false)} onRefresh={refreshSoundLibrary} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} onSave={saveLaunchpadAssignments} />}
+      {soundsOpen && <SoundSlotsModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={soundSlots} slotCount={quickSoundSlotLimit} soundLimit={customSoundLimit} onClose={() => setSoundsOpen(false)} resolveSoundUrl={resolveSoundUrl} onSave={saveSoundAssignments} onUpload={uploadOwnSound} onDelete={deleteOwnSound} />}
+      {launchpadConfigOpen && <LaunchpadConfigModal sounds={soundLibrary} customSounds={customSoundLibrary} slots={launchpadSlots} padCount={launchpadPadLimit} soundLimit={customSoundLimit} onClose={() => setLaunchpadConfigOpen(false)} resolveSoundUrl={resolveSoundUrl} onSave={saveLaunchpadAssignments} onUpload={uploadOwnSound} onDelete={deleteOwnSound} />}
+      {ownSoundsOpen && <OwnSoundsModal sounds={customSoundLibrary} soundLimit={customSoundLimit} onClose={() => setOwnSoundsOpen(false)} resolveSoundUrl={resolveSoundUrl} onUpload={uploadOwnSound} onDelete={deleteOwnSound} />}
       {designsOpen && <SavedDesignsModal maxSlots={designSlotLimit} initialView={designsIntent} onClose={() => { setDesignsOpen(false); refreshRecentDesigns(); }} channelUuid={channelUuid} buildSnapshot={buildDesignSnapshot} onLoad={loadDesignSnapshot} hasScene={Object.keys(objects).length > 0} liveEnabled={liveEnabled} />}
     </div>
   );

@@ -28,7 +28,8 @@ import {
   Circle,
   Type,
   Volume2,
-  VolumeX
+  VolumeX,
+  Upload
 } from 'lucide-react';
 import { GUIDE_SHORTCUTS, TOOL_SHORTCUTS } from './hotkeys/shortcuts';
 import { PresenceStack } from '../ui/PresenceAvatar';
@@ -104,6 +105,7 @@ export default function Toolbar({
   onToggleSoundMonitor,
   onAssignSounds,
   onAssignLaunchpadSounds,
+  onUploadSounds,
   entitlementsReady = false,
   isFeatureEnabled = () => false,
   onLockedFeature,
@@ -199,16 +201,138 @@ export default function Toolbar({
   };
 
   return (
-    <div className={`dc-toolbar-horizontal ${editorLocked ? 'is-editor-locked' : ''}`} ref={rootRef}>
+    <div className={`dc-toolbar-root ${editorLocked ? 'is-editor-locked' : ''}`} ref={rootRef}>
+      <div className="dc-toolbar-mobile-shell">
+        <div className="dc-toolbar-mobile-head">
+          <Link to={backFromLaunchpad ? { pathname: location.pathname, search: `?${backToCanvas}`, hash: location.hash } : '/app/editor'} className="dc-toolbar-icon dc-toolbar-navigation" title={backFromLaunchpad ? 'Volver al lienzo' : 'Volver a lienzos'} aria-label={backFromLaunchpad ? 'Volver al lienzo' : 'Volver a lienzos'}>
+            <ArrowLeft size={17} />
+          </Link>
+          <div className="dc-toolbar-mobile-head-actions">
+            {editors.length > 0 && <PresenceStack editors={editors} max={3} />}
+            <Link to="/app/settings?section=editor" className="dc-toolbar-icon dc-toolbar-navigation" title="Preferencias del editor" aria-label="Preferencias del editor">
+              <Settings size={17} />
+            </Link>
+          </div>
+        </div>
+
+        <div className="dc-toolbar-mobile-actions">
+          <div className="dc-toolbar-mobile-left">
+            {launchpadMode ? <>
+              <button type="button" className={lockedClass(featureLocked('editor.launchpad'), 'dc-toolbar-icon')} onClick={lockedAction('editor.launchpad', 'Launchpad', onAssignLaunchpadSounds)} disabled={audioDisabled && !featureLocked('editor.launchpad')} aria-disabled={audioDisabled || featureLocked('editor.launchpad')} title="Asignar sonidos" aria-label="Asignar sonidos">
+                <Settings2 size={15} />
+                {featureLocked('editor.launchpad') && <PremiumLock />}
+              </button>
+              <button type="button" className={lockedClass(featureLocked('editor.custom_sounds'), 'dc-toolbar-icon')} onClick={lockedAction('editor.custom_sounds', 'Sonidos personalizados', onUploadSounds)} disabled={audioDisabled && !featureLocked('editor.custom_sounds')} aria-disabled={audioDisabled || featureLocked('editor.custom_sounds')} title="Subir sonidos" aria-label="Subir sonidos">
+                <Upload size={15} />
+                {featureLocked('editor.custom_sounds') && <PremiumLock />}
+              </button>
+            </> : <>
+              <div className="dc-toolbar-group dc-toolbar-menu-wrap">
+                <button type="button" className={`dc-toolbar-icon ${openMenu === 'file' || openMenu === 'save-as' ? 'active' : ''}`} onClick={() => toggleMenu('file')} aria-expanded={openMenu === 'file' || openMenu === 'save-as'} disabled={workspaceDisabled} title="Archivo" aria-label="Archivo">
+                  <File size={15} />
+                </button>
+                {(openMenu === 'file' || openMenu === 'save-as') && (
+                  <div className="dc-toolbar-popover dc-toolbar-file-menu dc-toolbar-mobile-popover">
+                    <button type="button" onClick={() => setOpenMenu((current) => current === 'save-as' ? 'file' : 'save-as')} aria-expanded={openMenu === 'save-as'}><Save size={15} /><span>Guardar como</span><ChevronDown size={13} /></button>
+                    {openMenu === 'save-as' && <>
+                      <button type="button" className={lockedClass(featureLocked('editor.designs'), 'dc-toolbar-save-option')} onClick={lockedAction('editor.designs', 'Diseños', () => { onSaveDesign?.(); setOpenMenu(null); })}><Save size={15} /><span>Lienzo</span>{featureLocked('editor.designs') && <PremiumLock />}</button>
+                      <button type="button" className={lockedClass(featureLocked('editor.guides'), 'dc-toolbar-save-option')} onClick={lockedAction('editor.guides', 'Guías', () => { onSaveGuide?.(); setOpenMenu(null); })}><Grid3X3 size={15} /><span>Guía</span>{featureLocked('editor.guides') && <PremiumLock />}</button>
+                      <span className="dc-toolbar-popover-separator" />
+                    </>}
+                    <button type="button" className={lockedClass(featureLocked('editor.designs'))} onClick={lockedAction('editor.designs', 'Diseños', () => { onLoadDesigns?.(); setOpenMenu(null); })}><FolderOpen size={15} /><span>Cargar diseño...</span>{featureLocked('editor.designs') && <PremiumLock />}</button>
+                    <span className="dc-toolbar-popover-separator" />
+                    <button type="button" className={`dc-file-live-toggle ${liveEnabled ? 'is-live' : 'is-studio'} ${liveEnabled && liveRequired ? 'is-required' : ''} ${featureLocked('editor.live_studio') ? 'dc-plus-locked' : ''}`} onClick={lockedAction('editor.live_studio', 'Live / Estudio', () => { onToggleLive?.(); setOpenMenu(null); })} disabled={liveSwitchDisabled && !featureLocked('editor.live_studio')} aria-disabled={liveSwitchDisabled || featureLocked('editor.live_studio')} aria-pressed={liveEnabled}>
+                      <Radio size={15} /><span>{liveEnabled ? 'Live' : 'Estudio'}</span><span className="dc-live-switch-track" aria-hidden="true"><i /></span>{featureLocked('editor.live_studio') && <PremiumLock />}
+                    </button>
+                    <span className="dc-toolbar-popover-separator" />
+                    <div className={lockedClass(featureLocked('editor.designs'), 'dc-toolbar-file-label')}><Clock3 size={13} /><span>Recientes</span>{featureLocked('editor.designs') && <PremiumLock />}</div>
+                    {!featureLocked('editor.designs') && (recentDesigns.length > 0 ? recentDesigns.slice(0, 5).map((design) => (
+                      <button key={`mobile-${design.uuid}`} type="button" className="dc-toolbar-recent" title={`Cargar ${design.name}`} onClick={() => { onLoadRecent?.(design); setOpenMenu(null); }}><Clock3 size={14} /><span>{design.name}</span></button>
+                    )) : <div className="dc-toolbar-file-empty">Todavía no hay diseños guardados.</div>)}
+                  </div>
+                )}
+              </div>
+
+              <div className="dc-toolbar-group dc-toolbar-menu-wrap">
+                <button type="button" className={`dc-toolbar-icon ${openMenu === 'sounds' ? 'active' : ''} ${featureLocked('editor.quick_sounds') ? 'dc-plus-locked' : ''}`} onClick={lockedAction('editor.quick_sounds', 'Sonidos rápidos', () => toggleMenu('sounds'))} aria-expanded={openMenu === 'sounds'} disabled={audioDisabled && !featureLocked('editor.quick_sounds')} aria-disabled={audioDisabled || featureLocked('editor.quick_sounds')} title="Sonidos" aria-label="Sonidos">
+                  <Volume2 size={15} />{featureLocked('editor.quick_sounds') && <PremiumLock />}
+                </button>
+                {openMenu === 'sounds' && (
+                  <div className="dc-toolbar-popover dc-toolbar-sounds-menu dc-toolbar-mobile-popover">
+                    {Array.from({ length: quickSoundSlotLimit }, (_, index) => {
+                      const sound = soundSlots[index];
+                      const playback = sound ? soundPlayback[sound.id] : null;
+                      return (
+                        <button key={`mobile-sound-${index}`} type="button" className={playback ? 'is-playing' : ''} style={playback?.durationMs ? { '--dc-sound-duration': `${playback.durationMs}ms` } : undefined} aria-pressed={Boolean(playback)} disabled={!sound} onClick={() => { if (sound) onPlaySound?.(sound.id, 'quick'); }}>
+                          <span className="dc-toolbar-sound-mark">{index + 1}</span><span>{sound?.name || 'Sin asignar'}</span><Volume2 size={13} />
+                        </button>
+                      );
+                    })}
+                    <span className="dc-toolbar-popover-separator" />
+                    <button type="button" onClick={() => { onAssignSounds?.(); setOpenMenu(null); }}><Settings2 size={15} /><span>Asignar sonidos</span></button>
+                    <button type="button" className={lockedClass(featureLocked('editor.launchpad'))} onClick={lockedAction('editor.launchpad', 'Launchpad', toggleWorkspaceMode)}><Grid3X3 size={15} /><span>Abrir Launchpad</span>{featureLocked('editor.launchpad') && <PremiumLock />}</button>
+                  </div>
+                )}
+              </div>
+
+              {directTools.filter(({ id }) => ['select', 'draw', 'eraser'].includes(id)).map(({ id, label, icon }) => (
+                <IconButton key={`mobile-tool-${id}`} label={`${label} // ${TOOL_SHORTCUTS[id]}`} icon={icon} active={tool === id} onClick={() => chooseDirectTool(id)} locked={featureLocked({ select: 'editor.select', draw: 'editor.brush', eraser: 'editor.eraser' }[id])} disabled={workspaceDisabled} />
+              ))}
+
+              <div className="dc-toolbar-group dc-toolbar-menu-wrap">
+                <button type="button" className={`dc-toolbar-icon ${insertActive ? 'active' : ''}`} onClick={() => toggleMenu('insert')} aria-expanded={openMenu === 'insert'} disabled={workspaceDisabled} title="Añadir" aria-label="Añadir"><Plus size={15} /></button>
+                {openMenu === 'insert' && (
+                  <div className="dc-toolbar-popover dc-toolbar-insert-menu dc-toolbar-mobile-popover">
+                    {directTools.filter(({ id }) => id === 'hand' || id === 'text').map(({ id, label, icon }) => (
+                      <button key={`mobile-insert-${id}`} type="button" className={`${tool === id ? 'active' : ''} ${featureLocked({ hand: 'editor.pan', text: 'editor.text' }[id]) ? 'dc-plus-locked' : ''}`} onClick={() => chooseDirectTool(id)}>
+                        {createElement(icon, { size: 15 })}<span>{label}</span><kbd>{TOOL_SHORTCUTS[id]}</kbd>{featureLocked({ hand: 'editor.pan', text: 'editor.text' }[id]) && <PremiumLock />}
+                      </button>
+                    ))}
+                    {insertTools.map(({ id, label, icon }) => (
+                      <button key={`mobile-insert-${id}`} type="button" className={`${tool === id ? 'active' : ''} ${featureLocked({ image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer', roulette: 'editor.shape' }[id]) ? 'dc-plus-locked' : ''}`} onClick={(event) => chooseInsertTool(id, event)}>
+                        {createElement(icon, { size: 15 })}<span>{label}</span><kbd>{TOOL_SHORTCUTS[id]}</kbd>{featureLocked({ image: 'editor.image', shape: 'editor.shape', line: 'editor.line', timer: 'editor.timer', roulette: 'editor.shape' }[id]) && <PremiumLock />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>}
+          </div>
+
+          <div className="dc-toolbar-mobile-center">
+            {isOwner ? (
+              <button type="button" className={`dc-panic-button ${overlayHidden ? 'active' : ''}`} onClick={onTogglePanic} disabled={controlDisabled} title={overlayHidden ? 'Encender overlay' : 'Apagar overlay'} aria-label={overlayHidden ? 'Encender overlay' : 'Apagar overlay'} aria-pressed={overlayHidden}><Power size={15} /></button>
+            ) : overlayHidden ? (
+              <span className="dc-overlay-hidden-badge" title="El propietario apagó temporalmente la salida del overlay"><Power size={13} /></span>
+            ) : null}
+          </div>
+
+          <div className="dc-toolbar-mobile-right">
+            <button type="button" className={`dc-toolbar-mode-toggle ${launchpadMode ? 'active' : ''} ${!launchpadMode && featureLocked('editor.launchpad') ? 'dc-plus-locked' : ''}`} onClick={launchpadMode ? toggleWorkspaceMode : lockedAction('editor.launchpad', 'Launchpad', toggleWorkspaceMode)} disabled={!connected && !featureLocked('editor.launchpad')} aria-disabled={!connected || (!launchpadMode && featureLocked('editor.launchpad'))} title={launchpadMode ? 'Volver al lienzo' : featureLocked('editor.launchpad') ? 'Launchpad // Lienzo Plus' : 'Abrir Launchpad'} aria-label={launchpadMode ? 'Volver al lienzo' : 'Abrir Launchpad'}>
+              {launchpadMode ? <Pencil size={15} /> : <Grid3X3 size={15} />}
+              {!launchpadMode && featureLocked('editor.launchpad') && <PremiumLock />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className={`dc-toolbar-horizontal ${editorLocked ? 'is-editor-locked' : ''}`}>
       <Link to={backFromLaunchpad ? { pathname: location.pathname, search: `?${backToCanvas}`, hash: location.hash } : '/app/editor'} className="dc-toolbar-icon dc-toolbar-navigation" title={backFromLaunchpad ? 'Volver al lienzo' : 'Volver a lienzos'} aria-label={backFromLaunchpad ? 'Volver al lienzo' : 'Volver a lienzos'}>
         <ArrowLeft size={16} />
       </Link>
       {launchpadMode ? (
-        <button type="button" className={lockedClass(featureLocked('editor.launchpad'), 'dc-toolbar-wide')} onClick={lockedAction('editor.launchpad', 'Launchpad', onAssignLaunchpadSounds)} disabled={audioDisabled && !featureLocked('editor.launchpad')} aria-disabled={audioDisabled || featureLocked('editor.launchpad')}>
-          <Settings2 size={15} />
-          <span>Asignar sonidos</span>
-          {featureLocked('editor.launchpad') && <PremiumLock />}
-        </button>
+        <div className="dc-toolbar-launchpad-actions">
+          <button type="button" className={lockedClass(featureLocked('editor.launchpad'), 'dc-toolbar-wide')} onClick={lockedAction('editor.launchpad', 'Launchpad', onAssignLaunchpadSounds)} disabled={audioDisabled && !featureLocked('editor.launchpad')} aria-disabled={audioDisabled || featureLocked('editor.launchpad')}>
+            <Settings2 size={15} />
+            <span>Asignar sonidos</span>
+            {featureLocked('editor.launchpad') && <PremiumLock />}
+          </button>
+          <button type="button" className={lockedClass(featureLocked('editor.custom_sounds'), 'dc-toolbar-wide')} onClick={lockedAction('editor.custom_sounds', 'Sonidos personalizados', onUploadSounds)} disabled={audioDisabled && !featureLocked('editor.custom_sounds')} aria-disabled={audioDisabled || featureLocked('editor.custom_sounds')}>
+            <Upload size={15} />
+            <span>Subir sonidos</span>
+            {featureLocked('editor.custom_sounds') && <PremiumLock />}
+          </button>
+        </div>
       ) : <>
       <div className="dc-toolbar-group dc-toolbar-menu-wrap">
         <button type="button" className={`dc-toolbar-menu-trigger ${openMenu === 'file' || openMenu === 'save-as' ? 'active' : ''}`} onClick={() => toggleMenu('file')} aria-expanded={openMenu === 'file' || openMenu === 'save-as'} disabled={workspaceDisabled}>
@@ -353,7 +477,6 @@ export default function Toolbar({
           </div>
         )}
       </div>
-      <input ref={imageInputRef} className="dc-hidden-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.gif" onChange={onImageChange} disabled={workspaceDisabled} />
 
       <IconButton label={snapEnabled ? 'Imán activado // Alt para ignorarlo mientras arrastras' : 'Imán desactivado'} icon={Magnet} active={snapEnabled} onClick={lockedAction('editor.snap', 'Imán', onToggleSnap)} locked={featureLocked('editor.snap')} disabled={workspaceDisabled} className="dc-toolbar-mobile-hidden" />
 
@@ -418,6 +541,8 @@ export default function Toolbar({
       <Link to="/app/settings?section=editor" className="dc-toolbar-icon dc-toolbar-navigation" title="Preferencias del editor" aria-label="Preferencias del editor">
         <Settings size={16} />
       </Link>
+      </div>
+      <input ref={imageInputRef} className="dc-hidden-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.gif" onChange={onImageChange} disabled={workspaceDisabled} />
     </div>
   );
 }

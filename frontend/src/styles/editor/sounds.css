@@ -483,3 +483,305 @@
   }
 }
 
+
+/* Patch 183 // Configuración de sonidos en dos pasos */
+.dc-sound-config-modal{
+  position:relative;
+  display:flex;
+  width:min(980px,calc(100vw - 32px));
+  max-height:min(760px,calc(100dvh - 40px));
+  flex-direction:column;
+  overflow:hidden;
+  background:#000;
+  color:var(--dc-text);
+  box-shadow:0 34px 110px rgb(0 0 0 / 72%);
+}
+.dc-sound-config-header{
+  display:flex;
+  flex:0 0 auto;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:20px;
+  padding:22px 24px 20px;
+  background:#000;
+}
+.dc-sound-config-header>div{min-width:0}
+.dc-sound-config-kicker{display:block;margin-bottom:7px;color:var(--dc-accent-four);font:800 10px/1 Outfit,sans-serif;letter-spacing:1.15px}
+.dc-sound-config-header h2{margin:0;color:var(--dc-text-strong);font:400 clamp(2.15rem,4vw,3.35rem)/.9 "Bebas Neue",sans-serif;letter-spacing:.01em;text-transform:uppercase}
+.dc-sound-config-header p{margin:8px 0 0;color:var(--dc-text-muted);font:500 13px/1.45 Outfit,sans-serif}
+.dc-sound-config-back{display:flex;align-items:center;gap:6px;margin:0 0 14px;padding:0;border:0;background:transparent;color:var(--dc-text-muted);font:800 11px/1 Outfit,sans-serif;cursor:pointer}
+.dc-sound-config-back:hover{color:var(--dc-accent-four)}
+.dc-sound-config-close{display:grid;flex:0 0 auto;width:38px;height:38px;place-items:center;border:0;background:var(--dc-surface-2);color:var(--dc-text-muted);cursor:pointer}
+.dc-sound-config-close:hover{background:var(--dc-surface-hover-strong);color:var(--dc-text-strong)}
+
+.dc-sound-config-slots-view{display:flex;min-height:0;flex:1;flex-direction:column;padding:28px;overflow-y:auto;background:#000}
+.dc-sound-config-slot-grid{display:grid;width:100%;margin:auto;align-content:center;gap:12px}
+.dc-sound-config-slot-grid.cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.dc-sound-config-slot-grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.dc-sound-config-slot{position:relative;display:flex;min-width:0;min-height:132px;align-items:flex-end;gap:12px;padding:18px;overflow:hidden;border:0;background:var(--dc-surface-2);color:var(--dc-text);text-align:left;cursor:pointer;transition:background-color .12s ease}
+.dc-sound-config-slot::before{content:none}
+.dc-sound-config-slot>*{position:relative;z-index:1}
+.dc-sound-config-slot:hover:not(:disabled){background:var(--dc-surface-hover-strong)}
+.dc-sound-config-slot.is-empty{background:var(--dc-surface-2)}
+.dc-sound-config-slot-index{align-self:flex-start;color:var(--dc-text-faint);font:800 11px/1 Outfit,sans-serif;letter-spacing:.9px}
+.dc-sound-config-slot-copy{display:grid;min-width:0;flex:1;gap:5px}
+.dc-sound-config-slot-copy small{color:var(--dc-accent-four);font:800 9px/1 Outfit,sans-serif;letter-spacing:1px}
+.dc-sound-config-slot-copy b{overflow:hidden;color:var(--dc-text-strong);font:700 15px/1.25 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-sound-config-slot-copy em{overflow:hidden;color:var(--dc-text-muted);font:500 11px/1.25 Outfit,sans-serif;font-style:normal;text-overflow:ellipsis;white-space:nowrap}
+.dc-sound-config-slot-clear{display:grid;width:27px;height:27px;place-items:center;background:color-mix(in srgb,var(--dc-surface-raised) 88%,transparent);color:var(--dc-text-muted);cursor:pointer}
+.dc-sound-config-slot-clear:hover{background:var(--dc-danger-bg-soft);color:var(--dc-danger)}
+.dc-sound-config-status{margin:18px 0 0;padding:10px 12px;background:color-mix(in srgb,var(--dc-accent-four) 9%,var(--dc-surface-2));color:var(--dc-text-muted);font:600 11px/1.4 Outfit,sans-serif}
+
+.dc-sound-config-picker-view{min-height:0;flex:1;overflow-y:auto;background:#000}
+.dc-sound-config-upload-area,.dc-sound-config-library-area{padding:24px}
+.dc-sound-config-upload-area{background:#000}
+.dc-sound-config-library-area{background:#000}
+.dc-sound-config-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}
+.dc-sound-config-section-head>div{display:grid;gap:5px}
+.dc-sound-config-section-head span{color:var(--dc-accent-four);font:800 9px/1 Outfit,sans-serif;letter-spacing:1px}
+.dc-sound-config-section-head h3{margin:0;color:var(--dc-text-strong);font:400 1.75rem/.95 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase}
+.dc-sound-config-section-head>small{color:var(--dc-text-faint);font:700 10px/1 Outfit,sans-serif}
+.dc-sound-config-upload{display:flex;width:100%;min-height:82px;align-items:center;justify-content:center;gap:13px;padding:16px;border:0;background:var(--dc-accent-one);color:var(--dc-text-inverse);cursor:pointer}
+.dc-sound-config-upload:hover:not(:disabled){background:color-mix(in srgb,var(--dc-accent-one) 84%,white 16%)}
+.dc-sound-config-upload:disabled{opacity:.48;cursor:not-allowed}
+.dc-sound-config-upload>span{display:grid;gap:4px;text-align:left}
+.dc-sound-config-upload b{font:800 13px/1 Outfit,sans-serif}
+.dc-sound-config-upload small{font:600 10px/1 Outfit,sans-serif;opacity:.78}
+.dc-sound-config-upload-area.is-locked .dc-sound-config-upload{background:var(--dc-surface-raised);color:var(--dc-text-muted)}
+.dc-sound-config-custom-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.dc-sound-config-search{display:flex;height:42px;align-items:center;gap:9px;margin-bottom:12px;padding:0 12px;background:var(--dc-input-bg);color:var(--dc-text-muted)}
+.dc-sound-config-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--dc-text);font:600 12px Outfit,sans-serif}
+.dc-sound-config-search input::placeholder{color:var(--dc-text-faint)}
+.dc-sound-config-library-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dc-sound-config-choice{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 36px;min-width:0;min-height:66px;overflow:hidden;background:var(--dc-surface-2)}
+.dc-sound-config-custom-row .dc-sound-config-choice{grid-template-columns:minmax(0,1fr) 34px 34px;background:var(--dc-surface-raised)}
+.dc-sound-config-choice.is-playing{background:color-mix(in srgb,var(--dc-accent-four) 14%,var(--dc-surface-2))}
+.dc-sound-config-choice-main{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:10px;min-width:0;padding:10px;border:0;background:transparent;color:var(--dc-text);text-align:left;cursor:pointer}
+.dc-sound-config-choice-main:hover{background:var(--dc-surface-hover-strong)}
+.dc-sound-config-choice-icon{display:grid;width:32px;height:32px;place-items:center;background:color-mix(in srgb,var(--dc-accent-one) 14%,var(--dc-surface-raised));color:var(--dc-accent-one)}
+.dc-sound-config-choice-copy{display:grid;min-width:0;gap:5px}
+.dc-sound-config-choice-copy b{overflow:hidden;color:var(--dc-text-strong);font:700 12px/1.2 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-sound-config-choice-copy small{overflow:hidden;color:var(--dc-text-muted);font:500 10px/1.2 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-sound-config-preview,.dc-sound-config-delete{display:grid;width:100%;height:100%;place-items:center;border:0;background:transparent;color:var(--dc-text-muted);cursor:pointer}
+.dc-sound-config-preview:hover{background:color-mix(in srgb,var(--dc-accent-four) 10%,var(--dc-surface-raised));color:var(--dc-accent-four)}
+.dc-sound-config-delete:hover{background:var(--dc-danger-bg-soft);color:var(--dc-danger)}
+.dc-sound-config-empty{grid-column:1/-1;display:grid;min-height:160px;place-items:center;align-content:center;gap:7px;color:var(--dc-text-muted);text-align:center}
+.dc-sound-config-empty svg{color:var(--dc-accent-four)}
+.dc-sound-config-empty b{font:700 13px Outfit,sans-serif}
+.dc-sound-config-empty span{font:500 11px Outfit,sans-serif}
+.dc-sound-config-status.is-picker{margin:0 24px 24px}
+
+@media(max-width:900px){
+  .dc-sound-config-slot-grid.cols-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dc-sound-config-custom-row,.dc-sound-config-library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .dc-sounds-backdrop{padding:0;place-items:stretch}
+  .dc-sound-config-modal{width:100vw;height:100dvh;max-height:none;box-shadow:none}
+  .dc-sound-config-header{padding:16px 16px 14px}
+  .dc-sound-config-header h2{font-size:2.2rem}
+  .dc-sound-config-header p{font-size:12px}
+  .dc-sound-config-slots-view{padding:16px}
+  .dc-sound-config-slot-grid,.dc-sound-config-slot-grid.cols-4,.dc-sound-config-slot-grid.cols-3{grid-template-columns:1fr;gap:8px;margin:0}
+  .dc-sound-config-slot{min-height:92px;padding:14px}
+  .dc-sound-config-upload-area,.dc-sound-config-library-area{padding:16px}
+  .dc-sound-config-section-head{margin-bottom:10px}
+  .dc-sound-config-upload{min-height:72px}
+  .dc-sound-config-custom-row,.dc-sound-config-library-grid{grid-template-columns:1fr;gap:7px}
+  .dc-sound-config-status.is-picker{margin:0 16px 16px}
+}
+
+/* Patch 184 - Launchpad configurator: same two-step flow as sound slots */
+.dc-launchpad-config-modal{
+  display:flex;
+  width:min(980px,calc(100vw - 32px));
+  height:min(720px,calc(100dvh - 40px));
+  max-height:calc(100dvh - 40px);
+  flex-direction:column;
+  overflow:hidden;
+  background:#000;
+  box-shadow:0 34px 110px rgb(0 0 0 / 72%);
+  color:var(--dc-text);
+}
+.dc-launchpad-config-header{display:flex;flex:0 0 auto;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 24px 18px;background:#000}
+.dc-launchpad-config-header>div{min-width:0}
+.dc-launchpad-config-kicker{display:block;margin-bottom:7px;color:var(--dc-accent-four);font:800 10px/1 Outfit,sans-serif;letter-spacing:1.15px}
+.dc-launchpad-config-header h2{margin:0;color:var(--dc-text-strong);font:400 clamp(2.15rem,4vw,3.35rem)/.9 "Bebas Neue",sans-serif;letter-spacing:.01em;text-transform:uppercase}
+.dc-launchpad-config-header p{margin:8px 0 0;color:var(--dc-text-muted);font:500 13px/1.45 Outfit,sans-serif}
+.dc-launchpad-config-back{display:flex;align-items:center;gap:6px;margin:0 0 14px;padding:0;border:0;background:transparent;color:var(--dc-text-muted);font:800 11px/1 Outfit,sans-serif;cursor:pointer}
+.dc-launchpad-config-back:hover{color:var(--dc-accent-four)}
+.dc-launchpad-config-close{display:grid;flex:0 0 auto;width:38px;height:38px;place-items:center;border:0;background:var(--dc-surface-2);color:var(--dc-text-muted);cursor:pointer}
+.dc-launchpad-config-close:hover{background:var(--dc-surface-hover-strong);color:var(--dc-text-strong)}
+
+.dc-launchpad-config-pads-view{display:flex;min-height:0;flex:1;flex-direction:column;padding:22px 24px 24px;overflow-y:auto;background:#000;overscroll-behavior:contain;scrollbar-gutter:stable}
+.dc-launchpad-config-pad-grid{display:grid;width:100%;grid-template-columns:repeat(4,minmax(0,1fr));align-content:start;gap:10px}
+.dc-launchpad-config-pad-tile{position:relative;display:flex;min-width:0;min-height:112px;align-items:flex-end;gap:10px;padding:15px;overflow:hidden;border:0;background:var(--dc-surface-2);color:var(--dc-text);text-align:left;cursor:pointer;transition:background-color .12s ease}
+.dc-launchpad-config-pad-tile:hover:not(:disabled){background:var(--dc-surface-hover-strong)}
+.dc-launchpad-config-pad-tile.is-empty{background:color-mix(in srgb,var(--dc-surface-2) 78%,#000)}
+.dc-launchpad-config-pad-index{align-self:flex-start;color:var(--dc-text-faint);font:800 11px/1 Outfit,sans-serif;letter-spacing:.9px}
+.dc-launchpad-config-pad-tile-copy{display:grid;min-width:0;flex:1;gap:5px}
+.dc-launchpad-config-pad-tile-copy small{color:var(--dc-accent-four);font:800 9px/1 Outfit,sans-serif;letter-spacing:1px}
+.dc-launchpad-config-pad-tile-copy b{overflow:hidden;color:var(--dc-text-strong);font:700 14px/1.25 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-launchpad-config-pad-tile-copy em{overflow:hidden;color:var(--dc-text-muted);font:500 10px/1.25 Outfit,sans-serif;font-style:normal;text-overflow:ellipsis;white-space:nowrap}
+.dc-launchpad-config-pad-tile-clear{display:grid;width:26px;height:26px;place-items:center;background:var(--dc-surface-raised);color:var(--dc-text-muted);cursor:pointer}
+.dc-launchpad-config-pad-tile-clear:hover{background:var(--dc-danger-bg-soft);color:var(--dc-danger)}
+.dc-launchpad-config-status{margin:14px 0 0;padding:10px 12px;background:var(--dc-surface-2);color:var(--dc-text-muted);font:600 11px/1.4 Outfit,sans-serif}
+
+.dc-launchpad-config-picker-view{min-height:0;flex:1;overflow-y:auto;background:#000;overscroll-behavior:contain}
+.dc-launchpad-config-upload-area,.dc-launchpad-config-library-area{padding:22px 24px}
+.dc-launchpad-config-upload-area{background:#000}
+.dc-launchpad-config-library-area{background:#000}
+.dc-launchpad-config-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px}
+.dc-launchpad-config-section-head>div{display:grid;gap:5px}
+.dc-launchpad-config-section-head span{color:var(--dc-accent-four);font:800 9px/1 Outfit,sans-serif;letter-spacing:1px}
+.dc-launchpad-config-section-head h3{margin:0;color:var(--dc-text-strong);font:400 1.75rem/.95 "Bebas Neue",sans-serif;letter-spacing:.02em;text-transform:uppercase}
+.dc-launchpad-config-section-head>small{color:var(--dc-text-faint);font:700 10px/1 Outfit,sans-serif}
+.dc-launchpad-config-upload{display:flex;width:100%;min-height:82px;align-items:center;justify-content:center;gap:13px;padding:16px;border:0;background:var(--dc-accent-one);color:var(--dc-text-inverse);cursor:pointer}
+.dc-launchpad-config-upload:hover:not(:disabled){background:color-mix(in srgb,var(--dc-accent-one) 84%,white 16%)}
+.dc-launchpad-config-upload:disabled{opacity:.48;cursor:not-allowed}
+.dc-launchpad-config-upload>span{display:grid;gap:4px;text-align:left}
+.dc-launchpad-config-upload b{font:800 13px/1 Outfit,sans-serif}
+.dc-launchpad-config-upload small{font:600 10px/1 Outfit,sans-serif;opacity:.78}
+.dc-launchpad-config-upload-area.is-locked .dc-launchpad-config-upload{background:var(--dc-surface-raised);color:var(--dc-text-muted)}
+.dc-launchpad-config-custom-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.dc-launchpad-config-search{display:flex;height:42px;align-items:center;gap:9px;margin-bottom:12px;padding:0 12px;background:var(--dc-input-bg);color:var(--dc-text-muted)}
+.dc-launchpad-config-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--dc-text);font:600 12px Outfit,sans-serif}
+.dc-launchpad-config-search input::placeholder{color:var(--dc-text-faint)}
+.dc-launchpad-config-library-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dc-launchpad-config-choice{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 36px;min-width:0;min-height:66px;overflow:hidden;background:var(--dc-surface-2)}
+.dc-launchpad-config-custom-row .dc-launchpad-config-choice{grid-template-columns:minmax(0,1fr) 34px 34px;background:var(--dc-surface-raised)}
+.dc-launchpad-config-choice.is-playing{background:color-mix(in srgb,var(--dc-accent-four) 14%,var(--dc-surface-2))}
+.dc-launchpad-config-choice-main{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:10px;min-width:0;padding:10px;border:0;background:transparent;color:var(--dc-text);text-align:left;cursor:pointer}
+.dc-launchpad-config-choice-main:hover{background:var(--dc-surface-hover-strong)}
+.dc-launchpad-config-choice-icon{display:grid;width:32px;height:32px;place-items:center;background:var(--dc-surface-raised);color:var(--dc-accent-one)}
+.dc-launchpad-config-choice-copy{display:grid;min-width:0;gap:5px}
+.dc-launchpad-config-choice-copy b{overflow:hidden;color:var(--dc-text-strong);font:700 12px/1.2 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-launchpad-config-choice-copy small{overflow:hidden;color:var(--dc-text-muted);font:500 10px/1.2 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-launchpad-config-preview,.dc-launchpad-config-delete{display:grid;width:100%;height:100%;place-items:center;border:0;background:transparent;color:var(--dc-text-muted);cursor:pointer}
+.dc-launchpad-config-preview:hover{background:var(--dc-surface-hover-strong);color:var(--dc-accent-four)}
+.dc-launchpad-config-delete:hover{background:var(--dc-danger-bg-soft);color:var(--dc-danger)}
+.dc-launchpad-config-empty{grid-column:1/-1;display:grid;min-height:160px;place-items:center;align-content:center;gap:7px;color:var(--dc-text-muted);text-align:center}
+.dc-launchpad-config-empty svg{color:var(--dc-accent-four)}
+.dc-launchpad-config-empty b{font:700 13px Outfit,sans-serif}
+.dc-launchpad-config-empty span{font:500 11px Outfit,sans-serif}
+.dc-launchpad-config-status.is-picker{margin:0 24px 24px}
+
+@media(max-width:900px){
+  .dc-launchpad-config-pad-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dc-launchpad-config-custom-row,.dc-launchpad-config-library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .dc-launchpad-config-modal{width:calc(100vw - 16px);height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)}
+  .dc-launchpad-config-header{padding:16px 16px 14px}
+  .dc-launchpad-config-header h2{font-size:2.2rem}
+  .dc-launchpad-config-header p{font-size:12px}
+  .dc-launchpad-config-pads-view{padding:14px 16px 16px}
+  .dc-launchpad-config-pad-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .dc-launchpad-config-pad-tile{min-height:100px;padding:12px}
+  .dc-launchpad-config-upload-area,.dc-launchpad-config-library-area{padding:16px}
+  .dc-launchpad-config-custom-row,.dc-launchpad-config-library-grid{grid-template-columns:1fr;gap:7px}
+  .dc-launchpad-config-status.is-picker{margin:0 16px 16px}
+}
+
+/* Patch 185 // Launcher audio workflow */
+.dc-toolbar-launchpad-actions{display:flex;align-items:center;gap:6px}
+
+.dc-sound-config-picker-view.is-list-only .dc-sound-config-library-area,
+.dc-launchpad-config-picker-view.is-list-only .dc-launchpad-config-library-area{min-height:100%}
+
+.dc-own-sounds-modal{display:flex;width:min(760px,calc(100vw - 32px));height:min(650px,calc(100dvh - 40px));max-height:calc(100dvh - 40px);flex-direction:column;overflow:hidden;background:#000;box-shadow:0 34px 110px rgb(0 0 0 / 72%);color:var(--dc-text)}
+.dc-own-sounds-header{display:flex;flex:0 0 auto;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 24px 18px;background:#000}
+.dc-own-sounds-header>div{min-width:0}
+.dc-own-sounds-header span{display:block;margin-bottom:7px;color:var(--dc-accent-four);font:800 10px/1 Outfit,sans-serif;letter-spacing:1.15px}
+.dc-own-sounds-header h2{margin:0;color:var(--dc-text-strong);font:400 clamp(2.15rem,4vw,3.35rem)/.9 "Bebas Neue",sans-serif;letter-spacing:.01em;text-transform:uppercase}
+.dc-own-sounds-header p{margin:8px 0 0;color:var(--dc-text-muted);font:500 13px/1.45 Outfit,sans-serif}
+.dc-own-sounds-close{display:grid;flex:0 0 auto;width:38px;height:38px;place-items:center;border:0;background:var(--dc-surface-2);color:var(--dc-text-muted);cursor:pointer}
+.dc-own-sounds-close:hover{background:var(--dc-surface-hover-strong);color:var(--dc-text-strong)}
+.dc-own-sounds-body{display:flex;min-height:0;flex:1;flex-direction:column;gap:14px;padding:22px 24px 24px;overflow-y:auto;background:#000;overscroll-behavior:contain}
+.dc-own-sounds-upload{display:flex;width:100%;min-height:80px;flex:0 0 auto;align-items:center;justify-content:center;gap:13px;padding:16px;border:0;background:var(--dc-accent-one);color:var(--dc-text-inverse);cursor:pointer}
+.dc-own-sounds-upload:hover:not(:disabled){background:color-mix(in srgb,var(--dc-accent-one) 84%,white 16%)}
+.dc-own-sounds-upload:disabled{opacity:.48;cursor:not-allowed}
+.dc-own-sounds-upload>span{display:grid;gap:4px;text-align:left}
+.dc-own-sounds-upload b{font:800 13px/1 Outfit,sans-serif}
+.dc-own-sounds-upload small{font:600 10px/1 Outfit,sans-serif;opacity:.78}
+.dc-own-sounds-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px}
+.dc-own-sounds-item{display:grid;grid-template-columns:34px minmax(0,1fr) 36px 36px;min-width:0;min-height:66px;align-items:center;background:var(--dc-surface-2)}
+.dc-own-sounds-item.is-playing{background:color-mix(in srgb,var(--dc-accent-four) 14%,var(--dc-surface-2))}
+.dc-own-sounds-item-icon{display:grid;width:32px;height:32px;place-items:center;margin-left:10px;background:var(--dc-surface-raised);color:var(--dc-accent-one)}
+.dc-own-sounds-item-copy{display:grid;min-width:0;gap:5px;padding:10px}
+.dc-own-sounds-item-copy b{overflow:hidden;color:var(--dc-text-strong);font:700 12px/1.2 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-own-sounds-item-copy small{overflow:hidden;color:var(--dc-text-muted);font:500 10px/1.2 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-own-sounds-item>button{display:grid;width:100%;height:100%;place-items:center;border:0;background:transparent;color:var(--dc-text-muted);cursor:pointer}
+.dc-own-sounds-item>button:hover{background:var(--dc-surface-hover-strong);color:var(--dc-accent-four)}
+.dc-own-sounds-item>button.is-danger:hover{background:var(--dc-danger-bg-soft);color:var(--dc-danger)}
+.dc-own-sounds-empty{grid-column:1/-1;display:grid;min-height:180px;place-items:center;align-content:center;gap:7px;color:var(--dc-text-muted);text-align:center}
+.dc-own-sounds-empty svg{color:var(--dc-accent-four)}
+.dc-own-sounds-empty b{font:700 13px Outfit,sans-serif}
+.dc-own-sounds-empty span{font:500 11px Outfit,sans-serif}
+.dc-own-sounds-status{margin:0;padding:10px 12px;background:var(--dc-surface-2);color:var(--dc-text-muted);font:600 11px/1.4 Outfit,sans-serif}
+
+@media(max-width:620px){
+  .dc-own-sounds-modal{width:calc(100vw - 16px);height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)}
+  .dc-own-sounds-header{padding:16px 16px 14px}
+  .dc-own-sounds-header h2{font-size:2.2rem}
+  .dc-own-sounds-header p{font-size:12px}
+  .dc-own-sounds-body{padding:16px}
+  .dc-own-sounds-list{grid-template-columns:1fr}
+}
+
+
+/* Patch 186 // Compact sound pickers */
+.dc-sound-config-library-area,
+.dc-launchpad-config-library-area{padding-top:16px}
+
+.dc-sound-config-choice{grid-template-columns:minmax(0,1fr) 48px}
+.dc-launchpad-config-choice{grid-template-columns:minmax(0,1fr) 48px}
+
+.dc-sound-config-choice.is-custom,
+.dc-launchpad-config-choice.is-custom{background:color-mix(in srgb,var(--dc-surface-raised) 72%,var(--dc-surface-2))}
+
+.dc-sound-config-choice.is-custom.is-playing,
+.dc-launchpad-config-choice.is-custom.is-playing{background:color-mix(in srgb,var(--dc-accent-four) 10%,var(--dc-surface-raised))}
+
+.dc-sound-config-preview,
+.dc-launchpad-config-preview{min-width:48px}
+
+@media(max-width:620px){
+  .dc-sound-config-library-area,
+  .dc-launchpad-config-library-area{padding-top:12px}
+  .dc-sound-config-choice,
+  .dc-launchpad-config-choice{grid-template-columns:minmax(0,1fr) 52px}
+  .dc-sound-config-preview,
+  .dc-launchpad-config-preview{min-width:52px}
+}
+
+/* Patch 187 — subida contextual en selectores */
+.dc-sound-config-header-actions,.dc-launchpad-config-header-actions{display:flex;align-items:center;gap:8px}
+.dc-sound-config-upload-toggle,.dc-launchpad-config-upload-toggle{display:flex;height:38px;align-items:center;gap:7px;padding:0 14px;border:0;background:var(--dc-surface-2);color:var(--dc-text-strong);font:800 11px/1 Outfit,sans-serif;cursor:pointer}
+.dc-sound-config-upload-toggle:hover,.dc-launchpad-config-upload-toggle:hover{background:var(--dc-surface-hover-strong)}
+.dc-sound-config-picker-shell,.dc-launchpad-config-picker-shell{display:grid;min-height:0;flex:1;grid-template-columns:minmax(0,1fr);overflow:hidden;background:#000}
+.dc-sound-config-picker-shell.has-upload-panel,.dc-launchpad-config-picker-shell.has-upload-panel{grid-template-columns:minmax(0,1fr) 320px}
+.dc-sound-config-picker-shell>.dc-sound-config-picker-view,.dc-launchpad-config-picker-shell>.dc-launchpad-config-picker-view{min-width:0}
+.dc-inline-own-sounds{display:flex;min-width:0;min-height:0;flex-direction:column;background:var(--dc-surface-1)}
+.dc-inline-own-sounds-head{display:flex;flex:0 0 auto;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 16px 14px;background:var(--dc-surface-1)}
+.dc-inline-own-sounds-head>div{display:grid;gap:4px;min-width:0}
+.dc-inline-own-sounds-head b{color:var(--dc-text-strong);font:800 13px/1.15 Outfit,sans-serif}
+.dc-inline-own-sounds-head span{color:var(--dc-text-muted);font:500 10px/1.2 Outfit,sans-serif}
+.dc-inline-own-sounds-head>button{display:grid;width:32px;height:32px;place-items:center;border:0;background:var(--dc-surface-2);color:var(--dc-text-muted);cursor:pointer}
+.dc-inline-own-sounds-body{display:flex;min-height:0;flex:1;flex-direction:column;gap:10px;padding:0 16px 16px;overflow-y:auto;overscroll-behavior:contain}
+.dc-inline-own-sounds-upload{display:flex;min-height:62px;flex:0 0 auto;align-items:center;justify-content:center;gap:10px;padding:12px;border:0;background:var(--dc-accent-one);color:var(--dc-text-inverse);cursor:pointer}
+.dc-inline-own-sounds-upload:disabled{opacity:.5;cursor:not-allowed}
+.dc-inline-own-sounds-upload>span{display:grid;gap:3px;text-align:left}
+.dc-inline-own-sounds-upload b{font:800 12px/1 Outfit,sans-serif}.dc-inline-own-sounds-upload small{font:600 9px/1 Outfit,sans-serif;opacity:.75}
+.dc-inline-own-sounds-list{display:grid;gap:6px;align-content:start}
+.dc-inline-own-sounds-item{display:grid;grid-template-columns:28px minmax(0,1fr) 34px 34px;min-height:54px;align-items:center;background:var(--dc-surface-raised)}
+.dc-inline-own-sounds-item>span{display:grid;place-items:center;color:var(--dc-accent-one)}
+.dc-inline-own-sounds-item>b{overflow:hidden;color:var(--dc-text-strong);font:700 11px/1.2 Outfit,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.dc-inline-own-sounds-item>button{display:grid;width:100%;height:100%;place-items:center;border:0;background:transparent;color:var(--dc-text-muted);cursor:pointer}
+.dc-inline-own-sounds-item>button:hover{background:var(--dc-surface-hover-strong);color:var(--dc-accent-four)}
+.dc-inline-own-sounds-item>button.is-danger:hover{background:var(--dc-danger-bg-soft);color:var(--dc-danger)}
+.dc-inline-own-sounds-empty,.dc-inline-own-sounds-status{margin:0;padding:12px;background:var(--dc-surface-2);color:var(--dc-text-muted);font:600 10px/1.4 Outfit,sans-serif}
+@media (max-width:767px){
+  .dc-sound-config-upload-toggle,.dc-launchpad-config-upload-toggle,.dc-inline-own-sounds{display:none!important}
+  .dc-sound-config-picker-shell.has-upload-panel,.dc-launchpad-config-picker-shell.has-upload-panel{grid-template-columns:minmax(0,1fr)}
+}

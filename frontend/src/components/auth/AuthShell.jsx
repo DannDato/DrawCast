@@ -8,7 +8,7 @@ export default function AuthShell({ eyebrow = 'ACCESO SEGURO', title, descriptio
       <PublicBackground />
 
       <div className="dc-public-content dc-auth-public-content">
-        <div className="mx-auto w-full max-w-[1240px] px-7 sm:px-6 md:px-10 xl:px-0">
+        <div className="dc-auth-public-nav mx-auto w-full max-w-[1240px] px-6 md:px-10 xl:px-0">
           <PublicNavbar />
         </div>
 
@@ -24,7 +24,9 @@ export default function AuthShell({ eyebrow = 'ACCESO SEGURO', title, descriptio
           <div className="dc-auth-system">TRAZIO // GRÁFICOS EN TIEMPO REAL</div>
         </div>
 
-        <PublicFooter />
+        <div className="dc-auth-public-footer">
+          <PublicFooter />
+        </div>
       </div>
     </main>
   );

@@ -229,3 +229,236 @@
   background:transparent;
   box-shadow:none;
 }
+
+/* TRAZIO editor // Patch 188
+   Cabecera móvil compacta + capas desplegables sin alterar el editor desktop. */
+.dc-toolbar-root{
+  width:100%;
+  min-width:0;
+}
+
+.dc-toolbar-mobile-shell,
+.dc-editor-mobile-layers-toggle,
+.dc-mobile-layers-drawer{
+  display:none;
+}
+
+@media(max-width:760px){
+  .dc-editor-toolbar{
+    background:var(--dc-surface);
+  }
+
+  .dc-toolbar-horizontal{
+    display:none!important;
+  }
+
+  .dc-toolbar-mobile-shell{
+    display:block;
+    width:100%;
+    min-width:0;
+    background:var(--dc-surface);
+  }
+
+  .dc-toolbar-mobile-head{
+    display:flex;
+    min-height:40px;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:4px 8px;
+  }
+
+  .dc-toolbar-mobile-head-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    min-width:0;
+  }
+
+  .dc-toolbar-mobile-head .dc-toolbar-icon{
+    width:30px;
+    height:30px;
+  }
+
+  .dc-toolbar-mobile-head .dc-presence-stack{
+    display:flex;
+    padding-left:0;
+  }
+
+  .dc-toolbar-mobile-head .dc-presence-avatar,
+  .dc-toolbar-mobile-head .dc-presence-more{
+    width:25px;
+    min-width:25px;
+    max-width:25px;
+    height:25px;
+  }
+
+  .dc-toolbar-mobile-head .dc-presence-avatar-media{
+    flex-basis:21px;
+    width:21px;
+    height:21px;
+  }
+
+  .dc-toolbar-mobile-actions{
+    position:relative;
+    display:flex;
+    min-height:42px;
+    align-items:center;
+    gap:4px;
+    padding:4px 8px;
+    background:var(--dc-surface);
+  }
+
+  .dc-toolbar-mobile-left{
+    display:flex;
+    min-width:0;
+    flex:0 1 auto;
+    align-items:center;
+    gap:2px;
+  }
+
+  .dc-toolbar-mobile-left>.dc-toolbar-group{
+    min-width:0;
+  }
+
+  .dc-toolbar-mobile-left .dc-toolbar-icon,
+  .dc-toolbar-mobile-left .dc-toolbar-menu-trigger,
+  .dc-toolbar-mobile-left .dc-toolbar-wide{
+    width:34px;
+    min-width:34px;
+    height:34px;
+    padding:0;
+  }
+
+  .dc-toolbar-mobile-left .dc-toolbar-icon>svg,
+  .dc-toolbar-mobile-left .dc-toolbar-menu-trigger>svg{
+    width:15px;
+    height:15px;
+  }
+
+  .dc-toolbar-mobile-center{
+    position:relative;
+    z-index:2;
+    flex:0 0 auto;
+    margin-left:2px;
+  }
+
+  .dc-toolbar-mobile-center .dc-panic-button,
+  .dc-toolbar-mobile-center .dc-overlay-hidden-badge{
+    width:34px;
+    min-width:34px;
+    height:34px;
+    padding:0;
+    justify-content:center;
+  }
+
+  .dc-toolbar-mobile-right{
+    display:flex;
+    margin-left:auto;
+    align-items:center;
+    justify-content:flex-end;
+  }
+
+  .dc-toolbar-mobile-right .dc-toolbar-mode-toggle{
+    width:34px;
+    min-width:34px;
+    height:34px;
+    padding:0;
+  }
+
+  .dc-toolbar-mobile-right .dc-toolbar-mode-toggle span{
+    display:none;
+  }
+
+  .dc-toolbar-mobile-popover{
+    position:fixed!important;
+    top:112px!important;
+    right:8px!important;
+    left:8px!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    max-height:calc(100dvh - 98px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
+
+  .dc-editor-mobile-layers-toggle{
+    display:flex;
+    width:100%;
+    min-height:31px;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:0 12px;
+    border:0;
+    background:var(--dc-surface-raised);
+    color:var(--dc-text-muted);
+    font:800 10px/1 Outfit,sans-serif;
+    letter-spacing:.7px;
+    cursor:pointer;
+  }
+
+  .dc-editor-mobile-layers-toggle:hover,
+  .dc-editor-mobile-layers-toggle.active{
+    background:var(--dc-surface-hover);
+    color:var(--dc-text);
+  }
+
+  .dc-editor-mobile-layers-toggle>svg:last-child{
+    transition:transform .14s ease;
+  }
+
+  .dc-editor-mobile-layers-toggle.active>svg:last-child{
+    transform:rotate(180deg);
+  }
+
+  .dc-mobile-layers-drawer{
+    position:absolute;
+    top:0;
+    right:0;
+    bottom:54px;
+    z-index:48;
+    display:flex;
+    width:min(88vw,320px);
+    min-width:0;
+    overflow:hidden;
+    background:var(--dc-panel);
+    box-shadow:-18px 0 40px var(--dc-shadow-strong);
+  }
+
+  .dc-mobile-layers-drawer .dc-layers{
+    position:static!important;
+    inset:auto!important;
+    display:flex!important;
+    flex:1 1 auto!important;
+    flex-direction:column!important;
+    width:100%!important;
+    max-width:none!important;
+    max-height:none!important;
+    min-height:0!important;
+    margin:0!important;
+    overflow:hidden!important;
+    border:0!important;
+    border-radius:0!important;
+    background:var(--dc-panel)!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-list{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+}
+
+@media(max-width:340px){
+  .dc-toolbar-mobile-left{
+    gap:1px;
+  }
+}
