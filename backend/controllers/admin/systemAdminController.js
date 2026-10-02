@@ -5,6 +5,8 @@ import { setUserPermissions } from '../../helpers/permissions.js';
 import { STORE_PRODUCT_KEYS } from '../../bootstrap/catalogs/store.js';
 import { getChannelEntitlements, invalidateChannelEntitlements } from '../../services/channelEntitlementAccessService.js';
 import { broadcastChannelEntitlements } from '../../services/channelEntitlementBroadcastService.js';
+import { getSystemModuleStates, setSystemModuleState } from '../../services/moduleAccessService.js';
+import { createRegistrationInvite } from '../../services/registrationInviteService.js';
 
 const MAX_USERS = 100;
 
@@ -74,6 +76,96 @@ async function collabLicensesForUsers(userIds, productId) {
 }
 
 export const SystemAdminController = {
+
+  async modules(_req, res) {
+    return res.json({ modules: await getSystemModuleStates() });
+  },
+
+  async updateModule(req, res) {
+    const moduleKey = String(req.params.moduleKey || '').trim();
+    if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ message: 'enabled debe ser booleano.' });
+    const module = await setSystemModuleState(moduleKey, req.body.enabled);
+
+    if (moduleKey === 'editor' && !module.enabled) {
+      const io = req.app.get('io');
+      if (io) {
+        for (const socket of io.sockets.sockets.values()) {
+          if (socket.data?.role === 'editor') {
+            socket.emit('system-module-disabled', { module: 'editor', message: 'El Editor fue deshabilitado por administración.' });
+            socket.disconnect(true);
+          }
+        }
+      }
+    }
+
+    await audit(req, {
+      event: 'admin.system_module_updated',
+      category: 'admin',
+      targetType: 'system_module',
+      targetId: moduleKey,
+      metadata: { enabled: module.enabled }
+    });
+    return res.json({ module });
+  },
+
+  async registrationInvites(_req, res) {
+    const invites = await models.RegistrationInvite.findAll({
+      attributes: ['uuid', 'usedAt', 'revokedAt', 'createdAt'],
+      include: [
+        { model: models.User, as: 'creator', attributes: ['uuid', 'username', 'displayName'] },
+        { model: models.User, as: 'usedByUser', attributes: ['uuid', 'username', 'displayName'] }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 100
+    });
+
+    return res.json({
+      invites: invites.map((invite) => ({
+        uuid: invite.uuid,
+        status: invite.revokedAt ? 'REVOKED' : invite.usedAt ? 'USED' : 'AVAILABLE',
+        createdAt: invite.createdAt,
+        usedAt: invite.usedAt || null,
+        revokedAt: invite.revokedAt || null,
+        creator: invite.creator ? { uuid: invite.creator.uuid, username: invite.creator.username, displayName: invite.creator.displayName || null } : null,
+        usedBy: invite.usedByUser ? { uuid: invite.usedByUser.uuid, username: invite.usedByUser.username, displayName: invite.usedByUser.displayName || null } : null
+      }))
+    });
+  },
+
+  async createRegistrationInvite(req, res) {
+    const { invite, token } = await createRegistrationInvite(req.user.id);
+    await audit(req, {
+      event: 'admin.registration_invite_created',
+      category: 'admin',
+      targetType: 'registration_invite',
+      targetId: invite.uuid
+    });
+    return res.status(201).json({
+      invite: {
+        uuid: invite.uuid,
+        status: 'AVAILABLE',
+        createdAt: invite.createdAt,
+        token,
+        path: `/register?invite=${encodeURIComponent(token)}`
+      }
+    });
+  },
+
+  async revokeRegistrationInvite(req, res) {
+    const invite = await models.RegistrationInvite.findOne({ where: { uuid: String(req.params.inviteUuid || '').trim() } });
+    if (!invite) return res.status(404).json({ message: 'Invitación no encontrada.' });
+    if (invite.usedAt) return res.status(409).json({ message: 'La invitación ya fue utilizada.' });
+    if (invite.revokedAt) return res.json({ revoked: true });
+    await invite.update({ revokedAt: new Date() });
+    await audit(req, {
+      event: 'admin.registration_invite_revoked',
+      category: 'admin',
+      targetType: 'registration_invite',
+      targetId: invite.uuid
+    });
+    return res.json({ revoked: true });
+  },
+
   async permissions(_req, res) {
     const permissions = await models.Permission.findAll({
       where: { active: true },

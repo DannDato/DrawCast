@@ -5,10 +5,11 @@ import { authReadLimiter, publicMediaLimiter } from '../middlewares/security.js'
 import { getSound, listSounds } from '../services/soundLibraryService.js';
 import { getChannelSound } from '../services/channelSoundService.js';
 import { models } from '../models/index.js';
+import { requireModuleEnabled } from '../middlewares/moduleAccess.js';
 
 const router = express.Router();
 
-router.get('/', verifyToken, authReadLimiter, asyncHandler(async (_req, res) => {
+router.get('/', verifyToken, requireModuleEnabled('editor'), authReadLimiter, asyncHandler(async (_req, res) => {
   const sounds = await listSounds();
   return res.json({ sounds });
 }));

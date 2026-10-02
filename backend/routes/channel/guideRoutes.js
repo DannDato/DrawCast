@@ -7,9 +7,10 @@ import { authReadLimiter, mutationLimiter } from '../../middlewares/security.js'
 import { parseGuideSlot, validateGuide } from '../../services/channelGuideService.js';
 import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
 import { getLimit, limitError } from '../../services/channelEntitlementAccessService.js';
+import { requireModuleEnabled } from '../../middlewares/moduleAccess.js';
 
 const router = Router({ mergeParams: true });
-router.use(verifyToken, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.guides')));
+router.use(verifyToken, requireModuleEnabled('editor'), asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.guides')));
 
 const publicGuide = (row) => ({ slot: row.slot, name: `Guía ${row.slot}`, sizeBytes: row.sizeBytes, updatedAt: row.updatedAt });
 const notifyGuides = (req) => req.app.get('io')?.to(`channel:${req.channel.id}:editors`).emit('guides-changed');

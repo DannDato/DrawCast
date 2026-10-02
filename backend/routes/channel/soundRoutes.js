@@ -13,6 +13,7 @@ import logger from '../../helpers/winston.js';
 import { deleteChannelSound, getChannelSoundUploadLimits, ingestChannelSound, listChannelSounds } from '../../services/channelSoundService.js';
 import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
 import { getLimit, limitError } from '../../services/channelEntitlementAccessService.js';
+import { requireModuleEnabled } from '../../middlewares/moduleAccess.js';
 
 const router = Router({ mergeParams: true });
 const { sourceMaxBytes } = getChannelSoundUploadLimits();
@@ -46,6 +47,7 @@ function uploadSound(req, res, next) {
 }
 
 router.use(verifyToken);
+router.use(requireModuleEnabled('editor'));
 
 router.get('/', authReadLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.custom_sounds')), asyncHandler(async (req, res) => {
   const sounds = await listChannelSounds(req.channel.id);

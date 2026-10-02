@@ -19,6 +19,7 @@ import { clearLoginFailures, loginAllowed, registerLoginFailure } from '../../se
 import { notifySecurity } from '../../services/securityNotificationService.js';
 import { getSettingBoolean } from '../../services/settingsService.js';
 import { grantWelcomePlusLicense } from '../../services/welcomeLicenseService.js';
+import { consumeRegistrationInvite, findUsableRegistrationInvite } from '../../services/registrationInviteService.js';
 import { exchangeGoogleCode, googleCodeFlowConfigured, googleIdentityConfigured, verifyGoogleCredential } from '../../services/googleOAuthService.js';
 import logger from '../../helpers/winston.js';
 import { env } from '../../config/env.js';
@@ -253,8 +254,19 @@ async function finishOAuthRedirect(req, res, user, event) {
 }
 
 class AuthController {
+  registrationInviteStatus = async (req, res) => {
+    const invite = await findUsableRegistrationInvite(req.params.token);
+    if (!invite) return res.status(410).json({ valid: false, message: 'Este enlace de registro ya no está disponible.' });
+    return res.json({ valid: true });
+  };
+
   register = async (req, res) => {
-    if (!(await getSettingBoolean('auth.registration.enabled', true))) return res.status(403).json({ message: 'El registro público está deshabilitado' });
+    const registrationInviteToken = String(req.body?.registrationInviteToken || '').trim();
+    const publicRegistrationEnabled = await getSettingBoolean('auth.registration.enabled', true);
+    if (!publicRegistrationEnabled && !registrationInviteToken) return res.status(403).json({ message: 'El registro público está deshabilitado' });
+    if (registrationInviteToken && !(await findUsableRegistrationInvite(registrationInviteToken))) {
+      return res.status(410).json({ message: 'Este enlace de registro ya no está disponible.' });
+    }
 
     const { username, email, password, displayName } = req.body;
     const cleanUsername = String(username || '').trim();
@@ -273,6 +285,10 @@ class AuthController {
     let user;
     const transaction = await db.transaction();
     try {
+      if (registrationInviteToken) {
+        const lockedInvite = await findUsableRegistrationInvite(registrationInviteToken, { transaction, lock: true });
+        if (!lockedInvite) throw Object.assign(new Error('Este enlace de registro ya no está disponible.'), { status: 410, code: 'REGISTRATION_INVITE_INVALID' });
+      }
       user = await models.User.create({
         username: cleanUsername,
         email: cleanEmail,
@@ -282,6 +298,7 @@ class AuthController {
       }, { transaction });
       await applyRolePreset(user.id, 'USER', transaction);
       await grantWelcomePlusLicense(user, transaction);
+      if (registrationInviteToken) await consumeRegistrationInvite(registrationInviteToken, user.id, transaction);
       await transaction.commit();
     } catch (error) {
       await transaction.rollback();

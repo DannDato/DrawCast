@@ -5,6 +5,7 @@ import { requireChannelEditor } from '../../middlewares/channelAccess.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import { mutationLimiter } from '../../middlewares/security.js';
 import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
+import { requireModuleEnabled } from '../../middlewares/moduleAccess.js';
 
 const router = Router();
 router.use(verifyToken);
@@ -14,6 +15,7 @@ router.get('/featured', asyncHandler(ChannelController.featured));
 router.get('/featured/:channelUuid/preview', asyncHandler(ChannelController.featuredPreview));
 router.post('/', asyncHandler(ChannelController.create));
 router.get('/invitations/pending', asyncHandler(ChannelController.pendingInvitations));
+router.use(requireModuleEnabled('editor'));
 router.post('/invitations/accept', asyncHandler(ChannelController.accept));
 router.post('/invitations/:invitationUuid/accept', asyncHandler(ChannelController.acceptPendingInvitation));
 router.post('/invitations/:invitationUuid/reject', asyncHandler(ChannelController.rejectPendingInvitation));

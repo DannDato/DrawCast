@@ -25,6 +25,7 @@ import {
 } from '../services/channelRuntimeService.js';
 import { getSound } from '../services/soundLibraryService.js';
 import { getChannelSound } from '../services/channelSoundService.js';
+import { isModuleEnabled } from '../services/moduleAccessService.js';
 import logger from '../helpers/winston.js';
 import {
   entitlementError,
@@ -286,6 +287,7 @@ export function configureSockets(io) {
     });
 
     socket.on('join-editor', async ({ publicKey } = {}) => {
+      if (!(await isModuleEnabled('editor'))) return socket.emit('access-denied', { code: 'MODULE_DISABLED', module: 'editor' });
       const auth = await socketUser(socket);
       if (!auth) return socket.emit('access-denied');
       const { user, session } = auth;
@@ -346,6 +348,13 @@ export function configureSockets(io) {
       if (!joined || joined.role !== 'editor') {
         socket.emit('access-denied');
         reply?.({ ok: false, message: 'Acceso denegado' });
+        return;
+      }
+
+      if (!(await isModuleEnabled('editor'))) {
+        socket.emit('system-module-disabled', { module: 'editor', message: 'El Editor está deshabilitado temporalmente.' });
+        reply?.({ ok: false, code: 'MODULE_DISABLED', message: 'El Editor está deshabilitado temporalmente.' });
+        socket.disconnect(true);
         return;
       }
 

@@ -33,6 +33,7 @@ import StoreOrderFactory from './storeOrder.model.js';
 import StoreOrderItemFactory from './storeOrderItem.model.js';
 import UserLicenseFactory from './userLicense.model.js';
 import LicenseAssignmentFactory from './licenseAssignment.model.js';
+import RegistrationInviteFactory from './registrationInvite.model.js';
 
 const models = {
   User: UserFactory(db),
@@ -67,6 +68,7 @@ const models = {
   StoreOrderItem: StoreOrderItemFactory(db),
   UserLicense: UserLicenseFactory(db),
   LicenseAssignment: LicenseAssignmentFactory(db),
+  RegistrationInvite: RegistrationInviteFactory(db),
   AuditLog: AuditFactory(auditDb),
   IpCache: IpFactory(auditDb)
 };
@@ -94,6 +96,11 @@ models.User.hasMany(models.TrustedDevice, { foreignKey: 'userId', as: 'trustedDe
 models.TrustedDevice.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
 models.User.hasMany(models.EmailChange, { foreignKey: 'userId', as: 'emailChanges', onDelete: 'CASCADE' });
 models.EmailChange.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
+
+models.User.hasMany(models.RegistrationInvite, { foreignKey: 'createdBy', as: 'createdRegistrationInvites', onDelete: 'RESTRICT' });
+models.RegistrationInvite.belongsTo(models.User, { foreignKey: 'createdBy', as: 'creator' });
+models.User.hasMany(models.RegistrationInvite, { foreignKey: 'usedBy', as: 'usedRegistrationInvites', onDelete: 'SET NULL' });
+models.RegistrationInvite.belongsTo(models.User, { foreignKey: 'usedBy', as: 'usedByUser' });
 
 models.User.hasMany(models.UserSetting, { foreignKey: 'userId', as: 'settings', onDelete: 'CASCADE' });
 models.UserSetting.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });

@@ -6,11 +6,14 @@ import { ArrowRight, Check, Clock3, MonitorUp, PenTool, Radio, Type, Users } fro
 import PublicBackground from "../components/ui/PublicBackground";
 import PublicNavbar from "../components/ui/PublicNavbar";
 import PublicFooter from "../components/footer/PublicFooter";
+import useSystemModules from "../hooks/useSystemModules";
 
 const SHOW_PLANS = false;
 
 export default function Landing() {
     const landingRef = useRef(null);
+    const { isEnabled } = useSystemModules();
+    const registrationEnabled = isEnabled("registration");
 
     useEffect(() => {
         const root = landingRef.current;
@@ -108,11 +111,13 @@ export default function Landing() {
                                 Tus moderadores ahora pueden diseñar sobre tu escena, compartir el control con tu equipo de producción y mostrar cada cambio al instante en OBS Studio, sin reiniciar tu stream ni tu Browser Source.
                             </p>
 
-                            <div className="mt-10 flex flex-wrap items-center gap-3">
-                                <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
-                                    CREA TU CUENTA YA!
-                                </Link>
-                            </div>
+                            {registrationEnabled && (
+                                <div className="mt-10 flex flex-wrap items-center gap-3">
+                                    <Link className="border border-[var(--dc-accent-two)] bg-[var(--dc-accent-two)] px-7 py-4 font-mono text-lg font-bold uppercase tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
+                                        CREA TU CUENTA YA!
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -474,10 +479,12 @@ export default function Landing() {
                                         </span>
                                     </div>
 
-                                    <Link className="flex w-full items-center justify-between border border-[var(--dc-text)]/30 px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] transition hover:border-[var(--dc-text)] hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)]" to="/register">
-                                        EMPEZAR GRATIS
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Link>
+                                    {registrationEnabled && (
+                                        <Link className="flex w-full items-center justify-between border border-[var(--dc-text)]/30 px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] transition hover:border-[var(--dc-text)] hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)]" to="/register">
+                                            EMPEZAR GRATIS
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                    )}
                                 </div>
 
                             </article>
@@ -544,10 +551,12 @@ export default function Landing() {
                                         </span>
                                     </div>
 
-                                    <Link className="flex w-full items-center justify-between border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
-                                        PASAR A PREMIUM
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Link>
+                                    {registrationEnabled && (
+                                        <Link className="flex w-full items-center justify-between border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)]" to="/register">
+                                            PASAR A PREMIUM
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                    )}
                                 </div>
 
                             </article>
@@ -610,10 +619,12 @@ export default function Landing() {
                                         </span>
                                     </div>
 
-                                    <Link className="flex w-full items-center justify-between border border-[var(--dc-text)]/30 px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] transition hover:border-[var(--dc-text)] hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)]" to="/register">
-                                        ELEGIR PLUS
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Link>
+                                    {registrationEnabled && (
+                                        <Link className="flex w-full items-center justify-between border border-[var(--dc-text)]/30 px-5 py-4 font-mono text-xs font-bold tracking-[0.08em] transition hover:border-[var(--dc-text)] hover:bg-[var(--dc-text)] hover:text-[var(--dc-bg)]" to="/register">
+                                            ELEGIR PLUS
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                    )}
                                 </div>
 
                             </article>
@@ -642,10 +653,12 @@ export default function Landing() {
                             Construye tu primer overlay, invita a tu equipo y conecta Trazio a OBS en minutos. Sin tarjeta de crédito, sin complicaciones.
                         </p>
 
-                        <Link className="mt-10 inline-flex items-center gap-3 border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-8 py-5 font-mono text-xs font-bold tracking-[0.1em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-10" to="/register">
-                            CREAR MI CANAL
-                            <ArrowRight className="h-4 w-4" />
-                        </Link>
+                        {registrationEnabled && (
+                            <Link className="mt-10 inline-flex items-center gap-3 border border-[var(--dc-accent)] bg-[var(--dc-accent)] px-8 py-5 font-mono text-xs font-bold tracking-[0.1em] text-[var(--dc-text-inverse)] transition hover:bg-transparent hover:text-[var(--dc-accent)] sm:px-10" to="/register">
+                                CREAR MI CANAL
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
+                        )}
 
                     </div>
                 </section>

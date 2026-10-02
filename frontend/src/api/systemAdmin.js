@@ -29,3 +29,29 @@ export async function revokeSystemCollabLicense(userUuid) {
   const { data } = await api.delete(`/admin/system/collaborators/${encodeURIComponent(userUuid)}/license`);
   return data;
 }
+
+export async function getAdminSystemModules() {
+  const { data } = await api.get('/admin/system/modules');
+  return data.modules || {};
+}
+
+export async function setAdminSystemModule(moduleKey, enabled) {
+  const { data } = await api.patch(`/admin/system/modules/${encodeURIComponent(moduleKey)}`, { enabled });
+  return data.module;
+}
+
+
+export async function getRegistrationInvites() {
+  const { data } = await api.get('/admin/system/registration-invites');
+  return data.invites || [];
+}
+
+export async function createRegistrationInvite() {
+  const { data } = await api.post('/admin/system/registration-invites');
+  return data.invite;
+}
+
+export async function revokeRegistrationInvite(inviteUuid) {
+  const { data } = await api.delete(`/admin/system/registration-invites/${encodeURIComponent(inviteUuid)}`);
+  return data;
+}

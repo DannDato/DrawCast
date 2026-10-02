@@ -5,9 +5,11 @@ import { requireChannelEditor } from '../../middlewares/channelAccess.js';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import { mutationLimiter } from '../../middlewares/security.js';
 import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
+import { requireModuleEnabled } from '../../middlewares/moduleAccess.js';
 
 const router = Router({ mergeParams: true });
 router.use(verifyToken);
+router.use(requireModuleEnabled('editor'));
 router.use(mutationLimiter);
 router.use(asyncHandler(requireChannelEditor));
 router.use(asyncHandler(requireChannelFeature('editor.designs')));

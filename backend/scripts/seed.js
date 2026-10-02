@@ -25,11 +25,17 @@ const permissions = [
   ['admin.users.read', 'Consultar usuarios', 'Permite consultar usuarios desde la administración del sistema.'],
   ['admin.users.permissions.manage', 'Administrar permisos de usuarios', 'Permite modificar permisos explícitos de otros usuarios.'],
   ['admin.collaborators.read', 'Consultar colaboradores', 'Permite consultar la asignación administrativa de Licencias Collab.'],
-  ['admin.collaborators.manage', 'Administrar Licencias Collab', 'Permite asignar y revocar Licencias Collab permanentes.']
+  ['admin.collaborators.manage', 'Administrar Licencias Collab', 'Permite asignar y revocar Licencias Collab permanentes.'],
+  ['admin.modules.manage', 'Administrar bloqueos del sistema', 'Permite prender y apagar Login, Registro, Editor y Tienda.'],
+  ['admin.registration_invites.read', 'Consultar invitaciones de registro', 'Permite consultar invitaciones de registro de un solo uso.'],
+  ['admin.registration_invites.manage', 'Administrar invitaciones de registro', 'Permite generar y revocar invitaciones de registro de un solo uso.']
 ];
 
 const settings = [
-  ['auth.registration.enabled', 'true', 'Permite el registro público de usuarios.', true]
+  ['module.login.enabled', 'true', 'Permite acceder al inicio de sesión.', true],
+  ['auth.registration.enabled', 'true', 'Permite el registro público de usuarios.', true],
+  ['module.editor.enabled', 'true', 'Permite acceder al Editor y sus operaciones privadas.', true],
+  ['module.store.enabled', 'true', 'Permite acceder a Tienda, carrito y checkout.', true]
 ];
 
 async function seed() {

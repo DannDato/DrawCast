@@ -7,13 +7,13 @@ import {
     Menu,
     PenTool,
     Settings,
-    ShieldCheck,
     ShoppingBag,
     User,
     X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getPendingInvitations } from "../api/channels";
+import { getSystemModules } from "../api/systemModules";
 import CartNavLink from "../components/inventory/CartNavLink";
 import AppFooter from "../components/footer/AppFooter";
 
@@ -26,19 +26,48 @@ const items = [
 
 export default function DashboardLayout() {
     const { user, logout } = useAuth();
-    const canAdminSystem = user?.role?.key === 'SUPER_ADMIN' && user?.permissions?.includes('admin.system.access');
     const navigate = useNavigate();
     const location = useLocation();
 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
     const [invitationCount, setInvitationCount] = useState(0);
+    const [storeEnabled, setStoreEnabled] = useState(null);
     const [navigationPending, startNavigation] = useTransition();
 
     const accountMenuRef = useRef(null);
 
     // Detectar si la ruta actual es el editor dinámico
     const isFullEditor = /^\/app\/editor\/[^/]+\/?$/.test(location.pathname);
+
+    useEffect(() => {
+        let active = true;
+
+        const refreshModules = async () => {
+            try {
+                const modules = await getSystemModules();
+                if (active) setStoreEnabled(modules?.store?.enabled !== false);
+            } catch {
+                if (active) setStoreEnabled(false);
+            }
+        };
+
+        const handleModulesChanged = (event) => {
+            if (event.detail?.moduleKey === "store") {
+                setStoreEnabled(event.detail.enabled !== false);
+                return;
+            }
+            refreshModules();
+        };
+
+        refreshModules();
+        window.addEventListener("TRAZIO:system-modules-changed", handleModulesChanged);
+
+        return () => {
+            active = false;
+            window.removeEventListener("TRAZIO:system-modules-changed", handleModulesChanged);
+        };
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -104,7 +133,6 @@ export default function DashboardLayout() {
     }, []);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAccountMenuOpen(false);
         setMobileOpen(false);
     }, [location.pathname]);
@@ -228,7 +256,7 @@ export default function DashboardLayout() {
                     </NavLink>
 
                     <nav className="hidden w-full items-center justify-center gap-2 px-3 transition-all duration-200 md:flex lg:px-10">
-                        {items.map((item) => navItem(item))}
+                        {items.filter((item) => item.path !== "/app/store" || storeEnabled === true).map((item) => navItem(item))}
                     </nav>
 
                     <div className="ml-auto hidden items-center md:flex">
@@ -296,18 +324,6 @@ export default function DashboardLayout() {
                                         Configuración
                                     </button>
 
-                                    {canAdminSystem && (
-                                        <button
-                                            type="button"
-                                            role="menuitem"
-                                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-bold text-[var(--dc-text)] transition hover:bg-[var(--dc-button-secondary-hover)] hover:text-[var(--dc-text-strong)]"
-                                            onClick={() => goTo("/app/admin")}
-                                        >
-                                            <ShieldCheck size={15} />
-                                            Administración
-                                        </button>
-                                    )}
-
                                     <div className="my-1 h-px bg-[var(--dc-line)]" />
 
                                     <button
@@ -324,7 +340,7 @@ export default function DashboardLayout() {
                         </div>
                     </div>
 
-                    <div className="ml-auto md:hidden"><CartNavLink onClick={() => setMobileOpen(false)} /></div>
+                    {storeEnabled === true && <div className="ml-auto md:hidden"><CartNavLink onClick={() => setMobileOpen(false)} /></div>}
 
                     {/* Botón Menú Mobile */}
                     <button
@@ -341,7 +357,7 @@ export default function DashboardLayout() {
                 {mobileOpen && (
                     <div className="border-t border-[var(--dc-line)] bg-[var(--dc-surface)] p-2 md:hidden">
                         <nav className="grid gap-1">
-                            {items.map((item) => navItem(item, true))}
+                            {items.filter((item) => item.path !== "/app/store" || storeEnabled === true).map((item) => navItem(item, true))}
                         </nav>
 
                         <div className="mt-2 border-t border-[var(--dc-line)] pt-2">
@@ -388,17 +404,6 @@ export default function DashboardLayout() {
                                 <Settings size={16} />
                                 Configuración
                             </button>
-
-                            {canAdminSystem && (
-                                <button
-                                    type="button"
-                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[12px] font-bold text-[var(--dc-text)] transition hover:bg-[var(--dc-button-secondary-hover)]"
-                                    onClick={() => goTo("/app/admin")}
-                                >
-                                    <ShieldCheck size={16} />
-                                    Administración
-                                </button>
-                            )}
 
                             <button
                                 type="button"

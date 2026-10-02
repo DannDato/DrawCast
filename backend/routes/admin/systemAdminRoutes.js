@@ -8,6 +8,11 @@ const router = Router();
 router.use(verifyToken);
 router.use(requireSuperAdminPermissions('admin.system.access'));
 
+router.get('/modules', authReadLimiter, asyncHandler(SystemAdminController.modules));
+router.patch('/modules/:moduleKey', mutationLimiter, requireSuperAdminPermissions('admin.modules.manage'), asyncHandler(SystemAdminController.updateModule));
+router.get('/registration-invites', authReadLimiter, requireSuperAdminPermissions('admin.registration_invites.read'), asyncHandler(SystemAdminController.registrationInvites));
+router.post('/registration-invites', mutationLimiter, requireSuperAdminPermissions('admin.registration_invites.manage'), asyncHandler(SystemAdminController.createRegistrationInvite));
+router.delete('/registration-invites/:inviteUuid', mutationLimiter, requireSuperAdminPermissions('admin.registration_invites.manage'), asyncHandler(SystemAdminController.revokeRegistrationInvite));
 router.get('/permissions', authReadLimiter, asyncHandler(SystemAdminController.permissions));
 router.get('/users', authReadLimiter, requireSuperAdminPermissions('admin.users.read'), asyncHandler(SystemAdminController.users));
 router.get('/collaborators', authReadLimiter, requireSuperAdminPermissions('admin.collaborators.read'), asyncHandler(SystemAdminController.collaborators));

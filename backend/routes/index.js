@@ -11,6 +11,7 @@ import soundRoutes from './soundRoutes.js';
 import channelSoundRoutes from './channel/soundRoutes.js';
 import storeRoutes from './store/storeRoutes.js';
 import systemAdminRoutes from './admin/systemAdminRoutes.js';
+import systemRoutes from './systemRoutes.js';
 import { getServerDiagnostics } from '../services/diagnosticsService.js';
 import { verifyToken } from '../middlewares/auth.js';
 import { authReadLimiter } from '../middlewares/security.js';
@@ -19,6 +20,7 @@ const router = express.Router();
 
 router.get('/health', (req, res) => res.json({ ok: true }));
 router.get('/health/diagnostics', verifyToken, authReadLimiter, (req, res) => res.json(getServerDiagnostics()));
+router.use('/system', systemRoutes);
 router.use('/auth', authRoutes);
 router.use('/user', profileRoutes);
 router.use('/user/settings', settingsRoutes);

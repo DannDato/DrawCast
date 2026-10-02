@@ -15,6 +15,7 @@ const PROVIDER_LABELS = { google: "Google", twitch: "Twitch", kick: "Kick", disc
 export default function Register() {
     const [searchParams] = useSearchParams();
     const oauthUsername = searchParams.get("oauthUsername") === "1";
+    const registrationInviteToken = String(searchParams.get("invite") || "").trim();
     const [form, setForm] = useState({ username: "", email: "", password: "", displayName: "" });
     const [oauthPending, setOauthPending] = useState(null);
     const [usernameCheck, setUsernameCheck] = useState({ username: "", available: false });
@@ -57,7 +58,7 @@ export default function Register() {
         setLoading(true);
         clearPendingVerifyAccess();
         try {
-            const { data } = await api.post("/auth/register", { ...form, turnstileToken });
+            const { data } = await api.post("/auth/register", { ...form, turnstileToken, registrationInviteToken: registrationInviteToken || undefined });
             if (data.requiresOtp) {
                 setPendingVerifyAccess(data);
                 navigate("/verify-access");
@@ -103,6 +104,8 @@ export default function Register() {
                 <link rel="canonical" href={`${import.meta.env.VITE_APP_URL}${window.location.pathname}register`} />
                 <meta name="robots" content="noindex, follow" />
             </Helmet>
+
+            {registrationInviteToken && !oauthUsername ? <p className="dc-auth-alert success">INVITACIÓN DE REGISTRO VÁLIDA · Este enlace se consumirá al crear la cuenta.</p> : null}
 
             {oauthUsername ? (
                 <form onSubmit={completeOAuth} className="dc-auth-form">
@@ -151,13 +154,15 @@ export default function Register() {
                             {loading ? "CREANDO CUENTA..." : "CREAR CUENTA"}
                         </button>
                     </form>
-                    <div className="dc-auth-divider"><span>O REGÍSTRATE CON</span></div>
-                    <div className="dc-auth-provider-grid">
-                        <GoogleAuthButton mode="signup" onError={setError} />
-                        <TwitchAuthButton onError={setError} />
-                        <ExternalOAuthButton provider="kick" onError={setError} />
-                        <ExternalOAuthButton provider="discord" onError={setError} />
-                    </div>
+                    {!registrationInviteToken ? <>
+                        <div className="dc-auth-divider"><span>O REGÍSTRATE CON</span></div>
+                        <div className="dc-auth-provider-grid">
+                            <GoogleAuthButton mode="signup" onError={setError} />
+                            <TwitchAuthButton onError={setError} />
+                            <ExternalOAuthButton provider="kick" onError={setError} />
+                            <ExternalOAuthButton provider="discord" onError={setError} />
+                        </div>
+                    </> : null}
                 </>
             )}
             <div className="dc-auth-links"><span>¿Ya estás registrado?</span><Link to="/login">Iniciar sesión</Link></div>

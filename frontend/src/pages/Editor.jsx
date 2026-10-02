@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Redo2, Undo2 } from 'lucide-react';
 import { getSavedDesign, getSavedDesigns } from '../api/designs';
+import { assignStoreLicense, getStoreLicenses } from '../api/store';
 import { getChannelEntitlements, getChannels, markChannelUsed } from '../api/channels';
 import { useChannelSocket } from '../hooks/useChannelSocket';
 import CanvasStage from '../components/editor/CanvasStage';
@@ -37,8 +38,48 @@ import { cancelRouletteSpin, removeRouletteWinner, rouletteWinnerAtRotation, shu
 import useRouletteTickSound from '../components/editor/tools/roulette/useRouletteTickSound';
 import { EMPTY_CHANNEL_ENTITLEMENTS, FEATURE_LABELS, TOOL_FEATURE, entitlementLimit, featureEnabled, normalizeChannelEntitlements, objectFeature } from '../components/editor/entitlements/editorEntitlements';
 
+const FEATURE_LICENSE_BUNDLES = Object.freeze({
+  'editor.text': ['tool.text', 'canvas.plus', 'canvas.collab'],
+  'editor.line': ['tool.shapes', 'canvas.plus', 'canvas.collab'],
+  'editor.shape': ['tool.shapes', 'canvas.plus', 'canvas.collab'],
+  'editor.timer': ['tool.timer', 'canvas.plus', 'canvas.collab'],
+  'editor.guides': ['tool.guides', 'canvas.plus', 'canvas.collab'],
+  'editor.designs': ['tool.designs', 'canvas.plus', 'canvas.collab'],
+  'editor.quick_sounds': ['tool.quick_sounds', 'canvas.plus', 'canvas.collab'],
+  'editor.custom_sounds': ['tool.custom_sounds', 'canvas.plus', 'canvas.collab'],
+  'editor.launchpad': ['tool.launchpad', 'canvas.plus', 'canvas.collab'],
+  'editor.live_studio': ['tool.live_studio', 'canvas.plus', 'canvas.collab'],
+  'overlay.remove_watermark': ['tool.remove_watermark', 'canvas.plus']
+});
+
+function licenseUnlocksFeature(license, feature, channelUuid) {
+  if (String(license?.status || '').toUpperCase() !== 'ACTIVE') return false;
+  if (!channelUuid || !license?.eligibleChannelUuids?.includes(channelUuid)) return false;
+  if (license?.assignments?.some((assignment) => assignment.status === 'ACTIVE')) return false;
+  if (license?.endsAt && new Date(license.endsAt).getTime() <= Date.now()) return false;
+
+  const acceptedBundles = FEATURE_LICENSE_BUNDLES[feature] || ['canvas.plus', 'canvas.collab'];
+  const bundleKeys = new Set((license?.product?.bundles || []).map((bundle) => bundle?.key).filter(Boolean));
+  return acceptedBundles.some((bundleKey) => bundleKeys.has(bundleKey));
+}
+
+function licensePriority(license, feature) {
+  const acceptedBundles = FEATURE_LICENSE_BUNDLES[feature] || ['canvas.plus', 'canvas.collab'];
+  const bundleKeys = new Set((license?.product?.bundles || []).map((bundle) => bundle?.key).filter(Boolean));
+  const specificBundle = acceptedBundles.find((bundleKey) => bundleKey.startsWith('tool.'));
+  if (specificBundle && bundleKeys.has(specificBundle)) {
+    if (license?.product?.kind === 'tool') return 0;
+    if (license?.product?.kind === 'pack') return 1;
+    return 2;
+  }
+  if (bundleKeys.has('canvas.plus')) return 3;
+  if (bundleKeys.has('canvas.collab')) return 4;
+  return 5;
+}
+
 export default function Editor() {
   const { publicKey } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { confirmDialog, showAlert } = useSystemAlert();
   const {
@@ -46,6 +87,7 @@ export default function Editor() {
     textConfig, setTextConfig, timerConfig, setTimerConfig, rouletteConfig, setRouletteConfig
   } = useEditorPreferences();
   const [channelUuid, setChannelUuid] = useState(null);
+  const lockedFeatureBusyRef = useRef(false);
   const [entitlements, setEntitlements] = useState(EMPTY_CHANNEL_ENTITLEMENTS);
   const [objects, setObjects] = useState({});
   const [selectedId, setSelectedId] = useState(null);
@@ -279,6 +321,9 @@ export default function Editor() {
       });
     },
     'channel-entitlements': (value = {}) => setEntitlements(normalizeChannelEntitlements(value)),
+    'system-module-disabled': ({ module } = {}) => {
+      if (module === 'editor') navigate('/app', { replace: true });
+    },
     'feature-denied': ({ message, feature } = {}) => {
       const label = FEATURE_LABELS[feature] || 'Esta función';
       setMediaStatus(message || `${label} está bloqueado en este lienzo.`);
@@ -302,7 +347,7 @@ export default function Editor() {
       pendingDrawFallbackSelectionRef.current = true;
       setLiveStrokes({});
     }
-  }), [showAlert]);
+  }), [navigate, showAlert]);
 
   const { socket, presence, connected, denied } = useChannelSocket(publicKey, 'editor', handlers);
   const entitlementsReady = entitlements.loaded === true;
@@ -314,14 +359,59 @@ export default function Editor() {
   const customSoundLimit = entitlementLimit(entitlements, 'limit.custom_sound_slots');
   const launchpadPadLimit = canFeature('editor.launchpad') ? Math.min(24, entitlementLimit(entitlements, 'limit.launchpad_pads')) : 0;
 
-  const showLockedFeature = (feature, fallbackLabel = 'Función') => {
+  const showLockedFeature = async (feature, fallbackLabel = 'Función') => {
     if (!entitlementsReady) { setMediaStatus('Cargando permisos del lienzo...'); return; }
+    if (!channelUuid || lockedFeatureBusyRef.current) return;
+
     const label = FEATURE_LABELS[feature] || fallbackLabel;
-    setMediaStatus(`${label} requiere una mejora para este lienzo.`);
-    void showAlert({
-      title: `${label} · Lienzo Plus`,
-      message: 'Esta función está bloqueada en este lienzo. Lienzo Plus desbloquea todas las herramientas premium para el propietario y todos los colaboradores.'
-    });
+    setMediaStatus(`Revisando licencias disponibles para ${label}...`);
+    lockedFeatureBusyRef.current = true;
+
+    try {
+      const inventory = await getStoreLicenses({ force: true });
+      const applicable = (inventory?.licenses || [])
+        .filter((license) => licenseUnlocksFeature(license, feature, channelUuid))
+        .sort((left, right) => licensePriority(left, feature) - licensePriority(right, feature));
+      const license = applicable[0];
+
+      if (license) {
+        const licenseName = license.product?.name || 'la licencia disponible';
+        const confirmed = await confirmDialog({
+          title: `${label} está bloqueado`,
+          message: `Ya tienes ${licenseName} en tu inventario y puede desbloquear ${label} en este lienzo. ¿Quieres aplicarla ahora? La licencia quedará ligada a este lienzo.`,
+          confirmLabel: 'Aplicar licencia',
+          cancelLabel: 'Ahora no'
+        });
+        if (!confirmed) {
+          setMediaStatus(`${label} sigue bloqueado en este lienzo.`);
+          return;
+        }
+
+        const result = await assignStoreLicense(license.uuid, channelUuid);
+        if (result?.entitlements) setEntitlements(normalizeChannelEntitlements(result.entitlements));
+        else {
+          const refreshed = await getChannelEntitlements(channelUuid, { force: true });
+          setEntitlements(normalizeChannelEntitlements(refreshed));
+        }
+        setMediaStatus(`${licenseName} aplicada. ${label} ya está disponible.`);
+        return;
+      }
+
+      setMediaStatus(`${label} requiere una licencia para este lienzo.`);
+      const goToStore = await confirmDialog({
+        title: `${label} está bloqueado`,
+        message: `No tienes una licencia disponible que pueda desbloquear ${label} en este lienzo. ¿Quieres comprar una licencia ahora?`,
+        confirmLabel: 'Ir a Tienda',
+        cancelLabel: 'Ahora no'
+      });
+      if (goToStore) navigate('/app/store');
+    } catch (reason) {
+      const message = reason?.response?.data?.message || reason?.message || 'No se pudo revisar o aplicar la licencia.';
+      setMediaStatus(message);
+      await showAlert({ title: `${label} · licencia`, message });
+    } finally {
+      lockedFeatureBusyRef.current = false;
+    }
   };
 
   const requireFrontendFeature = (feature, label, { silent = false } = {}) => {

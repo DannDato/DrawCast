@@ -7,6 +7,8 @@ import { ForgotPassword, ResetPassword } from './pages/PasswordPages';
 import DashboardLayout from './layouts/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicOnlyRoute from './components/PublicOnlyRoute';
+import ModuleRoute from './components/ModuleRoute';
+import RegistrationRoute from './components/RegistrationRoute';
 import Profile from './pages/Profile';
 import Editor from './pages/Editor';
 import Overlay from './pages/Overlay';
@@ -24,11 +26,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
-      <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
-      <Route path="/verify-access" element={<VerifyAccess />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/login" element={<ModuleRoute moduleKey="login"><PublicOnlyRoute><Login /></PublicOnlyRoute></ModuleRoute>} />
+      <Route path="/register" element={<RegistrationRoute><PublicOnlyRoute><Register /></PublicOnlyRoute></RegistrationRoute>} />
+      <Route path="/verify-access" element={<ModuleRoute moduleKey="login"><VerifyAccess /></ModuleRoute>} />
+      <Route path="/forgot-password" element={<ModuleRoute moduleKey="login"><ForgotPassword /></ModuleRoute>} />
+      <Route path="/reset-password" element={<ModuleRoute moduleKey="login"><ResetPassword /></ModuleRoute>} />
       <Route path="/privacidad" element={<PrivacyPage />} />
       <Route path="/terminos" element={<TermsPage />} />
       <Route path="/cookies" element={<CookiesPage />} />
@@ -40,12 +42,12 @@ export default function App() {
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
         <Route path="/app" element={<Inicio />} />
         <Route path="/app/inicio" element={<Inicio />} />
-        <Route path="/app/editor" element={<EditorHub />} />
-        <Route path="/app/editor/:publicKey" element={<Editor />} />
+        <Route path="/app/editor" element={<ModuleRoute moduleKey="editor" fallback="/app"><EditorHub /></ModuleRoute>} />
+        <Route path="/app/editor/:publicKey" element={<ModuleRoute moduleKey="editor" fallback="/app"><Editor /></ModuleRoute>} />
         <Route path="/app/profile" element={<Profile />} />
         <Route path="/app/settings" element={<Settings />} />
-        <Route path="/app/cart" element={<Cart />} />
-        <Route path="/app/store" element={<Store />} />
+        <Route path="/app/cart" element={<ModuleRoute moduleKey="store" fallback="/app"><Cart /></ModuleRoute>} />
+        <Route path="/app/store" element={<ModuleRoute moduleKey="store" fallback="/app"><Store /></ModuleRoute>} />
         <Route path="/app/inventory" element={<Inventory />} />
         <Route path="/app/admin" element={<ProtectedRoute role="SUPER_ADMIN" permission="admin.system.access" explicitPermission><SystemAdmin /></ProtectedRoute>} />
         <Route path="/app/diagnostico" element={<Navigate to="/app/settings?section=diagnostics" replace />} />

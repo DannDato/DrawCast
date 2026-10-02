@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, KeyRound, Search, Settings2, UserRoundCheck, Users, X } from 'lucide-react';
+import { Ban, Check, Copy, KeyRound, Link2, Power, Search, Settings2, UserRoundCheck, Users, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getSystemCollaborators, getSystemPermissions, getSystemUsers, grantSystemCollabLicense, revokeSystemCollabLicense, saveSystemUserPermissions } from '../api/systemAdmin';
+import { createRegistrationInvite, getAdminSystemModules, getRegistrationInvites, getSystemCollaborators, getSystemPermissions, getSystemUsers, grantSystemCollabLicense, revokeRegistrationInvite, revokeSystemCollabLicense, saveSystemUserPermissions, setAdminSystemModule } from '../api/systemAdmin';
 
 const sections = [
+  { id: 'modules', label: 'Bloqueos', title: ['CONTROL', 'DE ACCESO'], icon: Power, permission: 'admin.modules.manage' },
+  { id: 'registration-invites', label: 'Invitaciones', title: ['REGISTRO', 'POR INVITACIÓN'], icon: Link2, permission: 'admin.registration_invites.read' },
   { id: 'users', label: 'Usuarios', title: ['USUARIOS', 'Y PERMISOS'], icon: Users, permission: 'admin.users.read' },
   { id: 'collaborators', label: 'Colaboradores', title: ['LICENCIAS', 'COLLAB'], icon: UserRoundCheck, permission: 'admin.collaborators.read' },
   { id: 'permissions', label: 'Permisos', title: ['CATÁLOGO', 'DE PERMISOS'], icon: KeyRound }
@@ -16,6 +18,43 @@ const soft = 'var(--dc-accent-four-soft)';
 function Notice({ notice }) {
   if (!notice) return null;
   return <div className={`mb-4 flex items-center gap-2 border px-3.5 py-3 font-semibold ${notice.type === 'error' ? 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]' : 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]'}`}>{notice.type === 'success' ? <Check size={17} /> : <X size={17} />}{notice.text}</div>;
+}
+
+
+function ModulesSection({ modules, onChange, onNotice }) {
+  const [working, setWorking] = useState(null);
+  const orderedKeys = ['login', 'registration', 'editor', 'store'];
+
+  const toggle = async (moduleKey, enabled) => {
+    try {
+      setWorking(moduleKey);
+      onNotice(null);
+      await setAdminSystemModule(moduleKey, enabled);
+      window.dispatchEvent(new CustomEvent('TRAZIO:system-modules-changed', { detail: { moduleKey, enabled } }));
+      await onChange();
+      const label = modules?.[moduleKey]?.label || moduleKey;
+      onNotice({ type: 'success', text: `${label} ${enabled ? 'habilitado' : 'bloqueado'}.` });
+    } catch (error) {
+      onNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo actualizar el bloqueo.' });
+    } finally { setWorking(null); }
+  };
+
+  return <div className="grid gap-2">
+    <div className="mb-2 border border-[var(--dc-line)] p-4">
+      <span className="dc-kicker">ACCESO GLOBAL</span>
+      <h2 className="mb-1 mt-1 text-xl">Bloqueos del sistema</h2>
+      <p className="m-0 text-[12px] leading-5 text-[var(--dc-text-muted)]">Apaga temporalmente módulos completos. La validación se aplica tanto en frontend como en backend.</p>
+    </div>
+    {orderedKeys.map((moduleKey) => {
+      const module = modules?.[moduleKey];
+      if (!module) return null;
+      const enabled = module.enabled !== false;
+      return <article key={moduleKey} className="flex items-center justify-between gap-4 border border-[var(--dc-line)] p-4 max-[560px]:items-start">
+        <div><strong className="block text-sm">{module.label}</strong><span className="mt-1 block text-[11px] text-[var(--dc-text-muted)]">{enabled ? 'Disponible para los usuarios.' : 'Acceso bloqueado globalmente.'}</span></div>
+        <button type="button" disabled={working === moduleKey} onClick={() => toggle(moduleKey, !enabled)} aria-pressed={enabled} className={`min-w-[92px] border px-3 py-2 text-xs font-black uppercase tracking-[.06em] disabled:opacity-50 ${enabled ? 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]' : 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]'}`}>{working === moduleKey ? '...' : enabled ? 'ENCENDIDO' : 'APAGADO'}</button>
+      </article>;
+    })}
+  </div>;
 }
 
 function PermissionsSection({ permissions }) {
@@ -145,6 +184,80 @@ function CollaboratorsSection({ users, canManage, onReload, onNotice }) {
   </div>;
 }
 
+
+function RegistrationInvitesSection({ invites, canManage, onReload, onNotice }) {
+  const [working, setWorking] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState('');
+
+  const generate = async () => {
+    if (!canManage) return;
+    try {
+      setWorking(true);
+      onNotice(null);
+      const invite = await createRegistrationInvite();
+      const path = invite.path || `/register?invite=${encodeURIComponent(invite.token || '')}`;
+      const link = new URL(path, window.location.origin).toString();
+      setGeneratedLink(link);
+      await onReload();
+      onNotice({ type: 'success', text: 'Invitación de registro creada. El enlace funciona una sola vez.' });
+    } catch (error) {
+      onNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo generar la invitación.' });
+    } finally { setWorking(false); }
+  };
+
+  const copy = async () => {
+    if (!generatedLink) return;
+    try {
+      await navigator.clipboard.writeText(generatedLink);
+      onNotice({ type: 'success', text: 'Enlace copiado al portapapeles.' });
+    } catch {
+      onNotice({ type: 'error', text: 'No se pudo copiar el enlace automáticamente.' });
+    }
+  };
+
+  const revoke = async (invite) => {
+    if (!canManage || invite.status !== 'AVAILABLE') return;
+    try {
+      setWorking(true);
+      onNotice(null);
+      await revokeRegistrationInvite(invite.uuid);
+      await onReload();
+      onNotice({ type: 'success', text: 'Invitación revocada.' });
+    } catch (error) {
+      onNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo revocar la invitación.' });
+    } finally { setWorking(false); }
+  };
+
+  const statusLabel = (status) => status === 'AVAILABLE' ? 'DISPONIBLE' : status === 'USED' ? 'USADA' : 'REVOCADA';
+
+  return <div>
+    <div className="mb-4 border border-[var(--dc-line)] p-4">
+      <span className="dc-kicker">ACCESO EXCEPCIONAL</span>
+      <h2 className="mb-1 mt-1 text-xl">Links únicos de registro</h2>
+      <p className="m-0 text-[12px] leading-5 text-[var(--dc-text-muted)]">Permiten crear una cuenta aunque Registro esté apagado. Cada enlace se consume únicamente cuando el alta termina correctamente.</p>
+      {canManage && <button type="button" onClick={generate} disabled={working} className="mt-4 inline-flex items-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-sm font-bold text-[var(--dc-button-primary-text)] disabled:opacity-50"><Link2 size={16} />{working ? 'Generando…' : 'Generar link único'}</button>}
+    </div>
+
+    {generatedLink && <div className="mb-4 border border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] p-4">
+      <strong className="mb-2 block text-sm text-[var(--dc-alert-success-text)]">Guarda este enlace ahora</strong>
+      <div className="flex gap-2 max-[680px]:flex-col"><input readOnly value={generatedLink} className="min-w-0 flex-1 border border-[var(--dc-line)] bg-[var(--dc-surface)] px-3 py-2 text-xs outline-none" /><button type="button" onClick={copy} className="inline-flex items-center justify-center gap-2 border border-[var(--dc-line)] px-3 py-2 text-xs font-black uppercase tracking-[.06em]"><Copy size={15} />Copiar</button></div>
+      <p className="mb-0 mt-2 text-[11px] text-[var(--dc-text-muted)]">El token completo no se vuelve a mostrar después; el servidor conserva sólo su hash.</p>
+    </div>}
+
+    <div className="grid gap-2">
+      {invites.map((invite) => <article key={invite.uuid} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border border-[var(--dc-line)] p-3 max-[680px]:grid-cols-1">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2"><strong className="text-sm">Invitación</strong><span className={`border px-2 py-0.5 text-[10px] font-black uppercase tracking-[.08em] ${invite.status === 'AVAILABLE' ? 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]' : 'border-[var(--dc-line)] text-[var(--dc-text-muted)]'}`}>{statusLabel(invite.status)}</span></div>
+          <code className="mt-1 block truncate text-[10px] text-[var(--dc-text-muted)]">{invite.uuid}</code>
+          <span className="mt-1 block text-[10px] text-[var(--dc-text-muted)]">Creada {new Date(invite.createdAt).toLocaleString()}{invite.usedBy ? ` · usada por ${invite.usedBy.displayName || invite.usedBy.username}` : ''}</span>
+        </div>
+        {canManage && invite.status === 'AVAILABLE' && <button type="button" disabled={working} onClick={() => revoke(invite)} className="inline-flex items-center justify-center gap-2 border border-[var(--dc-alert-error-border)] px-3 py-2 text-xs font-black uppercase tracking-[.06em] text-[var(--dc-alert-error-text)] disabled:opacity-50"><Ban size={15} />Revocar</button>}
+      </article>)}
+      {!invites.length && <p className="text-sm text-[var(--dc-text-muted)]">Todavía no hay invitaciones de registro.</p>}
+    </div>
+  </div>;
+}
+
 export default function SystemAdmin() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -153,14 +266,24 @@ export default function SystemAdmin() {
   const activeSection = allowedSections.some((section) => section.id === requested) ? requested : allowedSections[0]?.id || 'users';
   const current = allowedSections.find((section) => section.id === activeSection) || allowedSections[0];
   const [permissions, setPermissions] = useState([]);
+  const [modules, setModules] = useState({});
   const [users, setUsers] = useState([]);
   const [collaborators, setCollaborators] = useState([]);
+  const [registrationInvites, setRegistrationInvites] = useState([]);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
+  const canManageModules = user?.permissions?.includes('admin.modules.manage');
   const canReadUsers = user?.permissions?.includes('admin.users.read');
   const canManagePermissions = user?.permissions?.includes('admin.users.permissions.manage');
   const canReadCollaborators = user?.permissions?.includes('admin.collaborators.read');
   const canManageCollaborators = user?.permissions?.includes('admin.collaborators.manage');
+  const canReadRegistrationInvites = user?.permissions?.includes('admin.registration_invites.read');
+  const canManageRegistrationInvites = user?.permissions?.includes('admin.registration_invites.manage');
+
+  const loadModules = useCallback(async () => {
+    if (!canManageModules) return;
+    setModules(await getAdminSystemModules());
+  }, [canManageModules]);
 
   const loadUsers = useCallback(async (q = '') => {
     if (!canReadUsers) return;
@@ -174,23 +297,32 @@ export default function SystemAdmin() {
     setCollaborators(data.users || []);
   }, [canReadCollaborators]);
 
+  const loadRegistrationInvites = useCallback(async () => {
+    if (!canReadRegistrationInvites) return;
+    setRegistrationInvites(await getRegistrationInvites());
+  }, [canReadRegistrationInvites]);
+
   useEffect(() => {
     let active = true;
     Promise.all([
+      canManageModules ? getAdminSystemModules() : Promise.resolve({}),
       getSystemPermissions(),
       canReadUsers ? getSystemUsers() : Promise.resolve({ users: [] }),
-      canReadCollaborators ? getSystemCollaborators() : Promise.resolve({ users: [] })
+      canReadCollaborators ? getSystemCollaborators() : Promise.resolve({ users: [] }),
+      canReadRegistrationInvites ? getRegistrationInvites() : Promise.resolve([])
     ])
-      .then(([permissionData, userData, collaboratorData]) => {
+      .then(([moduleData, permissionData, userData, collaboratorData, inviteData]) => {
         if (!active) return;
+        setModules(moduleData || {});
         setPermissions(permissionData.permissions || []);
         setUsers(userData.users || []);
         setCollaborators(collaboratorData.users || []);
+        setRegistrationInvites(inviteData || []);
       })
       .catch((error) => { if (active) setNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo cargar la administración del sistema.' }); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [canReadUsers, canReadCollaborators]);
+  }, [canManageModules, canReadUsers, canReadCollaborators, canReadRegistrationInvites]);
 
   return <div className="dc-app-page">
     <Notice notice={notice} />
@@ -205,6 +337,8 @@ export default function SystemAdmin() {
           <div className="flex justify-end px-5 pb-1 pt-4 max-[680px]:px-4 max-[680px]:pt-3"><h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[clamp(2.4rem,4vw,3.15rem)] font-normal uppercase leading-[.86] tracking-[-.01em] text-[var(--dc-text)] max-[680px]:text-[1.75rem]"><span>{current?.title[0]}</span><span style={{ color: accent }}>{current?.title[1]}</span></h1></div>
           <div className="px-5 pb-5 pt-2 max-[680px]:px-4 max-[680px]:pb-4 max-[680px]:pt-2">
             {loading ? <div>Cargando administración…</div> : <>
+              {activeSection === 'modules' && <ModulesSection modules={modules} onChange={loadModules} onNotice={setNotice} />}
+              {activeSection === 'registration-invites' && <RegistrationInvitesSection invites={registrationInvites} canManage={canManageRegistrationInvites} onReload={loadRegistrationInvites} onNotice={setNotice} />}
               {activeSection === 'users' && <UsersSection key={users.map((item) => item.uuid).join('|') || 'empty'} users={users} permissions={permissions} canManage={canManagePermissions} onReload={loadUsers} onNotice={setNotice} />}
               {activeSection === 'collaborators' && <CollaboratorsSection users={collaborators} canManage={canManageCollaborators} onReload={loadCollaborators} onNotice={setNotice} />}
               {activeSection === 'permissions' && <PermissionsSection permissions={permissions} />}

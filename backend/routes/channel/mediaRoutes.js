@@ -12,8 +12,10 @@ import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import logger from '../../helpers/winston.js';
 import { externalFetchLimiter, mutationLimiter } from '../../middlewares/security.js';
 import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
+import { requireModuleEnabled } from '../../middlewares/moduleAccess.js';
 
 const router = Router();
+router.use(requireModuleEnabled('editor'));
 const root = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads', 'channels');
 const maxBytes = 20 * 1024 * 1024;
 const allowedMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
