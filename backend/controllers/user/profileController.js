@@ -24,7 +24,7 @@ const avatarTypes = new Map([['image/jpeg', 'jpg'], ['image/png', 'png'], ['imag
 const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
-function safeSession(session, currentSessionId) { return { id: session.id, ip: session.ip || null, userAgent: session.userAgent || 'Dispositivo desconocido', createdAt: session.createdAt, lastSeenAt: session.lastSeenAt || session.createdAt, expiresAt: session.expiresAt, current: session.id === currentSessionId }; }
+function safeSession(session, currentSessionId) { return { id: session.id, userAgent: session.userAgent || 'Dispositivo desconocido', createdAt: session.createdAt, lastSeenAt: session.lastSeenAt || session.createdAt, expiresAt: session.expiresAt, current: session.id === currentSessionId }; }
 async function activeSessions(userId, currentSessionId) { const rows = await models.Session.findAll({ where: { userId, revokedAt: null, expiresAt: { [Op.gt]: new Date() } }, order: [['createdAt', 'DESC']] }); return rows.map((session) => safeSession(session, currentSessionId)); }
 async function removeStoredAvatar(avatarUrl) { const fileName = path.basename(String(avatarUrl || '')); if (!fileName || fileName === '.' || fileName === path.sep) return; try { await fs.unlink(path.join(avatarDirectory, fileName)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
 function disconnectSessionSockets(req, sessionId) { req.app.get('io')?.in(`session:${sessionId}`).disconnectSockets(true); }

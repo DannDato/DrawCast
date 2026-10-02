@@ -85,7 +85,7 @@ export default function Landing() {
                 </Helmet>
 
                 {/* HERO */}
-                <section className="mx-auto flex min-h-screen w-full max-w-[1240px] flex-col px-6 md:px-10 xl:px-0">
+                <section className="mx-auto flex min-h-screen w-full max-w-[1240px] flex-col px-7 sm:px-6 md:px-10 xl:px-0">
 
                     <PublicNavbar />
 
@@ -140,13 +140,13 @@ export default function Landing() {
 
                 </section>
 
-                <section>
-                    <img src="img/Editor.png" alt="Description of image" className="w-[80%] h-auto mx-auto rounded-3xl overflow-hidden hover:scale-105 transition-transform duration-300"/>
+                <section className="px-7 sm:px-6 md:px-10 xl:px-0">
+                    <img src="img/Editor.png" alt="Description of image" className="w-full sm:w-[80%] h-auto mx-auto rounded-3xl overflow-hidden hover:scale-105 transition-transform duration-300"/>
                 </section>
 
                 {/* CONTROL -> OUTPUT */}
                 <section className="">
-                    <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
+                    <div className="mx-auto w-full max-w-[1240px] px-7 py-24 sm:px-6 md:px-10 md:py-28 xl:px-0">
 
                         <h2 className="mt-5 font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,7rem)]">
                             TÚ CONTROLAS AQUÍ <span className="text-[var(--dc-accent-three)]">//</span>
@@ -281,7 +281,7 @@ export default function Landing() {
         
                 {/* COLLABORATION */}
                 <section className="border-t border-[var(--dc-text)]/15 hidden">
-                    <div className="mx-auto grid w-full max-w-[1240px] gap-16 px-6 py-24 md:px-10 md:py-28 lg:grid-cols-2 lg:items-center xl:px-0">
+                    <div className="mx-auto grid w-full max-w-[1240px] gap-16 px-7 py-24 sm:px-6 md:px-10 md:py-28 lg:grid-cols-2 lg:items-center xl:px-0">
 
                         <div>
 
@@ -355,7 +355,7 @@ export default function Landing() {
 
                 {/* OBS */}
                 <section className="border-t border-[var(--dc-text)]/15">
-                    <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
+                    <div className="mx-auto w-full max-w-[1240px] px-7 py-24 sm:px-6 md:px-10 md:py-28 xl:px-0">
 
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(4rem,14vw,8rem)] uppercase leading-[0.78] md:text-[clamp(4rem,9vw,6rem)]">
                             <span className="text-[var(--dc-accent-three)]"> UNA URL <span className="text-[var(--dc-text-muted)]">|</span> </span>
@@ -410,7 +410,7 @@ export default function Landing() {
                 {/* PLANS */}
                 {SHOW_PLANS && (
                 <section className="border-t border-[var(--dc-text)]/15">
-                    <div className="mx-auto w-full max-w-[1240px] px-6 py-24 md:px-10 md:py-28 xl:px-0">
+                    <div className="mx-auto w-full max-w-[1240px] px-7 py-24 sm:px-6 md:px-10 md:py-28 xl:px-0">
 
                         <div className="mt-5 gap-8 lg:flex-row lg:items-end">
                             <h2 className="font-['Bebas_Neue'] text-[clamp(4rem,14vw,7rem)] uppercase leading-[0.82] md:text-[clamp(4rem,8vw,5rem)]">
@@ -641,7 +641,7 @@ export default function Landing() {
 
                 {/* FINAL CTA */}
                 <section className="border-t border-[var(--dc-text)]/15">
-                    <div className="mx-auto w-full max-w-[1240px] px-6 py-28 text-center md:px-10 md:py-32 xl:px-0">
+                    <div className="mx-auto w-full max-w-[1240px] px-7 py-28 text-center sm:px-6 md:px-10 md:py-32 xl:px-0">
 
                         <h2 className="mt-6 font-['Bebas_Neue'] text-[clamp(5rem,18vw,10rem)] uppercase leading-[0.75] md:text-[clamp(5rem,11vw,10rem)]">
                             ¿LISTX PARA

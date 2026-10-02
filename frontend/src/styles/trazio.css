@@ -542,7 +542,12 @@
 }
 
 @media (max-width: 560px) {
+    .dc-auth-stage { padding: 54px 28px 68px; }
+    .dc-auth-card { padding: 24px; }
+    .dc-auth-form-grid { grid-template-columns: 1fr; }
+    .dc-auth-form .wide { grid-column: auto; }
     .dc-auth-provider-grid { grid-template-columns: 1fr; }
+    .dc-auth-links { align-items: flex-start; flex-direction: column; }
 }
 
 .dc-auth-divider {

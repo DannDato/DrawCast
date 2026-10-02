@@ -8,7 +8,7 @@ export default function AuthShell({ eyebrow = 'ACCESO SEGURO', title, descriptio
       <PublicBackground />
 
       <div className="dc-public-content dc-auth-public-content">
-        <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10 xl:px-0">
+        <div className="mx-auto w-full max-w-[1240px] px-7 sm:px-6 md:px-10 xl:px-0">
           <PublicNavbar />
         </div>
 

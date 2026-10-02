@@ -26,7 +26,7 @@ export default function PublicFooter({ legal = false }) {
 
     return (
         <footer className={legal ? "border-t border-black/10 bg-[#242424] text-white" : "border-t border-[var(--dc-text)]/15 bg-[#101010]"}>
-            <div className={legal ? "mx-auto w-full max-w-[1100px] px-6 py-10 md:px-10 md:py-12 xl:px-0" : "mx-auto w-full max-w-[1240px] px-6 py-14 md:px-10 md:py-16 xl:px-0"}>
+            <div className={legal ? "mx-auto w-full max-w-[1100px] px-7 py-10 sm:px-6 md:px-10 md:py-12 xl:px-0" : "mx-auto w-full max-w-[1240px] px-7 py-14 sm:px-6 md:px-10 md:py-16 xl:px-0"}>
                 <div className={legal ? "grid gap-8 border-b border-white/10 pb-8 md:grid-cols-[1.4fr_repeat(3,1fr)]" : "grid gap-10 border-b border-[var(--dc-text)]/10 pb-12 md:grid-cols-[1.4fr_repeat(3,1fr)]"}>
                     <div className="max-w-[360px]">
                         <strong className="font-['Bebas_Neue'] text-4xl font-normal tracking-[0.04em]">
