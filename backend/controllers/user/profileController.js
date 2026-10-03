@@ -148,15 +148,33 @@ class ProfileController {
   avatarContent = async (req, res) => {
     const user = await models.User.findOne({ where: { uuid: String(req.params.uuid || '') }, attributes: ['uuid', 'avatarUrl', 'updatedAt'] });
     if (!user?.avatarUrl) return res.status(404).end();
+
     const key = r2RelativeKeyFromPublicUrl(user.avatarUrl);
-    if (!key) return res.redirect(302, user.avatarUrl);
-    const object = await getR2Object(key);
-    if (!object) return res.status(404).end();
-    res.setHeader('Content-Type', object.contentType);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    if (object.etag) res.setHeader('ETag', object.etag);
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    return res.send(object.buffer);
+    if (key) {
+      const object = await getR2Object(key);
+      if (!object) return res.status(404).end();
+      res.setHeader('Content-Type', object.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      if (object.etag) res.setHeader('ETag', object.etag);
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      return res.send(object.buffer);
+    }
+
+    const fileName = path.basename(String(user.avatarUrl || ''));
+    if (!fileName || fileName === '.' || fileName === path.sep) return res.status(404).end();
+    const localPath = path.join(avatarDirectory, fileName);
+    try {
+      const buffer = await fs.readFile(localPath);
+      const extension = path.extname(fileName).toLowerCase();
+      const contentType = extension === '.png' ? 'image/png' : extension === '.webp' ? 'image/webp' : 'image/jpeg';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      return res.send(buffer);
+    } catch (error) {
+      if (error.code === 'ENOENT') return res.status(404).end();
+      throw error;
+    }
   };
 
   deleteAvatar = async (req, res) => { const oldAvatar = req.user.avatarUrl; if (oldAvatar) await removeStoredAvatar(oldAvatar); await req.user.update({ avatarUrl: null }); await audit(req, { event: 'profile.avatar_removed', category: 'user', userId: req.user.id }); return res.json({ user: await serializeUser(req.user) }); };
