@@ -8,6 +8,7 @@ import { parseGuideSlot, validateGuide } from '../../services/channelGuideServic
 import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
 import { getLimit, limitError } from '../../services/channelEntitlementAccessService.js';
 import { requireModuleEnabled } from '../../middlewares/moduleAccess.js';
+import { deleteR2Object, isR2Enabled, putR2Object, r2PublicUrl } from '../../services/r2StorageService.js';
 
 const router = Router({ mergeParams: true });
 router.use(verifyToken, requireModuleEnabled('editor'), asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.guides')));
@@ -36,22 +37,30 @@ function requireGuideSlot(req, _res, next) {
 router.get('/:slot', authReadLimiter, requireGuideSlot, asyncHandler(async (req, res) => {
   const guide = await models.ChannelGuide.findOne({ where: { channelId: req.channel.id, slot: req.guideSlot } });
   if (!guide) return res.status(404).json({ message: 'Guía no encontrada.' });
-  res.set('Cache-Control', 'no-store').json({ ...publicGuide(guide), imageData: guide.imageData });
+  res.set('Cache-Control', 'no-store').json({ ...publicGuide(guide), imageData: guide.objectKey ? r2PublicUrl(guide.objectKey) : guide.imageData });
 }));
 
 router.put('/:slot', mutationLimiter, requireGuideSlot, asyncHandler(async (req, res) => {
   const data = validateGuide(req.body, req.guideSlot);
+  let stored = { name: data.name, sizeBytes: data.sizeBytes, imageData: data.imageData, objectKey: null };
+  if (isR2Enabled()) {
+    const objectKey = `channels/${req.channel.uuid}/guides/${req.guideSlot}.png`;
+    await putR2Object(objectKey, data.imageBuffer, { contentType: 'image/png', cacheControl: 'no-cache' });
+    stored = { name: data.name, sizeBytes: data.sizeBytes, imageData: null, objectKey };
+  }
   const guide = await db.transaction(async (transaction) => {
     await models.Channel.findByPk(req.channel.id, { transaction, lock: transaction.LOCK.UPDATE });
     const where = { channelId: req.channel.id, slot: req.guideSlot };
     const current = await models.ChannelGuide.findOne({ where, transaction });
-    return current ? current.update(data, { transaction }) : models.ChannelGuide.create({ ...where, ...data }, { transaction });
+    return current ? current.update(stored, { transaction }) : models.ChannelGuide.create({ ...where, ...stored }, { transaction });
   });
   notifyGuides(req);
   res.json(publicGuide(guide));
 }));
 
 router.delete('/:slot', mutationLimiter, asyncHandler(async (req, res) => {
+  const guide = await models.ChannelGuide.findOne({ where: { channelId: req.channel.id, slot: req.guideSlot } });
+  if (guide?.objectKey) await deleteR2Object(guide.objectKey).catch(() => {});
   await models.ChannelGuide.destroy({ where: { channelId: req.channel.id, slot: req.guideSlot } });
   notifyGuides(req);
   res.status(204).end();

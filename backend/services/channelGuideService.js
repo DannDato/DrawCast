@@ -21,5 +21,5 @@ export function validateGuide(body = {}, slot) {
   if (image.length < 45 || image.toString('base64') !== encoded || image.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || image.toString('ascii', 12, 16) !== 'IHDR' || image.readUInt32BE(16) !== 1920 || image.readUInt32BE(20) !== 1080 || image.subarray(-12).toString('hex') !== '0000000049454e44ae426082') {
     throw Object.assign(new Error('La guía debe ser un PNG válido de 1920 × 1080.'), { status: 400 });
   }
-  return { name, imageData, sizeBytes: image.length };
+  return { name, imageData, imageBuffer: image, sizeBytes: image.length };
 }

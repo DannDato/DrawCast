@@ -14,6 +14,8 @@ import { notifySecurity } from '../../services/securityNotificationService.js';
 import { exchangeGoogleCode, googleCodeFlowConfigured, googleIdentityConfigured, verifyGoogleCredential } from '../../services/googleOAuthService.js';
 import { env } from '../../config/env.js';
 import logger from '../../helpers/winston.js';
+import { deleteR2Object, getR2Object, isR2Enabled, putR2Object, r2PublicUrl, r2RelativeKeyFromPublicUrl } from '../../services/r2StorageService.js';
+import { publicAvatarUrl } from '../../services/avatarUrlService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.resolve(__dirname, '../..');
@@ -26,7 +28,7 @@ const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
 function safeSession(session, currentSessionId) { return { id: session.id, userAgent: session.userAgent || 'Dispositivo desconocido', createdAt: session.createdAt, lastSeenAt: session.lastSeenAt || session.createdAt, expiresAt: session.expiresAt, current: session.id === currentSessionId }; }
 async function activeSessions(userId, currentSessionId) { const rows = await models.Session.findAll({ where: { userId, revokedAt: null, expiresAt: { [Op.gt]: new Date() } }, order: [['createdAt', 'DESC']] }); return rows.map((session) => safeSession(session, currentSessionId)); }
-async function removeStoredAvatar(avatarUrl) { const fileName = path.basename(String(avatarUrl || '')); if (!fileName || fileName === '.' || fileName === path.sep) return; try { await fs.unlink(path.join(avatarDirectory, fileName)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
+async function removeStoredAvatar(avatarUrl) { const r2Key = r2RelativeKeyFromPublicUrl(avatarUrl); if (r2Key) { await deleteR2Object(r2Key).catch(() => {}); return; } const fileName = path.basename(String(avatarUrl || '')); if (!fileName || fileName === '.' || fileName === path.sep) return; try { await fs.unlink(path.join(avatarDirectory, fileName)); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
 function disconnectSessionSockets(req, sessionId) { req.app.get('io')?.in(`session:${sessionId}`).disconnectSockets(true); }
 function disconnectUserSockets(req, userId) { req.app.get('io')?.in(`user:${userId}`).disconnectSockets(true); }
 
@@ -142,7 +144,21 @@ class ProfileController {
     return res.json({ message: `Cuenta de ${label} desconectada` });
   };
 
-  uploadAvatar = async (req, res) => { const mime = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase(); const extension = avatarTypes.get(mime); if (!extension) return res.status(415).json({ message: 'Formato no permitido. Usa JPG, PNG o WEBP' }); if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ message: 'No se recibió ninguna imagen' }); await fs.mkdir(avatarDirectory, { recursive: true }); const oldAvatar = req.user.avatarUrl; const fileName = `user_${req.user.id}_${Date.now()}.${extension}`; await fs.writeFile(path.join(avatarDirectory, fileName), req.body); const avatarUrl = `${avatarPublicBase}/${fileName}`; await req.user.update({ avatarUrl }); if (oldAvatar) await removeStoredAvatar(oldAvatar); await audit(req, { event: 'profile.avatar_changed', category: 'user', userId: req.user.id }); return res.json({ avatarUrl, user: await serializeUser(req.user) }); };
+  uploadAvatar = async (req, res) => { const mime = String(req.get('content-type') || '').split(';')[0].trim().toLowerCase(); const extension = avatarTypes.get(mime); if (!extension) return res.status(415).json({ message: 'Formato no permitido. Usa JPG, PNG o WEBP' }); if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ message: 'No se recibió ninguna imagen' }); const oldAvatar = req.user.avatarUrl; let avatarUrl; if (isR2Enabled()) { const objectKey = `avatars/${req.user.uuid}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${extension}`; await putR2Object(objectKey, req.body, { contentType: mime }); avatarUrl = r2PublicUrl(objectKey); } else { await fs.mkdir(avatarDirectory, { recursive: true }); const fileName = `user_${req.user.id}_${Date.now()}.${extension}`; await fs.writeFile(path.join(avatarDirectory, fileName), req.body); avatarUrl = `${avatarPublicBase}/${fileName}`; } await req.user.update({ avatarUrl }); if (oldAvatar) await removeStoredAvatar(oldAvatar); await audit(req, { event: 'profile.avatar_changed', category: 'user', userId: req.user.id }); const user = await serializeUser(req.user); return res.json({ avatarUrl: user.avatarUrl, user }); };
+  avatarContent = async (req, res) => {
+    const user = await models.User.findOne({ where: { uuid: String(req.params.uuid || '') }, attributes: ['uuid', 'avatarUrl', 'updatedAt'] });
+    if (!user?.avatarUrl) return res.status(404).end();
+    const key = r2RelativeKeyFromPublicUrl(user.avatarUrl);
+    if (!key) return res.redirect(302, user.avatarUrl);
+    const object = await getR2Object(key);
+    if (!object) return res.status(404).end();
+    res.setHeader('Content-Type', object.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    if (object.etag) res.setHeader('ETag', object.etag);
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    return res.send(object.buffer);
+  };
+
   deleteAvatar = async (req, res) => { const oldAvatar = req.user.avatarUrl; if (oldAvatar) await removeStoredAvatar(oldAvatar); await req.user.update({ avatarUrl: null }); await audit(req, { event: 'profile.avatar_removed', category: 'user', userId: req.user.id }); return res.json({ user: await serializeUser(req.user) }); };
   sessions = async (req, res) => res.json({ sessions: await activeSessions(req.user.id, req.session?.id) });
   revokeSession = async (req, res) => { const session = await models.Session.findOne({ where: { id: req.params.id, userId: req.user.id, revokedAt: null } }); if (!session) return res.status(404).json({ message: 'Sesión no encontrada o ya cerrada' }); const current = session.id === req.session?.id; await session.update({ revokedAt: new Date() }); disconnectSessionSockets(req, session.id); await audit(req, { event: 'profile.session_revoked', category: 'security', userId: req.user.id, metadata: { sessionId: session.id, current } }); if (current) clearSessionCookie(res); return res.json({ message: 'Sesión cerrada correctamente', current }); };

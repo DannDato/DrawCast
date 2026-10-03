@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import logger from '../helpers/winston.js';
 import { models } from '../models/index.js';
+import { deleteR2Prefix } from './r2StorageService.js';
+import { publicAvatarUrl } from './avatarUrlService.js';
 
 const runtimes = new Map();
 const sleepMs = Math.max(60_000, Number(process.env.CHANNEL_SLEEP_MINUTES || 10) * 60_000);
@@ -116,7 +118,7 @@ function presenceFromRuntime(r) {
     userUuid: editor.userUuid,
     username: editor.username,
     displayName: editor.displayName,
-    avatarUrl: editor.avatarUrl || null,
+    avatarUrl: publicAvatarUrl(editor),
     colorSlot: editor.colorSlot,
     isOwner: Boolean(editor.isOwner),
     canEdit: editorCanEdit(r, socketId)
@@ -367,7 +369,11 @@ export function disconnectRole(channelId, socketId, io) {
       const savedDesigns = await models.SavedDesign.count({ where: { channelId } });
       if (!savedDesigns) {
         try {
-          await fs.rm(path.join(uploadRoot, String(channelId)), { recursive: true, force: true });
+          const channel = await models.Channel.findByPk(channelId, { attributes: ['uuid'] });
+          await Promise.all([
+            fs.rm(path.join(uploadRoot, String(channelId)), { recursive: true, force: true }),
+            channel?.uuid ? deleteR2Prefix(`channels/${channel.uuid}/media/`) : Promise.resolve(0)
+          ]);
         } catch (error) {
           logger.warn('No fue posible limpiar uploads del canal', { channelId, error: error.message });
         }

@@ -35,6 +35,7 @@ export function fitImageSize(naturalWidth, naturalHeight, maxWidth = 640, maxHei
 export function loadImageMetadata(url) {
   return new Promise((resolve) => {
     const image = new Image();
+    image.crossOrigin = 'anonymous';
     image.onload = () => resolve({ naturalWidth: image.naturalWidth || 400, naturalHeight: image.naturalHeight || 300 });
     image.onerror = () => resolve({ naturalWidth: 400, naturalHeight: 300 });
     image.src = url;

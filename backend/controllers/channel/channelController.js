@@ -9,7 +9,9 @@ import { destroyChannelRuntime, getChannelRuntimeSnapshot } from '../../services
 import { isPublicUuid } from '../../services/channelAccessService.js';
 import { getChannelEntitlements, publicChannelEntitlements } from '../../services/channelEntitlementAccessService.js';
 import logger from '../../helpers/winston.js';
+import { deleteR2Prefix } from '../../services/r2StorageService.js';
 import { getStreamPreview } from '../../services/streamPreviewService.js';
+import { publicAvatarUrl } from '../../services/avatarUrlService.js';
 
 function normalizeChannelUrl(value) {
   const raw = String(value || '').trim();
@@ -48,7 +50,7 @@ function publicRuntime(channelId, { includeEditorUsers = true } = {}) {
     editorUsers: uniqueEditors.map((editor) => ({
       username: editor.username,
       displayName: editor.displayName,
-      avatarUrl: editor.avatarUrl || null,
+      avatarUrl: publicAvatarUrl(editor),
       colorSlot: editor.colorSlot,
       isOwner: Boolean(editor.isOwner),
       canEdit: Boolean(editor.canEdit)
@@ -95,7 +97,7 @@ function publicCollaborator(row, user = row.user) {
       username: user.username,
       email: user.email,
       displayName: user.displayName,
-      avatarUrl: user.avatarUrl
+      avatarUrl: publicAvatarUrl(user)
     } : null
   };
 }
@@ -283,7 +285,7 @@ export class ChannelController {
           uuid: row.inviter.uuid,
           username: row.inviter.username,
           displayName: row.inviter.displayName,
-          avatarUrl: row.inviter.avatarUrl
+          avatarUrl: publicAvatarUrl(row.inviter)
         } : null
       }))
     });
@@ -360,7 +362,10 @@ export class ChannelController {
 
     const uploadRoot = path.resolve(process.cwd(), process.env.UPLOAD_DIR || 'uploads', 'channels');
     try {
-      await fs.rm(path.join(uploadRoot, String(channelId)), { recursive: true, force: true });
+      await Promise.all([
+        fs.rm(path.join(uploadRoot, String(channelId)), { recursive: true, force: true }),
+        deleteR2Prefix(`channels/${channelUuid}/`)
+      ]);
     } catch (error) {
       logger.warn('Lienzo eliminado, pero no fue posible limpiar todos sus uploads', { channelId, error: error.message });
     }

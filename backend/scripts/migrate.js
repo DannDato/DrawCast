@@ -407,6 +407,15 @@ await runTrackedMigration('123_1_catalog_missing_relations', async (transaction)
   await bootstrapStoreCatalog({ transaction });
 });
 
+
+await runTrackedMigration('189_r2_guides_object_storage', async (transaction) => {
+  const currentTables = (await queryInterface.showAllTables()).map((table) => typeof table === 'string' ? table : (table.tableName || table.name));
+  if (!currentTables.includes('channel_guides')) return;
+  const columns = await queryInterface.describeTable('channel_guides');
+  if (!columns.object_key) await queryInterface.addColumn('channel_guides', 'object_key', { type: DataTypes.STRING(500), allowNull: true }, { transaction });
+  if (columns.image_data && columns.image_data.allowNull === false) await queryInterface.changeColumn('channel_guides', 'image_data', { type: DataTypes.TEXT('long'), allowNull: true }, { transaction });
+});
+
 function rewriteChannelMediaUrls(value, channelId, channelUuid) {
   let changed = false;
   const legacyPattern = new RegExp(`(/channel-media/)${channelId}(/)`, 'g');

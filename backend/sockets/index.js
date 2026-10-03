@@ -27,6 +27,7 @@ import { getSound } from '../services/soundLibraryService.js';
 import { getChannelSound } from '../services/channelSoundService.js';
 import { isModuleEnabled } from '../services/moduleAccessService.js';
 import logger from '../helpers/winston.js';
+import { publicAvatarUrl } from '../services/avatarUrlService.js';
 import {
   entitlementError,
   featureForObject,
@@ -318,7 +319,7 @@ export function configureSockets(io) {
         userUuid: user.uuid,
         username,
         displayName,
-        avatarUrl: user.avatarUrl || null,
+        avatarUrl: publicAvatarUrl(user),
         isOwner
       });
 
@@ -335,7 +336,7 @@ export function configureSockets(io) {
         const studioEditor = getChannelPresence(channel.id).editorList.find((editor) => editor.canEdit && editor.socketId !== socket.id);
         if (studioEditor) {
           io.to(studioEditor.socketId).emit('studio-collaborator-waiting', {
-            editor: { username, displayName, avatarUrl: user.avatarUrl || null }
+            editor: { username, displayName, avatarUrl: publicAvatarUrl(user) }
           });
         }
       }

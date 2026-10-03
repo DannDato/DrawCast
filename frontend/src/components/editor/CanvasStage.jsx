@@ -272,6 +272,7 @@ export default function CanvasStage({
     }
 
     const image = new Image();
+    image.crossOrigin = 'anonymous';
     image.onload = invalidateRender;
     image.onerror = invalidateRender;
     image.src = guideImageUrl;

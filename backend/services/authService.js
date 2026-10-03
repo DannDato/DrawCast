@@ -5,6 +5,7 @@ import { models } from '../models/index.js';
 import { sha256 } from '../helpers/security.js';
 import { getClientIp } from '../helpers/ip.js';
 import { getUserPermissionKeys } from '../helpers/permissions.js';
+import { publicAvatarUrl } from './avatarUrlService.js';
 
 export async function createSession(req, user) {
   const sid = crypto.randomUUID();
@@ -38,7 +39,7 @@ export async function serializeUser(user) {
     username: loaded.username,
     email: loaded.email,
     displayName: loaded.displayName,
-    avatarUrl: loaded.avatarUrl || null,
+    avatarUrl: publicAvatarUrl(loaded),
     status: loaded.statusKey,
     statusRef: loaded.statusRef || null,
     role: loaded.role ? { id: loaded.role.id, key: loaded.role.key, name: loaded.role.name } : null,

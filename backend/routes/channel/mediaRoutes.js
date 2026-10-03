@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import multer from 'multer';
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -13,6 +12,7 @@ import logger from '../../helpers/winston.js';
 import { externalFetchLimiter, mutationLimiter } from '../../middlewares/security.js';
 import { requireChannelFeature } from '../../middlewares/channelEntitlements.js';
 import { requireModuleEnabled } from '../../middlewares/moduleAccess.js';
+import { isR2Enabled, putR2Object, r2PublicUrl } from '../../services/r2StorageService.js';
 
 const router = Router();
 router.use(requireModuleEnabled('editor'));
@@ -30,7 +30,11 @@ function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
 }
 
-function mediaUrl(req, channelUuid, fileName) {
+function mediaObjectKey(channelUuid, fileName) {
+  return `channels/${channelUuid}/media/${fileName}`;
+}
+
+function localMediaUrl(req, channelUuid, fileName) {
   const configuredOrigin = String(process.env.PUBLIC_API_ORIGIN || '').trim().replace(/\/$/, '');
   const origin = configuredOrigin || `${req.protocol}://${req.get('host')}`;
   const appFolder = `/${String(process.env.APP_FOLDER || 'api').replace(/^\/+|\/+$/g, '')}`;
@@ -135,17 +139,7 @@ async function downloadLimited(initialUrl) {
 }
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination(req, file, callback) {
-      const dir = path.join(root, String(req.channel.id));
-      fs.mkdirSync(dir, { recursive: true });
-      callback(null, dir);
-    },
-    filename(req, file, callback) {
-      const extension = extensions[file.mimetype];
-      callback(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`);
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: maxBytes, files: 1 },
   fileFilter(req, file, callback) {
     if (!allowedMimeTypes.has(file.mimetype)) return callback(httpError('Tipo de imagen no permitido', 415));
@@ -197,31 +191,45 @@ router.get('/:channelUuid/image-search', verifyToken, externalFetchLimiter, asyn
 router.post('/:channelUuid/upload', verifyToken, mutationLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.image')), upload.single('image'), asyncHandler(async (req, res) => {
   if (!req.file) throw httpError('No se recibió archivo', 400);
 
-  const buffer = await fsp.readFile(req.file.path);
+  const buffer = req.file.buffer;
   const detectedMime = detectImageMime(buffer);
-  if (!detectedMime || detectedMime !== req.file.mimetype) {
-    await fsp.rm(req.file.path, { force: true });
-    throw httpError('El contenido del archivo no coincide con una imagen permitida', 415);
+  if (!detectedMime || detectedMime !== req.file.mimetype) throw httpError('El contenido del archivo no coincide con una imagen permitida', 415);
+  const fileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extensions[detectedMime]}`;
+  const objectKey = mediaObjectKey(req.channel.uuid, fileName);
+  let url;
+  if (isR2Enabled()) {
+    await putR2Object(objectKey, buffer, { contentType: detectedMime });
+    url = r2PublicUrl(objectKey);
+  } else {
+    const dir = path.join(root, String(req.channel.id));
+    await fsp.mkdir(dir, { recursive: true });
+    await fsp.writeFile(path.join(dir, fileName), buffer);
+    url = localMediaUrl(req, req.channel.uuid, fileName);
   }
-
-  const url = mediaUrl(req, req.channel.uuid, req.file.filename);
   const mediaKind = detectedMime === 'image/gif' ? 'gif' : 'image';
-  logger.info('Imagen subida al canal', { channelId: req.channel.id, userId: req.user.id, mimeType: detectedMime, bytes: req.file.size, mediaKind });
+  logger.info('Imagen subida al canal', { channelId: req.channel.id, userId: req.user.id, mimeType: detectedMime, bytes: req.file.size, mediaKind, storage: 'r2' });
   res.status(201).json({ url, mimeType: detectedMime, mediaKind, fileName: req.file.originalname });
 }));
 
 router.post('/:channelUuid/import-image-url', verifyToken, externalFetchLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.image')), asyncHandler(async (req, res) => {
   const sourceUrl = await safeUrl(req.body?.url);
   const { buffer, mimeType } = await downloadLimited(sourceUrl);
-  const dir = path.join(root, String(req.channel.id));
-  await fsp.mkdir(dir, { recursive: true });
-
   const fileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extensions[mimeType]}`;
-  await fsp.writeFile(path.join(dir, fileName), buffer);
+  const objectKey = mediaObjectKey(req.channel.uuid, fileName);
+  let url;
+  if (isR2Enabled()) {
+    await putR2Object(objectKey, buffer, { contentType: mimeType });
+    url = r2PublicUrl(objectKey);
+  } else {
+    const dir = path.join(root, String(req.channel.id));
+    await fsp.mkdir(dir, { recursive: true });
+    await fsp.writeFile(path.join(dir, fileName), buffer);
+    url = localMediaUrl(req, req.channel.uuid, fileName);
+  }
 
   const mediaKind = mimeType === 'image/gif' ? 'gif' : 'image';
-  logger.info('Imagen remota importada', { channelId: req.channel.id, userId: req.user.id, bytes: buffer.length, mimeType, mediaKind, sourceHost: sourceUrl.hostname });
-  res.status(201).json({ url: mediaUrl(req, req.channel.uuid, fileName), mimeType, mediaKind, fileName: sourceUrl.pathname.split('/').pop() || 'Imagen web' });
+  logger.info('Imagen remota importada', { channelId: req.channel.id, userId: req.user.id, bytes: buffer.length, mimeType, mediaKind, sourceHost: sourceUrl.hostname, storage: 'r2' });
+  res.status(201).json({ url, mimeType, mediaKind, fileName: sourceUrl.pathname.split('/').pop() || 'Imagen web' });
 }));
 
 export default router;

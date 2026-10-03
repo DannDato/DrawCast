@@ -6,6 +6,8 @@ import { sensitiveAccountLimiter } from '../../middlewares/security.js';
 
 const r = express.Router();
 
+r.get('/users/:uuid/avatar', asyncHandler(ctrlProfile.avatarContent));
+
 r.get('/profile', verifyToken, asyncHandler(ctrlProfile.get));
 r.patch('/profile', verifyToken, asyncHandler(ctrlProfile.update));
 r.patch('/profile/password', verifyToken, sensitiveAccountLimiter, asyncHandler(ctrlProfile.changePassword));

@@ -50,19 +50,20 @@ router.use(verifyToken);
 router.use(requireModuleEnabled('editor'));
 
 router.get('/', authReadLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.custom_sounds')), asyncHandler(async (req, res) => {
-  const sounds = await listChannelSounds(req.channel.id);
+  const sounds = await listChannelSounds({ id: req.channel.id, uuid: req.channel.uuid });
   return res.json({ sounds, maxBytes: 2 * 1024 * 1024 });
 }));
 
 router.post('/', mutationLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.custom_sounds')), asyncHandler(async (req, _res, next) => {
   const limit = getLimit(req.channelEntitlements, 'limit.custom_sound_slots');
-  const sounds = await listChannelSounds(req.channel.id);
+  const sounds = await listChannelSounds({ id: req.channel.id, uuid: req.channel.uuid });
   if (sounds.length >= limit) throw limitError('limit.custom_sound_slots', limit, `Este lienzo ya usa sus ${limit} slot${limit === 1 ? '' : 's'} de sonidos personalizados.`);
   next();
 }), uploadSound, asyncHandler(async (req, res) => {
   if (!req.file) throw httpError('No se recibió ningún MP3.');
   const sound = await ingestChannelSound({
     channelId: req.channel.id,
+    channelUuid: req.channel.uuid,
     userId: req.user.id,
     tempPath: req.file.path,
     originalName: req.file.originalname,
@@ -74,7 +75,7 @@ router.post('/', mutationLimiter, asyncHandler(requireChannelEditor), asyncHandl
 }));
 
 router.delete('/:soundId', mutationLimiter, asyncHandler(requireChannelEditor), asyncHandler(requireChannelFeature('editor.custom_sounds')), asyncHandler(async (req, res) => {
-  const deleted = await deleteChannelSound(req.channel.id, req.params.soundId);
+  const deleted = await deleteChannelSound({ id: req.channel.id, uuid: req.channel.uuid }, req.params.soundId);
   if (!deleted) return res.status(404).json({ message: 'Sonido no encontrado' });
   await audit(req, { event: 'channel.sound_deleted', category: 'channel', userId: req.user.id, metadata: { channelUuid: req.channel.uuid, soundId: req.params.soundId } });
   logger.info('Sonido eliminado del lienzo', { channelId: req.channel.id, userId: req.user.id, soundId: req.params.soundId });
