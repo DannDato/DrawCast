@@ -247,8 +247,10 @@ export function getRouletteRotation(roulette, nowMs = Date.now()) {
 }
 
 export function rouletteWinnerAtRotation(roulette, rotation = roulette?.rouletteEndRotation) {
-  const startedAt = Number(roulette?.rouletteStartedAtMs);
-  if (!Number.isFinite(startedAt)) return null;
+  const rawStartedAt = roulette?.rouletteStartedAtMs;
+  if (rawStartedAt == null || rawStartedAt === '') return null;
+  const startedAt = Number(rawStartedAt);
+  if (!Number.isFinite(startedAt) || startedAt <= 0) return null;
   const entries = rouletteEntries(roulette?.entriesText);
   if (!entries.length) return null;
   const endRotation = Number(rotation);
@@ -378,7 +380,7 @@ export function rouletteColors(roulette) {
 export function removeRouletteWinner(roulette) {
   const entries = rouletteEntries(roulette?.entriesText);
   const winner = rouletteWinnerAtRotation(roulette);
-  if (!winner || winner.index < 0 || winner.index >= entries.length) return roulette;
+  if (entries.length <= 2 || !winner || winner.index < 0 || winner.index >= entries.length) return roulette;
   const nextEntries = entries.filter((_, index) => index !== winner.index);
   return {
     ...roulette,

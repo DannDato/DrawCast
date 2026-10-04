@@ -27,14 +27,33 @@ export function PresenceAvatar({ editor }) {
   );
 }
 
+function uniqueEditors(editors) {
+  const grouped = new Map();
+
+  editors.forEach((editor, index) => {
+    const key = editor?.userUuid || editor?.username || editor?.socketId || `editor-${index}`;
+    const current = grouped.get(key);
+    if (!current) {
+      grouped.set(key, editor);
+      return;
+    }
+
+    if (editor?.canEdit && !current?.canEdit) grouped.set(key, { ...current, ...editor, isOwner: Boolean(current?.isOwner || editor?.isOwner) });
+    else if (editor?.isOwner && !current?.isOwner) grouped.set(key, { ...current, isOwner: true });
+  });
+
+  return Array.from(grouped.values());
+}
+
 export function PresenceStack({ editors = [], max = 5 }) {
-  if (!editors.length) return null;
+  const visibleEditors = uniqueEditors(editors);
+  if (!visibleEditors.length) return null;
   return (
-    <div className="dc-presence-stack" aria-label={`${editors.length} editor${editors.length === 1 ? '' : 'es'} conectado${editors.length === 1 ? '' : 's'}`}>
-      {editors.slice(0, max).map((editor, index) => (
-        <PresenceAvatar key={editor.socketId || editor.userUuid || editor.username || `${editor.displayName || 'editor'}-${index}`} editor={editor} />
+    <div className="dc-presence-stack" aria-label={`${visibleEditors.length} editor${visibleEditors.length === 1 ? '' : 'es'} conectado${visibleEditors.length === 1 ? '' : 's'}`}>
+      {visibleEditors.slice(0, max).map((editor, index) => (
+        <PresenceAvatar key={editor.userUuid || editor.username || editor.socketId || `${editor.displayName || 'editor'}-${index}`} editor={editor} />
       ))}
-      {editors.length > max && <span className="dc-presence-more">+{editors.length - max}</span>}
+      {visibleEditors.length > max && <span className="dc-presence-more">+{visibleEditors.length - max}</span>}
     </div>
   );
 }

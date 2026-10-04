@@ -5,8 +5,17 @@ import { drawRoulette } from '../tools/roulette/rouletteRenderer';
 import { getDrawLayerBounds, isDrawLayer } from '../tools/drawing/drawingTool';
 import { boundsCenter, unrotatePointAround } from './transformUtils';
 import { getThemeColor } from '../../../utils/theme';
+import { getAnimatedGifFrame, warmAnimatedGif } from './animatedGif';
 
 const images = new Map();
+
+function isGifObject(object = {}) {
+  const mediaKind = String(object.mediaKind || '').toLowerCase();
+  const mimeType = String(object.mimeType || '').toLowerCase();
+  const url = String(object.url || '').split('?')[0].toLowerCase();
+  const name = String(object.fileName || object.name || '').toLowerCase();
+  return mediaKind === 'gif' || mimeType === 'image/gif' || url.endsWith('.gif') || name.endsWith('.gif');
+}
 const drawLayerCache = new Map();
 const DRAW_LAYER_CACHE_LIMIT = 6;
 const DRAW_LAYER_CACHE_MAX_PIXELS = 4_200_000;
@@ -21,30 +30,60 @@ function getObjectType(object) {
   return type;
 }
 
-function getImage(url) {
+function getImage(url, { animatedGif = false } = {}) {
   if (!url) return null;
-  let image = images.get(url);
-  if (!image) {
-    image = new Image();
+  const cacheKey = `${animatedGif ? 'gif' : 'image'}:${url}`;
+  let entry = images.get(cacheKey);
+  if (entry) return entry.image;
+
+  const image = new Image();
+  entry = { image, blobUrl: null };
+  images.set(cacheKey, entry);
+
+  if (!animatedGif) {
     image.crossOrigin = 'anonymous';
     image.src = url;
-    images.set(url, image);
+    return image;
   }
+
+  // Animated images coming from R2/external origins can end up frozen when used
+  // directly as a canvas source. Rehydrate the original GIF bytes into a local
+  // blob URL so the browser owns the animation timeline, while R2 remains the
+  // persistent storage.
+  fetch(url, { mode: 'cors', cache: 'force-cache' })
+    .then((response) => {
+      if (!response.ok) throw new Error(`GIF HTTP ${response.status}`);
+      return response.arrayBuffer();
+    })
+    .then((buffer) => {
+      const blobUrl = URL.createObjectURL(new Blob([buffer], { type: 'image/gif' }));
+      entry.blobUrl = blobUrl;
+      image.src = blobUrl;
+    })
+    .catch(() => {
+      image.crossOrigin = 'anonymous';
+      image.src = url;
+    });
+
   return image;
 }
 
 export async function preloadSceneImages(objects) {
-  const urls = [...new Set(Object.values(objects).filter((object) => !object.hidden && getObjectType(object) === 'image').map((object) => object.url))];
-  await Promise.all(urls.map(async (url) => {
-    const image = getImage(url);
+  const media = Object.values(objects).filter((object) => !object.hidden && getObjectType(object) === 'image' && object.url);
+  const unique = [...new Map(media.map((object) => [`${isGifObject(object) ? 'gif' : 'image'}:${object.url}`, object])).values()];
+  await Promise.all(unique.map(async (object) => {
+    const image = getImage(object.url, { animatedGif: isGifObject(object) });
     if (!image) throw new Error('Hay una imagen sin cargar en el lienzo.');
     try { await image.decode(); } catch { throw new Error('No se pudo cargar una imagen del lienzo para guardar la guía.'); }
   }));
 }
 
-function drawImage(ctx, object) {
-  const image = getImage(object.url);
-  if (!image?.complete || !image.naturalWidth) return;
+function drawImage(ctx, object, nowMs = Date.now()) {
+  const animatedGif = isGifObject(object);
+  const gifFrame = animatedGif ? getAnimatedGifFrame(object.url, nowMs) : null;
+  if (animatedGif) warmAnimatedGif(object.url);
+  const image = gifFrame || getImage(object.url, { animatedGif });
+  if (!gifFrame && (!image?.complete || !image.naturalWidth)) return;
   const opacity = Math.max(0, Math.min(1, Number.isFinite(object.opacity) ? object.opacity : 1));
   const radius = Math.max(0, Number(object.borderRadius ?? object.radius) || 0);
   const x = Number(object.x) || 0;
@@ -246,7 +285,7 @@ export function drawObject(ctx, object, options = {}) {
   ctx.save();
   applyObjectRotation(ctx, object);
   if (type === 'shape') drawShape(ctx, object);
-  else if (type === 'image') drawImage(ctx, object);
+  else if (type === 'image') drawImage(ctx, object, options.now);
   else if (type === 'text') drawTextLayer(ctx, object, object.text ?? object.texto ?? '');
   else if (type === 'timer') drawTimer(ctx, object, options.now);
   else if (type === 'roulette') drawRoulette(ctx, object, options.now);

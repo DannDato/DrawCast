@@ -29,6 +29,7 @@ import {
   Type,
   Volume2,
   VolumeX,
+  ShieldCheck,
   Upload
 } from 'lucide-react';
 import { GUIDE_SHORTCUTS, TOOL_SHORTCUTS } from './hotkeys/shortcuts';
@@ -92,6 +93,10 @@ export default function Toolbar({
   isOwner = false,
   overlayHidden = false,
   onTogglePanic,
+  launchpadVolume = 100,
+  onLaunchpadVolumeChange,
+  launchpadSafeMode = false,
+  onToggleLaunchpadSafeMode,
   controlBusy = '',
   connected,
   editorLocked = false,
@@ -226,6 +231,10 @@ export default function Toolbar({
                 <Upload size={15} />
                 {featureLocked('editor.custom_sounds') && <PremiumLock />}
               </button>
+              <button type="button" className={`dc-launchpad-safe-mode is-mobile ${launchpadSafeMode ? 'is-active' : ''}`} onClick={onToggleLaunchpadSafeMode} aria-pressed={launchpadSafeMode} title={`Modo seguro ${launchpadSafeMode ? 'activado' : 'desactivado'}`} aria-label={`Modo seguro ${launchpadSafeMode ? 'activado' : 'desactivado'}`}>
+                <ShieldCheck size={14} />
+                <span className="dc-launchpad-safe-track" aria-hidden="true"><i /></span>
+              </button>
             </> : <>
               <div className="dc-toolbar-group dc-toolbar-menu-wrap">
                 <button type="button" className={`dc-toolbar-icon ${openMenu === 'file' || openMenu === 'save-as' ? 'active' : ''}`} onClick={() => toggleMenu('file')} aria-expanded={openMenu === 'file' || openMenu === 'save-as'} disabled={workspaceDisabled} title="Archivo" aria-label="Archivo">
@@ -300,6 +309,13 @@ export default function Toolbar({
           </div>
 
           <div className="dc-toolbar-mobile-center">
+            {launchpadMode && isOwner && (
+              <label className="dc-launchpad-volume is-mobile" title={`Volumen del Launchpad: ${launchpadVolume}%`}>
+                <Volume2 size={14} />
+                <input type="range" min="0" max="100" step="1" value={launchpadVolume} onChange={(event) => onLaunchpadVolumeChange?.(event.target.value)} disabled={controlDisabled} aria-label="Volumen del Launchpad" />
+                <b>{launchpadVolume}%</b>
+              </label>
+            )}
             {isOwner ? (
               <button type="button" className={`dc-panic-button ${overlayHidden ? 'active' : ''}`} onClick={onTogglePanic} disabled={controlDisabled} title={overlayHidden ? 'Encender overlay' : 'Apagar overlay'} aria-label={overlayHidden ? 'Encender overlay' : 'Apagar overlay'} aria-pressed={overlayHidden}><Power size={15} /></button>
             ) : overlayHidden ? (
@@ -332,6 +348,18 @@ export default function Toolbar({
             <span>Subir sonidos</span>
             {featureLocked('editor.custom_sounds') && <PremiumLock />}
           </button>
+          <button type="button" className={`dc-launchpad-safe-mode ${launchpadSafeMode ? 'is-active' : ''}`} onClick={onToggleLaunchpadSafeMode} aria-pressed={launchpadSafeMode} title={launchpadSafeMode ? 'Modo seguro activado: confirma antes de lanzar un sonido' : 'Modo seguro desactivado: lanza sonidos directamente'}>
+            <ShieldCheck size={14} />
+            <span>Modo seguro</span>
+            <span className="dc-launchpad-safe-track" aria-hidden="true"><i /></span>
+          </button>
+          {isOwner && (
+            <label className="dc-launchpad-volume" title={`Volumen del Launchpad: ${launchpadVolume}%`}>
+              <Volume2 size={14} />
+              <input type="range" min="0" max="100" step="1" value={launchpadVolume} onChange={(event) => onLaunchpadVolumeChange?.(event.target.value)} disabled={controlDisabled} aria-label="Volumen del Launchpad" />
+              <b>{launchpadVolume}%</b>
+            </label>
+          )}
         </div>
       ) : <>
       <div className="dc-toolbar-group dc-toolbar-menu-wrap">

@@ -7,5 +7,6 @@ export default (db) => db.define('Channel', {
   name: { type: DataTypes.STRING(120), allowNull: false },
   platform: { type: DataTypes.STRING(40), allowNull: true },
   channelUrl: { type: DataTypes.STRING(500), allowNull: true, field: 'channel_url' },
-  publicKey: { type: DataTypes.STRING(64), allowNull: false, unique: true, field: 'public_key' }
+  publicKey: { type: DataTypes.STRING(64), allowNull: false, unique: true, field: 'public_key' },
+  launchpadVolume: { type: DataTypes.TINYINT.UNSIGNED, allowNull: false, defaultValue: 100, field: 'launchpad_volume' }
 }, { tableName: 'channels', indexes: [{ name: 'channels_owner_id_idx', fields: ['owner_id'] }] });

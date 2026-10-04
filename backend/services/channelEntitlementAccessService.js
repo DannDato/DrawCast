@@ -50,6 +50,10 @@ export function invalidateChannelEntitlements(channelId) {
   cache.delete(Number(channelId));
 }
 
+export function invalidateAllChannelEntitlements() {
+  cache.clear();
+}
+
 export function entitlementError(featureKey, message = null) {
   const label = CHANNEL_FEATURE_LABELS[featureKey] || featureKey;
   return Object.assign(new Error(message || `${label} está bloqueado en este lienzo.`), {

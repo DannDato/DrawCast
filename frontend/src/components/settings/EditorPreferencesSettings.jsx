@@ -28,13 +28,18 @@ export default function EditorPreferencesSettings({ value, onChange, onSave, onR
   const patch = (section, next) => onChange({ ...preferences, [section]: { ...preferences[section], ...next } });
 
   return <div className="dc-editor-preferences grid gap-[14px]">
-    <div className="flex flex-col justify-between gap-3 bg-[var(--dc-surface-raised)] p-4 md:flex-row md:items-center"><div className="order-2 text-right md:order-2"><strong className="block">Predeterminados de herramientas</strong><span className="text-sm text-[var(--dc-text-muted)]">Se aplican al crear elementos nuevos. Nunca se guardan dentro de un diseño ni modifican capas que ya existen.</span></div><div className="order-1 flex shrink-0 flex-wrap gap-2"><button className="inline-flex items-center gap-2 border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-sm font-bold" onClick={onReset} disabled={saving}><RotateCcw size={15} /> Restaurar</button><button className="inline-flex items-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-sm font-bold text-[var(--dc-button-primary-text)] disabled:opacity-50" onClick={onSave} disabled={saving}><Save size={15} /> {saving ? 'Guardando…' : 'Guardar configuración'}</button></div></div>
+    <div className="flex flex-col justify-between gap-3 bg-[var(--dc-surface-raised)] p-4 md:flex-row md:items-center"><div className="order-2 text-right md:order-2"><strong className="block">Preferencias recordadas</strong><span className="text-sm text-[var(--dc-text-muted)]">TRAZIO aprende automáticamente los últimos ajustes que usas en cada herramienta. Aquí puedes revisarlos, cambiarlos o restaurarlos.</span></div><div className="order-1 flex shrink-0 flex-wrap gap-2"><button className="inline-flex items-center gap-2 border border-[var(--dc-button-secondary-border)] bg-[var(--dc-button-secondary-bg)] px-3.5 py-2.5 text-sm font-bold" onClick={onReset} disabled={saving}><RotateCcw size={15} /> Restaurar</button><button className="inline-flex items-center gap-2 border border-[var(--dc-button-primary-border)] bg-[var(--dc-button-primary-bg)] px-3.5 py-2.5 text-sm font-bold text-[var(--dc-button-primary-text)] disabled:opacity-50" onClick={onSave} disabled={saving}><Save size={15} /> {saving ? 'Guardando…' : 'Guardar configuración'}</button></div></div>
 
     <Card title="Dibujo" description="Valores que recibe el pincel cuando abres una nueva sesión del editor.">
       <label className={labelClass}>Pincel<select className={fieldClass} value={preferences.drawing.brush} onChange={(event) => patch('drawing', { brush: event.target.value })}>{BRUSH_PRESETS.map((brush) => <option key={brush.value} value={brush.value}>{brush.label}</option>)}</select></label>
       <ColorField label="Color" value={preferences.drawing.color} onChange={(color) => patch('drawing', { color })} />
       <RangeField label="Tamaño" value={preferences.drawing.size} min={2} max={100} suffix=" px" onChange={(size) => patch('drawing', { size })} />
       <RangeField label="Opacidad" value={preferences.drawing.opacity} min={0.05} max={1} step={0.01} suffix="%" onChange={(opacity) => patch('drawing', { opacity })} />
+    </Card>
+
+    <Card title="Línea" description="Color y grosor que TRAZIO recuerda para la próxima línea.">
+      <ColorField label="Color" value={preferences.line.strokeColor} onChange={(strokeColor) => patch('line', { strokeColor })} />
+      <RangeField label="Grosor" value={preferences.line.strokeWidth} min={1} max={64} suffix=" px" onChange={(strokeWidth) => patch('line', { strokeWidth })} />
     </Card>
 
     <Card title="Formas" description="Tipo y apariencia inicial de las formas nuevas.">

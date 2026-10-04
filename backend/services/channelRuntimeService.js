@@ -52,6 +52,7 @@ function runtime(channelId) {
       overlays: new Set(),
       liveEnabled: true,
       overlayHidden: false,
+      launchpadVolume: 100,
       hasDraftChanges: false,
       studioEditorSocketId: null,
       sleepTimer: null
@@ -106,6 +107,7 @@ function controlFromRuntime(r) {
   return {
     liveEnabled: r.liveEnabled,
     overlayHidden: r.overlayHidden,
+    launchpadVolume: r.launchpadVolume,
     hasDraftChanges: r.hasDraftChanges,
     editorCount: r.editors.size,
     liveRequired: distinctEditorUsers(r) > 1
@@ -136,7 +138,7 @@ export function getChannelRuntimeSnapshot(channelId) {
   const r = runtimes.get(channelId);
   if (!r) {
     return {
-      control: { liveEnabled: true, overlayHidden: false, hasDraftChanges: false, editorCount: 0, liveRequired: false },
+      control: { liveEnabled: true, overlayHidden: false, launchpadVolume: 100, hasDraftChanges: false, editorCount: 0, liveRequired: false },
       presence: { editors: 0, overlays: 0, clients: 0, editorList: [] }
     };
   }
@@ -298,6 +300,13 @@ export function setLiveEnabled(channelId, enabled, socketId = null) {
 export function setOverlayHidden(channelId, hidden) {
   const r = runtime(channelId);
   r.overlayHidden = Boolean(hidden);
+  return getChannelControl(channelId);
+}
+
+export function setLaunchpadVolume(channelId, volume) {
+  const r = runtime(channelId);
+  const numeric = Number(volume);
+  r.launchpadVolume = Number.isFinite(numeric) ? Math.max(0, Math.min(100, Math.round(numeric))) : 100;
   return getChannelControl(channelId);
 }
 

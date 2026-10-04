@@ -34,16 +34,12 @@ export default function TimerControls({ selected, config, setConfig, onPatchSele
   }, [selectedTimer, selected?.id, selected?.startedAtMs, selected?.timerResumeSeconds, selected?.timerRunning, running, finished]);
 
   const update = (patch) => {
+    setConfig((current) => ({ ...current, ...patch }));
     if (selectedTimer) onPatchSelected(patch);
-    else setConfig((current) => ({ ...current, ...patch }));
   };
 
   const setMode = (timerMode) => {
     if (timerMode === value.timerMode) return;
-    if (selectedTimer) {
-      update({ timerMode, startSeconds: value.limitSeconds, limitSeconds: value.startSeconds });
-      return;
-    }
     if (timerMode === 'down' && value.startSeconds === 0 && value.limitSeconds === MAX_TIMER_SECONDS) {
       update({ timerMode, startSeconds: 300, limitSeconds: 0 });
       return;

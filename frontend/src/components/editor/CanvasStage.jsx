@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { drawObject, hitObject } from './renderer/drawObject';
-import { orderedObjects, renderScene, sceneHasRunningTimers, sceneHasTimerFinishAnimations, sceneHasRunningRoulettes } from './renderer/sceneRenderer';
+import { orderedObjects, renderScene, sceneHasAnimatedGifs, sceneHasRunningTimers, sceneHasTimerFinishAnimations, sceneHasRunningRoulettes } from './renderer/sceneRenderer';
 import { boundsOverlap, drawMarquee, drawMultiSelection, getObjectBounds, getObjectFrame, getSelectionBounds, hitResizeHandle, hitRotateHandle, resizeCursorForHandle, resizeSelectionFromHandle, rotateSelection } from './renderer/selectionRenderer';
 import { buildShapeFromDrag } from './tools/shapes/shapeTool';
 import { buildLineFromDrag } from './tools/lines/lineTool';
@@ -298,7 +298,8 @@ export default function CanvasStage({
         if (!state) return;
         const now = Date.now();
         const timerSecond = Math.floor(now / 1000);
-        if (sceneHasRunningRoulettes(state.orderedSceneObjects, now)) renderDirtyRef.current = true;
+        if (sceneHasAnimatedGifs(state.orderedSceneObjects)) renderDirtyRef.current = true;
+        else if (sceneHasRunningRoulettes(state.orderedSceneObjects, now)) renderDirtyRef.current = true;
         else if (sceneHasTimerFinishAnimations(state.orderedSceneObjects, now)) renderDirtyRef.current = true;
         else if (sceneHasRunningTimers(state.orderedSceneObjects, now) && timerSecond !== lastTimerSecondRef.current) renderDirtyRef.current = true;
         const cursorFadeTick = Math.floor(now / 100);

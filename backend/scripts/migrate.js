@@ -416,6 +416,34 @@ await runTrackedMigration('189_r2_guides_object_storage', async (transaction) =>
   if (columns.image_data && columns.image_data.allowNull === false) await queryInterface.changeColumn('channel_guides', 'image_data', { type: DataTypes.TEXT('long'), allowNull: true }, { transaction });
 });
 
+await runTrackedMigration('191_admin_catalog_and_plus_layers_10', async (transaction) => {
+  await bootstrapEntitlementCatalog({ transaction });
+  await bootstrapStoreCatalog({ transaction });
+
+  const capability = await models.EntitlementCapability.findOne({ where: { key: 'limit.layers' }, transaction });
+  if (!capability) return;
+  const bundles = await models.EntitlementBundle.findAll({ where: { key: { [Op.in]: [ENTITLEMENT_BUNDLE_KEYS.CANVAS_PLUS, ENTITLEMENT_BUNDLE_KEYS.CANVAS_COLLAB] } }, transaction });
+  for (const bundle of bundles) {
+    const [grant] = await models.EntitlementGrant.findOrCreate({
+      where: { bundleId: bundle.id, capabilityId: capability.id },
+      defaults: { operation: 'set', value: 10 },
+      transaction
+    });
+    await grant.update({ operation: 'set', value: 10 }, { transaction });
+  }
+});
+
+
+await runTrackedMigration('193_channel_launchpad_volume', async (transaction) => {
+  const currentTables = (await queryInterface.showAllTables()).map((table) => typeof table === 'string' ? table : (table.tableName || table.name));
+  if (!currentTables.includes('channels')) return;
+  const columns = await queryInterface.describeTable('channels');
+  if (!columns.launchpad_volume) {
+    await queryInterface.addColumn('channels', 'launchpad_volume', { type: DataTypes.TINYINT.UNSIGNED, allowNull: false, defaultValue: 100 }, { transaction });
+  }
+});
+
+
 function rewriteChannelMediaUrls(value, channelId, channelUuid) {
   let changed = false;
   const legacyPattern = new RegExp(`(/channel-media/)${channelId}(/)`, 'g');

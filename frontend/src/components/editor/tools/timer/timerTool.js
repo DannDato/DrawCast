@@ -18,6 +18,25 @@ export const DEFAULT_TIMER_CONFIG = {
 };
 
 const clampSeconds = (value) => Math.max(0, Math.min(MAX_TIMER_SECONDS, Number(value) || 0));
+
+function normalizeTimerRange(timerMode, rawStart, rawLimit) {
+  let startSeconds = clampSeconds(rawStart);
+  let limitSeconds = clampSeconds(rawLimit);
+
+  if (timerMode === 'down') {
+    if (startSeconds <= limitSeconds) {
+      if (startSeconds === 0) startSeconds = 300;
+      limitSeconds = 0;
+    }
+    return { startSeconds, limitSeconds };
+  }
+
+  if (limitSeconds <= startSeconds) {
+    if (startSeconds >= MAX_TIMER_SECONDS) startSeconds = 0;
+    limitSeconds = MAX_TIMER_SECONDS;
+  }
+  return { startSeconds, limitSeconds };
+}
 const validColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback;
 
 export function parseHmsToSeconds(raw, fallbackSeconds = 0) {
@@ -43,12 +62,10 @@ export function formatSecondsAsHms(totalSeconds) {
 
 export function normalizeTimerConfig(config = {}) {
   const timerMode = config.timerMode === 'down' || config.mode === 'down' ? 'down' : 'up';
-  const startSeconds = clampSeconds(config.startSeconds ?? config.baseSeconds);
+  const rawStart = config.startSeconds ?? config.baseSeconds;
   const fallbackLimit = timerMode === 'down' ? 0 : MAX_TIMER_SECONDS;
   const rawLimit = Number.isFinite(Number(config.limitSeconds)) ? Number(config.limitSeconds) : fallbackLimit;
-  const limitSeconds = timerMode === 'down'
-    ? Math.max(0, Math.min(startSeconds, rawLimit))
-    : Math.min(MAX_TIMER_SECONDS, Math.max(startSeconds, rawLimit));
+  const { startSeconds, limitSeconds } = normalizeTimerRange(timerMode, rawStart, rawLimit);
   const textConfig = normalizeTextConfig(config);
 
   return {
@@ -181,13 +198,23 @@ export function restartTimer(timer, nowMs = Date.now()) {
 export function adjustTimerSeconds(timer, deltaSeconds, nowMs = Date.now()) {
   const config = normalizeTimerConfig(timer);
   const current = getTimerCurrentSeconds(timer, nowMs);
-  const minAllowed = config.timerMode === 'down' ? config.limitSeconds : config.startSeconds;
-  const maxAllowed = config.timerMode === 'down' ? config.startSeconds : config.limitSeconds;
-  const next = Math.max(minAllowed, Math.min(maxAllowed, current + Number(deltaSeconds || 0)));
+  const next = clampSeconds(current + Number(deltaSeconds || 0));
   const running = Boolean(timer.timerRunning ?? timer.running);
+
+  // Los ajustes rápidos modifican tiempo real, no sólo el cursor dentro del
+  // rango original. Si hace falta, extendemos INICIO/FINAL para que +tiempo
+  // nunca quede bloqueado por un límite viejo o degenerado.
+  const startSeconds = config.timerMode === 'down'
+    ? Math.max(config.startSeconds, next)
+    : Math.min(config.startSeconds, next);
+  const limitSeconds = config.timerMode === 'down'
+    ? Math.min(config.limitSeconds, next)
+    : Math.max(config.limitSeconds, next);
 
   return {
     ...timer,
+    startSeconds,
+    limitSeconds,
     timerCurrentSeconds: next,
     timerResumeSeconds: next,
     timerRunning: running,

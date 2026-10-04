@@ -23,6 +23,18 @@ export function sceneHasRunningRoulettes(objects, nowMs = Date.now()) {
   return list.some((object) => object && !object.hidden && object.tipo === 'roulette' && rouletteNeedsAnimationFrame(object, nowMs));
 }
 
+export function sceneHasAnimatedGifs(objects) {
+  const list = Array.isArray(objects) ? objects : Object.values(objects || {});
+  return list.some((object) => {
+    if (!object || object.hidden || (object.tipo !== 'image' && object.tipo !== 'imagen')) return false;
+    const mediaKind = String(object.mediaKind || '').toLowerCase();
+    const mimeType = String(object.mimeType || '').toLowerCase();
+    const url = String(object.url || '').split('?')[0].toLowerCase();
+    const name = String(object.fileName || object.name || '').toLowerCase();
+    return mediaKind === 'gif' || mimeType === 'image/gif' || url.endsWith('.gif') || name.endsWith('.gif');
+  });
+}
+
 export function drawGrid(ctx, width = 1920, height = 1080, step = 96) {
   ctx.save();
   ctx.strokeStyle = getThemeColor('--dc-editor-grid', '--dc-line-soft');

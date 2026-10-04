@@ -785,3 +785,40 @@
   .dc-sound-config-upload-toggle,.dc-launchpad-config-upload-toggle,.dc-inline-own-sounds{display:none!important}
   .dc-sound-config-picker-shell.has-upload-panel,.dc-launchpad-config-picker-shell.has-upload-panel{grid-template-columns:minmax(0,1fr)}
 }
+
+
+/* Patch 193 // Volumen de Launchpad por lienzo */
+.dc-launchpad-volume{display:flex;flex:0 0 auto;align-items:center;gap:7px;height:34px;padding:0 9px;background:var(--dc-surface-bright);color:var(--dc-text-muted);font:700 10px/1 Outfit,sans-serif;white-space:nowrap}
+.dc-launchpad-volume>svg{flex:0 0 auto;color:var(--dc-text-muted)}
+.dc-launchpad-volume input[type=range]{width:110px;min-width:70px;accent-color:var(--dc-accent-four);cursor:pointer}
+.dc-launchpad-volume input[type=range]:disabled{opacity:.45;cursor:not-allowed}
+.dc-launchpad-volume b{width:34px;color:var(--dc-text-strong);font:700 10px/1 Outfit,sans-serif;text-align:right}
+@media(max-width:1000px) and (min-width:761px){.dc-launchpad-volume input[type=range]{width:76px}.dc-launchpad-volume b{width:30px}}
+@media(max-width:760px){
+  .dc-toolbar-mobile-center:has(.dc-launchpad-volume){display:flex;align-items:center;gap:4px;margin-left:4px}
+  .dc-launchpad-volume.is-mobile{height:34px;padding:0 6px;gap:4px}
+  .dc-launchpad-volume.is-mobile input[type=range]{width:72px;min-width:54px}
+  .dc-launchpad-volume.is-mobile b{width:28px;font-size:9px}
+}
+@media(max-width:430px){
+  .dc-launchpad-volume.is-mobile{padding:0 4px}
+  .dc-launchpad-volume.is-mobile>svg{display:none}
+  .dc-launchpad-volume.is-mobile input[type=range]{width:56px}
+  .dc-launchpad-volume.is-mobile b{width:26px;font-size:8px}
+}
+
+
+/* Patch 200 // Modo seguro del Launchpad */
+.dc-launchpad-safe-mode{display:flex;flex:0 0 auto;align-items:center;gap:7px;height:34px;padding:0 9px;border:0;background:var(--dc-surface-bright);color:var(--dc-text-muted);font:700 10px/1 Outfit,sans-serif;white-space:nowrap;cursor:pointer}
+.dc-launchpad-safe-mode:hover{background:var(--dc-surface-hover);color:var(--dc-text)}
+.dc-launchpad-safe-mode.is-active{color:var(--dc-text-strong)}
+.dc-launchpad-safe-mode>svg{flex:0 0 auto;color:currentColor}
+.dc-launchpad-safe-track{position:relative;display:block;width:28px;height:14px;border-radius:999px;background:var(--dc-surface-active);transition:background .16s ease}
+.dc-launchpad-safe-track i{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--dc-text-muted);transition:transform .16s ease,background .16s ease}
+.dc-launchpad-safe-mode.is-active .dc-launchpad-safe-track{background:color-mix(in srgb,var(--dc-accent-four) 42%,var(--dc-surface-active))}
+.dc-launchpad-safe-mode.is-active .dc-launchpad-safe-track i{transform:translateX(14px);background:var(--dc-accent-four)}
+.dc-launchpad-safe-mode.is-mobile{width:46px;padding:0 7px;justify-content:center;gap:5px}
+.dc-launchpad-safe-mode.is-mobile .dc-launchpad-safe-track{width:22px;height:12px}
+.dc-launchpad-safe-mode.is-mobile .dc-launchpad-safe-track i{top:2px;left:2px;width:8px;height:8px}
+.dc-launchpad-safe-mode.is-mobile.is-active .dc-launchpad-safe-track i{transform:translateX(10px)}
+@media(max-width:430px){.dc-launchpad-safe-mode.is-mobile{width:40px;padding:0 5px}.dc-launchpad-safe-mode.is-mobile>svg{display:none}}

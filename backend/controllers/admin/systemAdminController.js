@@ -8,6 +8,7 @@ import { getChannelEntitlements, invalidateChannelEntitlements } from '../../ser
 import { broadcastChannelEntitlements } from '../../services/channelEntitlementBroadcastService.js';
 import { getSystemModuleStates, setSystemModuleState } from '../../services/moduleAccessService.js';
 import { createRegistrationInvite } from '../../services/registrationInviteService.js';
+import { createAdminCatalogProduct, disableAdminCatalogProduct, getAdminCatalog, updateAdminCatalogProduct } from '../../services/adminCatalogService.js';
 
 const MAX_USERS = 100;
 
@@ -77,6 +78,29 @@ async function collabLicensesForUsers(userIds, productId) {
 }
 
 export const SystemAdminController = {
+
+  async catalog(_req, res) {
+    return res.json(await getAdminCatalog());
+  },
+
+  async createCatalogProduct(req, res) {
+    const product = await createAdminCatalogProduct(req.body || {});
+    await audit(req, { event: 'admin.catalog_product_created', category: 'admin', targetType: 'store_product', targetId: product.uuid, metadata: { key: product.key } });
+    return res.status(201).json({ product });
+  },
+
+  async updateCatalogProduct(req, res) {
+    const product = await updateAdminCatalogProduct(String(req.params.productUuid || '').trim(), req.body || {});
+    await audit(req, { event: 'admin.catalog_product_updated', category: 'admin', targetType: 'store_product', targetId: product.uuid, metadata: { key: product.key } });
+    return res.json({ product });
+  },
+
+  async disableCatalogProduct(req, res) {
+    const uuid = String(req.params.productUuid || '').trim();
+    await disableAdminCatalogProduct(uuid);
+    await audit(req, { event: 'admin.catalog_product_disabled', category: 'admin', targetType: 'store_product', targetId: uuid });
+    return res.json({ disabled: true });
+  },
 
   async modules(_req, res) {
     return res.json({ modules: await getSystemModuleStates() });

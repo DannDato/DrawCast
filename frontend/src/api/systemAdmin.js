@@ -55,3 +55,23 @@ export async function revokeRegistrationInvite(inviteUuid) {
   const { data } = await api.delete(`/admin/system/registration-invites/${encodeURIComponent(inviteUuid)}`);
   return data;
 }
+
+export async function getSystemCatalog() {
+  const { data } = await api.get('/admin/system/catalog');
+  return data;
+}
+
+export async function createSystemCatalogProduct(payload) {
+  const { data } = await api.post('/admin/system/catalog/products', payload);
+  return data.product;
+}
+
+export async function saveSystemCatalogProduct(productUuid, payload) {
+  const { data } = await api.patch(`/admin/system/catalog/products/${encodeURIComponent(productUuid)}`, payload);
+  return data.product;
+}
+
+export async function disableSystemCatalogProduct(productUuid) {
+  const { data } = await api.delete(`/admin/system/catalog/products/${encodeURIComponent(productUuid)}`);
+  return data;
+}

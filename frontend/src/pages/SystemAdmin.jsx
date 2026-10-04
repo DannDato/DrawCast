@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Check, Copy, KeyRound, Link2, Power, Search, Settings2, UserRoundCheck, Users, X } from 'lucide-react';
+import { Ban, Check, Copy, KeyRound, Link2, PackageOpen, Power, Search, Settings2, UserRoundCheck, Users, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { createRegistrationInvite, getAdminSystemModules, getRegistrationInvites, getSystemCollaborators, getSystemPermissions, getSystemUsers, grantSystemCollabLicense, revokeRegistrationInvite, revokeSystemCollabLicense, saveSystemUserPermissions, setAdminSystemModule } from '../api/systemAdmin';
+import { createRegistrationInvite, getAdminSystemModules, getRegistrationInvites, getSystemCatalog, getSystemCollaborators, getSystemPermissions, getSystemUsers, grantSystemCollabLicense, revokeRegistrationInvite, revokeSystemCollabLicense, saveSystemUserPermissions, setAdminSystemModule } from '../api/systemAdmin';
+import CatalogAdminSection from '../components/admin/CatalogAdminSection';
 
 const sections = [
   { id: 'modules', label: 'Bloqueos', title: ['CONTROL', 'DE ACCESO'], icon: Power, permission: 'admin.modules.manage' },
+  { id: 'catalog', label: 'Catálogo', title: ['CATÁLOGO', 'COMERCIAL'], icon: PackageOpen, permission: 'admin.catalog.read' },
   { id: 'registration-invites', label: 'Invitaciones', title: ['REGISTRO', 'POR INVITACIÓN'], icon: Link2, permission: 'admin.registration_invites.read' },
   { id: 'users', label: 'Usuarios', title: ['USUARIOS', 'Y PERMISOS'], icon: Users, permission: 'admin.users.read' },
   { id: 'collaborators', label: 'Colaboradores', title: ['LICENCIAS', 'COLLAB'], icon: UserRoundCheck, permission: 'admin.collaborators.read' },
@@ -270,6 +272,7 @@ export default function SystemAdmin() {
   const [users, setUsers] = useState([]);
   const [collaborators, setCollaborators] = useState([]);
   const [registrationInvites, setRegistrationInvites] = useState([]);
+  const [catalog, setCatalog] = useState({ products: [], capabilities: [], bundles: [] });
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
   const canManageModules = user?.permissions?.includes('admin.modules.manage');
@@ -279,6 +282,8 @@ export default function SystemAdmin() {
   const canManageCollaborators = user?.permissions?.includes('admin.collaborators.manage');
   const canReadRegistrationInvites = user?.permissions?.includes('admin.registration_invites.read');
   const canManageRegistrationInvites = user?.permissions?.includes('admin.registration_invites.manage');
+  const canReadCatalog = user?.permissions?.includes('admin.catalog.read');
+  const canManageCatalog = user?.permissions?.includes('admin.catalog.manage');
 
   const loadModules = useCallback(async () => {
     if (!canManageModules) return;
@@ -302,6 +307,11 @@ export default function SystemAdmin() {
     setRegistrationInvites(await getRegistrationInvites());
   }, [canReadRegistrationInvites]);
 
+  const loadCatalog = useCallback(async () => {
+    if (!canReadCatalog) return;
+    setCatalog(await getSystemCatalog());
+  }, [canReadCatalog]);
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -309,20 +319,22 @@ export default function SystemAdmin() {
       getSystemPermissions(),
       canReadUsers ? getSystemUsers() : Promise.resolve({ users: [] }),
       canReadCollaborators ? getSystemCollaborators() : Promise.resolve({ users: [] }),
-      canReadRegistrationInvites ? getRegistrationInvites() : Promise.resolve([])
+      canReadRegistrationInvites ? getRegistrationInvites() : Promise.resolve([]),
+      canReadCatalog ? getSystemCatalog() : Promise.resolve({ products: [], capabilities: [], bundles: [] })
     ])
-      .then(([moduleData, permissionData, userData, collaboratorData, inviteData]) => {
+      .then(([moduleData, permissionData, userData, collaboratorData, inviteData, catalogData]) => {
         if (!active) return;
         setModules(moduleData || {});
         setPermissions(permissionData.permissions || []);
         setUsers(userData.users || []);
         setCollaborators(collaboratorData.users || []);
         setRegistrationInvites(inviteData || []);
+        setCatalog(catalogData || { products: [], capabilities: [], bundles: [] });
       })
       .catch((error) => { if (active) setNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo cargar la administración del sistema.' }); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [canManageModules, canReadUsers, canReadCollaborators, canReadRegistrationInvites]);
+  }, [canManageModules, canReadUsers, canReadCollaborators, canReadRegistrationInvites, canReadCatalog]);
 
   return <div className="dc-app-page">
     <Notice notice={notice} />
@@ -338,6 +350,7 @@ export default function SystemAdmin() {
           <div className="px-5 pb-5 pt-2 max-[680px]:px-4 max-[680px]:pb-4 max-[680px]:pt-2">
             {loading ? <div>Cargando administración…</div> : <>
               {activeSection === 'modules' && <ModulesSection modules={modules} onChange={loadModules} onNotice={setNotice} />}
+              {activeSection === 'catalog' && <CatalogAdminSection catalog={catalog} canManage={canManageCatalog} onReload={loadCatalog} onNotice={setNotice} />}
               {activeSection === 'registration-invites' && <RegistrationInvitesSection invites={registrationInvites} canManage={canManageRegistrationInvites} onReload={loadRegistrationInvites} onNotice={setNotice} />}
               {activeSection === 'users' && <UsersSection key={users.map((item) => item.uuid).join('|') || 'empty'} users={users} permissions={permissions} canManage={canManagePermissions} onReload={loadUsers} onNotice={setNotice} />}
               {activeSection === 'collaborators' && <CollaboratorsSection users={collaborators} canManage={canManageCollaborators} onReload={loadCollaborators} onNotice={setNotice} />}

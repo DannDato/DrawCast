@@ -10,7 +10,7 @@ export const getUserSettings = ({ force = false } = {}) => cachedRequest(
 );
 
 export async function saveEditorSettings(editor) {
-  const { data } = await api.patch('/user/settings/editor', editor);
+  const { data } = await api.patch('/user/settings/editor', editor, { showLoading: false });
   invalidateRequestCache(SETTINGS_KEY);
   return data;
 }

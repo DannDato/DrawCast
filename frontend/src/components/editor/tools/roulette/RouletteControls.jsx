@@ -25,11 +25,10 @@ export default function RouletteControls({ selected, config, setConfig, onPatchS
   }, [isSelected, selected?.rouletteSpinSerial, selected?.rouletteStartedAtMs]);
 
   const update = (patch) => {
+    setConfig?.((current) => ({ ...current, ...patch }));
     if (isSelected) {
       const entriesChanging = Object.prototype.hasOwnProperty.call(patch, 'entriesText');
       onPatchSelected?.(entriesChanging ? { ...patch, rouletteRunning: false, rouletteWinnerIndex: null, rouletteWinnerText: '', rouletteStartedAtMs: null, rouletteSpinDurationMs: null } : patch);
-    } else {
-      setConfig?.((current) => ({ ...current, ...patch }));
     }
   };
 
@@ -58,6 +57,7 @@ export default function RouletteControls({ selected, config, setConfig, onPatchS
         rows="8"
         value={value.entriesText}
         spellCheck="false"
+        disabled={spinning}
         onChange={(event) => update({ entriesText: event.target.value })}
         placeholder={'Opción 1\nOpción 2\nOpción 3'}
       />
@@ -96,7 +96,7 @@ export default function RouletteControls({ selected, config, setConfig, onPatchS
           <div className="dc-roulette-result">
             <span>RESULTADO</span>
             <strong>{winner?.text}</strong>
-            <button type="button" className="dc-roulette-remove-winner" onClick={() => onRemoveWinner?.()}><Trash2 size={14} /> ELIMINAR OPCIÓN</button>
+            <button type="button" className="dc-roulette-remove-winner" onClick={() => onRemoveWinner?.()} disabled={entries.length <= 2} title={entries.length <= 2 ? 'La ruleta necesita al menos 2 opciones' : 'Eliminar la opción ganadora'}><Trash2 size={14} /> {entries.length <= 2 ? 'MÍNIMO 2 OPCIONES' : 'ELIMINAR OPCIÓN'}</button>
           </div>
         )
       ) : <p className="dc-help">Arrastra en el lienzo para dibujarla. Después selecciónala y pulsa “Girar ruleta”.</p>}

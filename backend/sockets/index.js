@@ -21,7 +21,8 @@ import {
   replaceObjects,
   setLiveEnabled,
   setObject,
-  setOverlayHidden
+  setOverlayHidden,
+  setLaunchpadVolume
 } from '../services/channelRuntimeService.js';
 import { getSound } from '../services/soundLibraryService.js';
 import { getChannelSound } from '../services/channelSoundService.js';
@@ -259,12 +260,14 @@ export function configureSockets(io) {
       const entitlements = await getChannelEntitlements(channel.id);
       if (!hasFeature(entitlements, 'editor.overlay')) return socket.emit('access-denied');
 
+      setLaunchpadVolume(channel.id, channel.launchpadVolume);
       joined = { channelId: channel.id, role: 'overlay', entitlements, entitlementsAt: Date.now() };
       socket.join(room(channel.id));
       socket.join(overlayRoom(channel.id));
       connectRole(channel.id, socket.id, 'overlay');
       emitPresence(io, channel.id);
       socket.emit('overlay-visibility', { hidden: getChannelControl(channel.id).overlayHidden });
+      socket.emit('launchpad-volume', { volume: getChannelControl(channel.id).launchpadVolume });
       socket.emit('overlay-branding', publicOverlayBranding(entitlements));
       socket.emit('sync-state', { objects: getPublishedChannelState(channel.id) });
     });
@@ -296,6 +299,7 @@ export function configureSockets(io) {
       const channel = await getEditableChannelByPublicKey(user.id, String(publicKey || ''));
       if (!channel) return socket.emit('access-denied');
 
+      setLaunchpadVolume(channel.id, channel.launchpadVolume);
       const beforePresence = getChannelPresence(channel.id);
       const beforeControl = getChannelControl(channel.id);
       const isOwner = Number(channel.ownerId) === Number(user.id);
@@ -594,7 +598,7 @@ export function configureSockets(io) {
         }
 
         let sound = await getSound(payload?.soundId);
-        if (!sound) sound = await getChannelSound(joined.channelId, payload?.soundId);
+        if (!sound) sound = await getChannelSound({ id: joined.channelId, uuid: joined.channelUuid }, payload?.soundId);
         if (!sound) {
           reply?.({ ok: false, message: 'Ese sonido ya no existe en la biblioteca.' });
           return;
@@ -612,6 +616,8 @@ export function configureSockets(io) {
           soundId: sound.id,
           version: sound.version,
           scope: sound.scope || 'library',
+          source,
+          volume: source === 'launchpad' ? getChannelControl(joined.channelId).launchpadVolume : 100,
           playbackId
         };
 
@@ -704,6 +710,26 @@ export function configureSockets(io) {
       logger.info('Escena publicada al overlay', { channelId: context.channelId, userId: context.userId, count: objects.length });
       reply?.({ ok: true, count: objects.length, control: getChannelControl(context.channelId) });
     }, { feature: 'editor.live_studio' });
+
+    edit('launchpad-volume-set', async (context, payload, reply) => {
+      if (!context.isOwner) {
+        reply?.({ ok: false, message: 'Sólo el propietario puede cambiar el volumen del Launchpad.' });
+        return;
+      }
+
+      const numeric = Number(payload?.volume);
+      if (!Number.isFinite(numeric)) {
+        reply?.({ ok: false, message: 'El volumen no es válido.' });
+        return;
+      }
+
+      const volume = Math.max(0, Math.min(100, Math.round(numeric)));
+      await models.Channel.update({ launchpadVolume: volume }, { where: { id: context.channelId } });
+      const control = setLaunchpadVolume(context.channelId, volume);
+      io.to(overlayRoom(context.channelId)).emit('launchpad-volume', { volume });
+      emitControl(io, context.channelId);
+      reply?.({ ok: true, control });
+    }, { allowWhenBlocked: true });
 
     edit('panic-set', (context, payload, reply) => {
       if (!context.isOwner) {

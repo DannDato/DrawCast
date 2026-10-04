@@ -8,6 +8,10 @@ const router = Router();
 router.use(verifyToken);
 router.use(requireSuperAdminPermissions('admin.system.access'));
 
+router.get('/catalog', authReadLimiter, requireSuperAdminPermissions('admin.catalog.read'), asyncHandler(SystemAdminController.catalog));
+router.post('/catalog/products', mutationLimiter, requireSuperAdminPermissions('admin.catalog.manage'), asyncHandler(SystemAdminController.createCatalogProduct));
+router.patch('/catalog/products/:productUuid', mutationLimiter, requireSuperAdminPermissions('admin.catalog.manage'), asyncHandler(SystemAdminController.updateCatalogProduct));
+router.delete('/catalog/products/:productUuid', mutationLimiter, requireSuperAdminPermissions('admin.catalog.manage'), asyncHandler(SystemAdminController.disableCatalogProduct));
 router.get('/modules', authReadLimiter, asyncHandler(SystemAdminController.modules));
 router.patch('/modules/:moduleKey', mutationLimiter, requireSuperAdminPermissions('admin.modules.manage'), asyncHandler(SystemAdminController.updateModule));
 router.get('/registration-invites', authReadLimiter, requireSuperAdminPermissions('admin.registration_invites.read'), asyncHandler(SystemAdminController.registrationInvites));

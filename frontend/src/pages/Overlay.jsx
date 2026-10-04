@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useChannelSocket } from '../hooks/useChannelSocket';
-import { orderedObjects, renderScene, sceneHasRunningTimers, sceneHasTimerFinishAnimations, sceneHasRunningRoulettes } from '../components/editor/renderer/sceneRenderer';
+import { orderedObjects, renderScene, sceneHasAnimatedGifs, sceneHasRunningTimers, sceneHasTimerFinishAnimations, sceneHasRunningRoulettes } from '../components/editor/renderer/sceneRenderer';
 import { pruneLiveStrokes, reduceLiveStrokeMap } from '../components/editor/tools/drawing/drawingTool';
 import { getSoundUrl } from '../api/sounds';
 import { createFrameLimiter, GRAPHICS_FRAME_MS } from '../utils/frameRate';
@@ -29,6 +29,7 @@ export default function Overlay() {
   const [watermarkCorner, setWatermarkCorner] = useState(() => Math.floor(Math.random() * WATERMARK_CORNERS.length));
   const canvasRef = useRef(null);
   const activeAudioRef = useRef(new Map());
+  const launchpadVolumeRef = useRef(100);
   const inboundStrokeFrameRef = useRef(null);
   const inboundStrokeQueueRef = useRef([]);
   const inboundStrokeLastAppliedRef = useRef(0);
@@ -43,7 +44,7 @@ export default function Overlay() {
   }, [objects, orderedSceneObjects, liveStrokes, overlayHidden]);
 
   const stopAllSounds = useCallback(() => {
-    activeAudioRef.current.forEach((audio) => {
+    activeAudioRef.current.forEach(({ audio }) => {
       audio.pause();
       audio.currentTime = 0;
     });
@@ -52,14 +53,14 @@ export default function Overlay() {
 
   const stopSound = useCallback(({ playbackId } = {}) => {
     if (!playbackId) return;
-    const audio = activeAudioRef.current.get(playbackId);
-    if (!audio) return;
+    const current = activeAudioRef.current.get(playbackId);
+    if (!current) return;
     activeAudioRef.current.delete(playbackId);
-    audio.pause();
-    audio.currentTime = 0;
+    current.audio.pause();
+    current.audio.currentTime = 0;
   }, []);
 
-  const playSound = useCallback(({ soundId, version, scope = 'library', playbackId } = {}) => {
+  const playSound = useCallback(({ soundId, version, scope = 'library', source = 'quick', volume, playbackId } = {}) => {
     if (!soundId || !playbackId) return;
     const audioUrl = getSoundUrl(soundId, version, scope, publicKey);
     if (!audioUrl) return;
@@ -67,14 +68,17 @@ export default function Overlay() {
 
     const audio = new Audio(audioUrl);
     audio.preload = 'auto';
+    const requestedVolume = Number(volume);
+    const launchpadVolume = Number.isFinite(requestedVolume) ? requestedVolume : launchpadVolumeRef.current;
+    audio.volume = source === 'launchpad' ? Math.max(0, Math.min(1, launchpadVolume / 100)) : 1;
 
     const cleanup = () => {
-      if (activeAudioRef.current.get(playbackId) === audio) activeAudioRef.current.delete(playbackId);
+      if (activeAudioRef.current.get(playbackId)?.audio === audio) activeAudioRef.current.delete(playbackId);
       audio.removeEventListener('ended', cleanup);
       audio.removeEventListener('error', cleanup);
     };
 
-    activeAudioRef.current.set(playbackId, audio);
+    activeAudioRef.current.set(playbackId, { audio, source });
     audio.addEventListener('ended', cleanup, { once: true });
     audio.addEventListener('error', cleanup, { once: true });
     const playback = audio.play();
@@ -147,6 +151,15 @@ export default function Overlay() {
     },
     'sound-play': playSound,
     'sound-stop': stopSound,
+    'launchpad-volume': ({ volume } = {}) => {
+      const numeric = Number(volume);
+      if (!Number.isFinite(numeric)) return;
+      const next = Math.max(0, Math.min(100, Math.round(numeric)));
+      launchpadVolumeRef.current = next;
+      activeAudioRef.current.forEach(({ audio, source }) => {
+        if (source === 'launchpad') audio.volume = next / 100;
+      });
+    },
     'overlay-branding': ({ watermark } = {}) => setWatermarkRequired(Boolean(watermark)),
     'overlay-visibility': ({ hidden } = {}) => {
       setOverlayHidden(Boolean(hidden));
@@ -189,7 +202,8 @@ export default function Overlay() {
         const state = renderStateRef.current;
         const now = Date.now();
         const timerSecond = Math.floor(now / 1000);
-        if (sceneHasRunningRoulettes(state.orderedObjects, now)) renderDirtyRef.current = true;
+        if (sceneHasAnimatedGifs(state.orderedObjects)) renderDirtyRef.current = true;
+        else if (sceneHasRunningRoulettes(state.orderedObjects, now)) renderDirtyRef.current = true;
         else if (sceneHasTimerFinishAnimations(state.orderedObjects, now)) renderDirtyRef.current = true;
         else if (sceneHasRunningTimers(state.orderedObjects, now) && timerSecond !== lastTimerSecondRef.current) renderDirtyRef.current = true;
         if (renderDirtyRef.current) {

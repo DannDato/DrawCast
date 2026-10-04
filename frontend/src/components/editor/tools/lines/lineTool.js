@@ -1,6 +1,6 @@
 import { DEFAULT_EDITOR_PREFERENCES } from '../../editorDefaults';
 
-export const DEFAULT_LINE_CONFIG = { strokeColor: DEFAULT_EDITOR_PREFERENCES.drawing.color, strokeWidth: 4 };
+export const DEFAULT_LINE_CONFIG = { ...DEFAULT_EDITOR_PREFERENCES.line };
 
 export function buildLineFromDrag(start, end, options = DEFAULT_LINE_CONFIG, snapAngle = false) {
   const dx = end.x - start.x;

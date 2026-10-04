@@ -10,11 +10,12 @@ const MAX_TIMER_SECONDS = (99 * 3600) + (59 * 60) + 59;
 
 export const DEFAULT_EDITOR_PREFERENCES = Object.freeze({
   drawing: Object.freeze({ color: SOFT_WHITE, size: 10, brush: 'pencil', opacity: 1 }),
+  line: Object.freeze({ strokeColor: SOFT_WHITE, strokeWidth: 4 }),
   shape: Object.freeze({ shapeType: 'square', fillColor: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 0, borderRadius: 0 }),
   image: Object.freeze({ borderRadius: 0, opacity: 1 }),
   text: Object.freeze({ fontKey: 'segoe', color: SOFT_WHITE, strokeColor: SOFT_WHITE, strokeWidth: 6, fontSize: 56 }),
   timer: Object.freeze({ timerMode: 'up', startSeconds: 0, limitSeconds: MAX_TIMER_SECONDS, fontKey: 'segoe', color: SOFT_WHITE, finishColor: '#dba367', strokeColor: SOFT_WHITE, strokeWidth: 6, fontSize: 56 }),
-  roulette: Object.freeze({ baseColor: '#6c63ff', spinSpeed: 3.5, spinDurationMs: 7000, spinDecay: 0.5, textColor: '#ffffff', centerColor: '#111111', pointerColor: SOFT_WHITE })
+  roulette: Object.freeze({ entriesText: 'Opción 1\nOpción 2\nOpción 3\nOpción 4\nOpción 5\nOpción 6', baseColor: '#6c63ff', spinSpeed: 3.5, spinDurationMs: 7000, spinDecay: 0.5, textColor: '#ffffff', centerColor: '#111111', pointerColor: SOFT_WHITE, rouletteMuted: false })
 });
 
 const clamp = (value, min, max, fallback) => {
@@ -23,17 +24,32 @@ const clamp = (value, min, max, fallback) => {
 };
 const color = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value).toLowerCase() : fallback;
 const choice = (value, allowed, fallback) => allowed.includes(value) ? value : fallback;
+const normalizeRouletteEntriesText = (value) => {
+  const fallback = DEFAULT_EDITOR_PREFERENCES.roulette.entriesText;
+  if (typeof value !== 'string') return fallback;
+  const limited = value.slice(0, 8000);
+  const entries = limited.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 100);
+  return entries.length >= 2 ? limited : fallback;
+};
 
 export function normalizeEditorPreferences(preferences = {}) {
   const drawing = preferences.drawing || {};
+  const line = preferences.line || {};
   const shape = preferences.shape || {};
   const image = preferences.image || {};
   const text = preferences.text || {};
   const timer = preferences.timer || {};
   const roulette = preferences.roulette || {};
   const timerMode = choice(timer.timerMode, ['up', 'down'], DEFAULT_EDITOR_PREFERENCES.timer.timerMode);
-  const startSeconds = Math.round(clamp(timer.startSeconds, 0, MAX_TIMER_SECONDS, DEFAULT_EDITOR_PREFERENCES.timer.startSeconds));
-  const rawLimit = Math.round(clamp(timer.limitSeconds, 0, MAX_TIMER_SECONDS, DEFAULT_EDITOR_PREFERENCES.timer.limitSeconds));
+  let startSeconds = Math.round(clamp(timer.startSeconds, 0, MAX_TIMER_SECONDS, DEFAULT_EDITOR_PREFERENCES.timer.startSeconds));
+  let limitSeconds = Math.round(clamp(timer.limitSeconds, 0, MAX_TIMER_SECONDS, DEFAULT_EDITOR_PREFERENCES.timer.limitSeconds));
+  if (timerMode === 'down' && startSeconds <= limitSeconds) {
+    if (startSeconds === 0) startSeconds = 300;
+    limitSeconds = 0;
+  } else if (timerMode === 'up' && limitSeconds <= startSeconds) {
+    if (startSeconds >= MAX_TIMER_SECONDS) startSeconds = 0;
+    limitSeconds = MAX_TIMER_SECONDS;
+  }
 
   return {
     drawing: {
@@ -41,6 +57,10 @@ export function normalizeEditorPreferences(preferences = {}) {
       size: Math.round(clamp(drawing.size, 2, 100, DEFAULT_EDITOR_PREFERENCES.drawing.size)),
       brush: choice(drawing.brush, ['pencil', 'marker', 'highlighter'], DEFAULT_EDITOR_PREFERENCES.drawing.brush),
       opacity: clamp(drawing.opacity, 0.05, 1, DEFAULT_EDITOR_PREFERENCES.drawing.opacity)
+    },
+    line: {
+      strokeColor: color(line.strokeColor, DEFAULT_EDITOR_PREFERENCES.line.strokeColor),
+      strokeWidth: clamp(line.strokeWidth, 1, 64, DEFAULT_EDITOR_PREFERENCES.line.strokeWidth)
     },
     shape: {
       shapeType: choice(shape.shapeType, ['square', 'circle', 'triangle', 'star'], DEFAULT_EDITOR_PREFERENCES.shape.shapeType),
@@ -63,7 +83,7 @@ export function normalizeEditorPreferences(preferences = {}) {
     timer: {
       timerMode,
       startSeconds,
-      limitSeconds: timerMode === 'down' ? Math.min(startSeconds, rawLimit) : Math.max(startSeconds, rawLimit),
+      limitSeconds,
       fontKey: choice(timer.fontKey, ['segoe', 'bebas', 'outfit', 'montserrat'], DEFAULT_EDITOR_PREFERENCES.timer.fontKey),
       color: color(timer.color, DEFAULT_EDITOR_PREFERENCES.timer.color),
       finishColor: color(timer.finishColor, DEFAULT_EDITOR_PREFERENCES.timer.finishColor),
@@ -72,13 +92,15 @@ export function normalizeEditorPreferences(preferences = {}) {
       fontSize: clamp(timer.fontSize, 5, 400, DEFAULT_EDITOR_PREFERENCES.timer.fontSize)
     },
     roulette: {
+      entriesText: normalizeRouletteEntriesText(roulette.entriesText),
       baseColor: color(roulette.baseColor, DEFAULT_EDITOR_PREFERENCES.roulette.baseColor),
       spinSpeed: clamp(roulette.spinSpeed, 0.5, 3.5, DEFAULT_EDITOR_PREFERENCES.roulette.spinSpeed),
       spinDurationMs: Math.round(clamp(roulette.spinDurationMs, 2000, 30000, DEFAULT_EDITOR_PREFERENCES.roulette.spinDurationMs)),
       spinDecay: clamp(roulette.spinDecay, 0.10, 0.90, DEFAULT_EDITOR_PREFERENCES.roulette.spinDecay),
       textColor: color(roulette.textColor, DEFAULT_EDITOR_PREFERENCES.roulette.textColor),
       centerColor: color(roulette.centerColor, DEFAULT_EDITOR_PREFERENCES.roulette.centerColor),
-      pointerColor: color(roulette.pointerColor, DEFAULT_EDITOR_PREFERENCES.roulette.pointerColor)
+      pointerColor: color(roulette.pointerColor, DEFAULT_EDITOR_PREFERENCES.roulette.pointerColor),
+      rouletteMuted: Boolean(roulette.rouletteMuted)
     }
   };
 }

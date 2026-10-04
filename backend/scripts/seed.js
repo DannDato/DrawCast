@@ -29,7 +29,9 @@ const permissions = [
   ['admin.collaborators.manage', 'Administrar Licencias Collab', 'Permite asignar y revocar Licencias Collab permanentes.'],
   ['admin.modules.manage', 'Administrar bloqueos del sistema', 'Permite prender y apagar Login, Registro, Editor y Tienda.'],
   ['admin.registration_invites.read', 'Consultar invitaciones de registro', 'Permite consultar invitaciones de registro de un solo uso.'],
-  ['admin.registration_invites.manage', 'Administrar invitaciones de registro', 'Permite generar y revocar invitaciones de registro de un solo uso.']
+  ['admin.registration_invites.manage', 'Administrar invitaciones de registro', 'Permite generar y revocar invitaciones de registro de un solo uso.'],
+  ['admin.catalog.read', 'Consultar catálogo comercial', 'Permite consultar Licencias, Paquetes y Expansiones desde administración.'],
+  ['admin.catalog.manage', 'Administrar catálogo comercial', 'Permite crear, editar, activar y desactivar productos, precios y capacidades.']
 ];
 
 const settings = [
@@ -64,8 +66,8 @@ async function seed() {
   }
 
   await bootstrapEntitlementCatalog();
-  await db.transaction((transaction) => bootstrapStoreCatalog({ transaction, syncPrices: true }));
-  console.log('Precios y moneda del catálogo actualizados.');
+  await db.transaction((transaction) => bootstrapStoreCatalog({ transaction, syncPrices: false }));
+  console.log('Catálogo base verificado sin sobrescribir cambios administrativos.');
 
   const baseKeys = ['menu.dashboard', 'menu.profile'];
   const allPermissionKeys = (await models.Permission.findAll({ where: { active: true }, attributes: ['key'], order: [['key', 'ASC']] })).map((permission) => permission.key);

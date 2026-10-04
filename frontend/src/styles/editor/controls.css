@@ -167,7 +167,7 @@
     max-width:none!important;
   }
   .dc-status-info{
-    display:none;
+    display:flex;
   }
   .dc-status-history,
   .dc-status-hotkeys{

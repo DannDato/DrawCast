@@ -34,7 +34,6 @@ import useEditorHotkeys from '../components/editor/hotkeys/useEditorHotkeys';
 import useEditorMedia from '../components/editor/tools/images/useEditorMedia';
 import { decodeDesignSnapshot, ensureSceneDrawLayer } from '../components/editor/scene/sceneUtils';
 import { TOOL_LABELS } from '../components/editor/hotkeys/shortcuts';
-import { DEFAULT_LINE_CONFIG } from '../components/editor/tools/lines/lineTool';
 import { cancelRouletteSpin, removeRouletteWinner, rouletteWinnerAtRotation, shuffleRouletteEntries, spinRoulette } from '../components/editor/tools/roulette/rouletteTool';
 import useRouletteTickSound from '../components/editor/tools/roulette/useRouletteTickSound';
 import { EMPTY_CHANNEL_ENTITLEMENTS, FEATURE_LABELS, TOOL_FEATURE, entitlementLimit, featureEnabled, normalizeChannelEntitlements, objectFeature } from '../components/editor/entitlements/editorEntitlements';
@@ -84,7 +83,7 @@ export default function Editor() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { confirmDialog, showAlert } = useSystemAlert();
   const {
-    userSettings, drawConfig, setDrawConfig, shapeConfig, setShapeConfig, imageConfig, setImageConfig,
+    userSettings, drawConfig, setDrawConfig, lineConfig, setLineConfig, shapeConfig, setShapeConfig, imageConfig, setImageConfig,
     textConfig, setTextConfig, timerConfig, setTimerConfig, rouletteConfig, setRouletteConfig
   } = useEditorPreferences();
   const [channelUuid, setChannelUuid] = useState(null);
@@ -94,7 +93,6 @@ export default function Editor() {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [tool, setTool] = useState('select');
-  const [lineConfig, setLineConfig] = useState(DEFAULT_LINE_CONFIG);
   const [imagePickerRequest, setImagePickerRequest] = useState(0);
   const [activeDrawLayerId, setActiveDrawLayerId] = useState(null);
   const [liveStrokes, setLiveStrokes] = useState({});
@@ -103,6 +101,12 @@ export default function Editor() {
   const [pasteSerial, setPasteSerial] = useState(1);
   const [mediaStatus, setMediaStatus] = useState('');
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mediaStatus) return undefined;
+    const timeout = window.setTimeout(() => setMediaStatus(''), 6500);
+    return () => window.clearTimeout(timeout);
+  }, [mediaStatus]);
   const workspaceMode = searchParams.get('view') === 'launchpad' ? 'launchpad' : 'canvas';
   const [designsOpen, setDesignsOpen] = useState(false);
   const [designsIntent, setDesignsIntent] = useState('load');
@@ -113,6 +117,10 @@ export default function Editor() {
   const [liveEnabled, setLiveEnabled] = useState(true);
   useRouletteTickSound(objects);
   const [overlayHidden, setOverlayHidden] = useState(false);
+  const [launchpadVolume, setLaunchpadVolume] = useState(100);
+  const [launchpadSafeMode, setLaunchpadSafeMode] = useState(() => {
+    try { return localStorage.getItem('TRAZIO.editor.launchpadSafeMode') === 'on'; } catch { return false; }
+  });
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [controlBusy, setControlBusy] = useState('');
@@ -142,6 +150,8 @@ export default function Editor() {
   const inboundCursorQueueRef = useRef(new Map());
   const inboundCursorLastAppliedRef = useRef(0);
   const pendingDrawFallbackSelectionRef = useRef(false);
+  const launchpadVolumeSaveTimerRef = useRef(null);
+  const launchpadConfirmingRef = useRef(false);
 
   const setScene = (next) => {
     objectsRef.current = next;
@@ -334,9 +344,10 @@ export default function Editor() {
         message: message || 'Esta función no está incluida en este lienzo. Lienzo Plus desbloquea las herramientas premium para todos sus colaboradores.'
       });
     },
-    'channel-control': ({ liveEnabled: nextLive, overlayHidden: nextHidden, hasDraftChanges: nextDraft } = {}) => {
+    'channel-control': ({ liveEnabled: nextLive, overlayHidden: nextHidden, launchpadVolume: nextLaunchpadVolume, hasDraftChanges: nextDraft } = {}) => {
       if (typeof nextLive === 'boolean') setLiveEnabled(nextLive);
       if (typeof nextHidden === 'boolean') setOverlayHidden(nextHidden);
+      if (Number.isFinite(Number(nextLaunchpadVolume))) setLaunchpadVolume(Math.max(0, Math.min(100, Math.round(Number(nextLaunchpadVolume)))));
       if (typeof nextDraft === 'boolean') setHasDraftChanges(nextDraft);
     },
     'clear-all': () => {
@@ -449,6 +460,7 @@ export default function Editor() {
   const applyControlState = (control = {}) => {
     if (typeof control.liveEnabled === 'boolean') setLiveEnabled(control.liveEnabled);
     if (typeof control.overlayHidden === 'boolean') setOverlayHidden(control.overlayHidden);
+    if (Number.isFinite(Number(control.launchpadVolume))) setLaunchpadVolume(Math.max(0, Math.min(100, Math.round(Number(control.launchpadVolume)))));
     if (typeof control.hasDraftChanges === 'boolean') setHasDraftChanges(control.hasDraftChanges);
   };
 
@@ -486,6 +498,32 @@ export default function Editor() {
     launchpadEnabled: canFeature('editor.launchpad'),
     quickSoundSlotLimit, customSoundLimit, launchpadPadLimit
   });
+
+  useEffect(() => {
+    try { localStorage.setItem('TRAZIO.editor.launchpadSafeMode', launchpadSafeMode ? 'on' : 'off'); } catch { /* Preferencia local opcional. */ }
+  }, [launchpadSafeMode]);
+
+  const handleLaunchpadSound = async (soundId, padIndex) => {
+    if (soundPlayback[soundId] || !launchpadSafeMode) {
+      await playSound(soundId, 'launchpad', padIndex);
+      return;
+    }
+
+    if (launchpadConfirmingRef.current) return;
+    const sound = allSounds.find((item) => item.id === soundId);
+    launchpadConfirmingRef.current = true;
+    try {
+      const confirmed = await confirmDialog({
+        title: 'Lanzar sonido',
+        message: `¿Reproducir “${sound?.name || 'este sonido'}” en el overlay?`,
+        confirmLabel: 'Lanzar sonido',
+        cancelLabel: 'Cancelar'
+      });
+      if (confirmed) await playSound(soundId, 'launchpad', padIndex);
+    } finally {
+      launchpadConfirmingRef.current = false;
+    }
+  };
 
   const broadcastCursor = (point) => {
     if (editingLocked || !socket.connected || !point) return;
@@ -591,6 +629,19 @@ export default function Editor() {
     } finally {
       setControlBusy('');
     }
+  };
+
+  const changeLaunchpadVolume = (value) => {
+    if (!isOwner || !connected) return;
+    const volume = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    setLaunchpadVolume(volume);
+    if (launchpadVolumeSaveTimerRef.current) window.clearTimeout(launchpadVolumeSaveTimerRef.current);
+    launchpadVolumeSaveTimerRef.current = window.setTimeout(() => {
+      launchpadVolumeSaveTimerRef.current = null;
+      void emitChannelAction('launchpad-volume-set', { volume }).catch((error) => {
+        setMediaStatus(error.message || 'No se pudo cambiar el volumen del Launchpad.');
+      });
+    }, 120);
   };
 
   const handleToggleWorkspaceMode = () => {
@@ -1495,6 +1546,10 @@ export default function Editor() {
           isOwner={isOwner}
           overlayHidden={overlayHidden}
           onTogglePanic={togglePanic}
+          launchpadVolume={launchpadVolume}
+          onLaunchpadVolumeChange={changeLaunchpadVolume}
+          launchpadSafeMode={launchpadSafeMode}
+          onToggleLaunchpadSafeMode={() => setLaunchpadSafeMode((value) => !value)}
           controlBusy={controlBusy}
           connected={connected && entitlementsReady}
           editorLocked={editingLocked}
@@ -1540,7 +1595,7 @@ export default function Editor() {
             padCount={launchpadPadLimit}
             connected={connected}
             disabled={overlayHidden || launchpadConfigOpen || !canFeature('editor.launchpad')}
-            onPlaySound={(soundId, padIndex) => playSound(soundId, 'launchpad', padIndex)}
+            onPlaySound={handleLaunchpadSound}
             soundPlayback={soundPlayback}
           />
         ) : <>
@@ -1683,10 +1738,7 @@ export default function Editor() {
             </button>
           </div>
 
-          <div className="dc-status-info">
-            {effectiveWorkspaceMode === 'canvas' && TOOL_LABELS[tool] && <span className="dc-status-presence">Herramienta: {TOOL_LABELS[tool]} //</span>}
-            {effectiveWorkspaceMode === 'canvas' && selectedIds.length > 0 && <span className="dc-status-presence">Seleccionada: {selectedIds.length} //</span>}
-            <span className="dc-status-presence">Conectados: {presence.clients} // Editores: {presence.editors} // OBS: {presence.overlays}</span>
+          <div className="dc-status-info" role="status" aria-live="polite" aria-atomic="true">
             {mediaStatus && <span className="dc-media-status">{mediaStatus}</span>}
           </div>
 

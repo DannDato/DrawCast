@@ -5,8 +5,9 @@ export default function TextControls({ selected, config, setConfig, onPatchSelec
   const value = normalizeTextConfig(selectedText ? selected : config);
 
   const update = (patch) => {
+    const configPatch = { ...patch, ...(patch.fontKey ? { fontFamily: TEXT_FONTS.find((font) => font.key === patch.fontKey)?.family } : {}) };
+    setConfig((current) => ({ ...current, ...configPatch }));
     if (selectedText) onPatchSelected(patch);
-    else setConfig((current) => ({ ...current, ...patch, ...(patch.fontKey ? { fontFamily: TEXT_FONTS.find((font) => font.key === patch.fontKey)?.family } : {}) }));
   };
 
   return (
