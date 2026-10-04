@@ -1,7 +1,7 @@
 import api from './axios';
 
 export async function getSystemPresence() {
-  const { data } = await api.get('/admin/system/presence');
+  const { data } = await api.get('/admin/system/presence', { showLoading: false });
   return data;
 }
 
