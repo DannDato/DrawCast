@@ -61,9 +61,9 @@ export default function TimerControls({ selected, config, setConfig, onPatchSele
   return (
     <section className="dc-timer-panel">
       <div className="dc-timer-panel-head">
-        <h3>TEMPORIZADOR</h3>
+        <h3>Temporizador</h3>
         <span className={`dc-timer-status ${finished ? 'is-finished' : running ? 'is-running' : ''}`}>
-          {selectedTimer ? (finished ? 'FINALIZADO' : running ? 'EN MARCHA' : 'PAUSADO') : 'NUEVO'}
+          {selectedTimer ? (finished ? 'Finalizado' : running ? 'En marcha' : 'Pausado') : 'Nuevo'}
         </span>
       </div>
 
@@ -72,15 +72,15 @@ export default function TimerControls({ selected, config, setConfig, onPatchSele
       </div>
 
       <div className="dc-timer-mode" role="group" aria-label="Tipo de conteo">
-        <button type="button" className={value.timerMode === 'down' ? 'active' : ''} onClick={() => setMode('down')}>REGRESIVA</button>
-        <button type="button" className={value.timerMode === 'up' ? 'active' : ''} onClick={() => setMode('up')}>HACIA ARRIBA</button>
+        <button type="button" className={value.timerMode === 'down' ? 'active' : ''} onClick={() => setMode('down')}>Regresiva</button>
+        <button type="button" className={value.timerMode === 'up' ? 'active' : ''} onClick={() => setMode('up')}>Hacia arriba</button>
       </div>
 
       <div className="dc-timer-time-grid">
-        <label>INICIO
+        <label>Inicio
           <input key={`start-${selected?.id || 'new'}-${value.startSeconds}`} defaultValue={formatSecondsAsHms(value.startSeconds)} maxLength={8} inputMode="numeric" placeholder="HH:MM:SS" onBlur={(event) => commitTime('startSeconds', event.currentTarget)} onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()} />
         </label>
-        <label>FINAL
+        <label>Final
           <input key={`limit-${selected?.id || 'new'}-${value.limitSeconds}`} defaultValue={formatSecondsAsHms(value.limitSeconds)} maxLength={8} inputMode="numeric" placeholder="HH:MM:SS" onBlur={(event) => commitTime('limitSeconds', event.currentTarget)} onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()} />
         </label>
       </div>
@@ -88,13 +88,13 @@ export default function TimerControls({ selected, config, setConfig, onPatchSele
       <div className="dc-timer-transport">
         <button type="button" className="primary" disabled={!selectedTimer} onClick={onToggle}>
           {running ? <Pause size={15} /> : <Play size={15} />}
-          {running ? 'PAUSAR' : finished ? 'REINICIAR' : 'INICIAR'}
+          {running ? 'Pausar' : finished ? 'Reiniciar' : 'Iniciar'}
         </button>
-        <button type="button" disabled={!selectedTimer} onClick={onRestart}><RotateCcw size={15} /> REINICIAR</button>
+        <button type="button" disabled={!selectedTimer} onClick={onRestart}><RotateCcw size={15} /> Reiniciar</button>
       </div>
 
       <div className="dc-timer-quick">
-        <span>AJUSTE RÁPIDO</span>
+        <span>Ajuste rápido</span>
         <div className="dc-timer-quick-grid">
           {QUICK_ADJUSTMENTS.map(({ seconds, label }) => (
             <div className="dc-timer-quick-pair" key={seconds}>
@@ -106,30 +106,30 @@ export default function TimerControls({ selected, config, setConfig, onPatchSele
       </div>
 
       <div className="dc-timer-appearance">
-        <div className="dc-timer-section-label">APARIENCIA</div>
+        <div className="dc-timer-section-label">Apariencia</div>
         <div className="dc-timer-appearance-body">
-          <label>FUENTE
+          <label>Fuente
             <select value={value.fontKey} onChange={(event) => update({ fontKey: event.target.value, fontFamily: TEXT_FONTS.find((font) => font.key === event.target.value)?.family })}>
               {TEXT_FONTS.map((font) => <option key={font.key} value={font.key}>{font.label}</option>)}
             </select>
           </label>
 
           <div className="dc-timer-color-grid">
-            <label>COLOR<input type="color" value={value.color} onChange={(event) => update({ color: event.target.value })} /></label>
-            <label>AL FINALIZAR<input type="color" value={value.finishColor} onChange={(event) => update({ finishColor: event.target.value })} /></label>
-            <label>BORDE<input type="color" value={value.strokeColor} onChange={(event) => update({ strokeColor: event.target.value })} /></label>
+            <label>Color<input type="color" value={value.color} onChange={(event) => update({ color: event.target.value })} /></label>
+            <label>Al finalizar<input type="color" value={value.finishColor} onChange={(event) => update({ finishColor: event.target.value })} /></label>
+            <label>Borde<input type="color" value={value.strokeColor} onChange={(event) => update({ strokeColor: event.target.value })} /></label>
           </div>
 
-          <label>GROSOR DEL BORDE <b>{value.strokeWidth}</b></label>
+          <label>Grosor del borde <b>{value.strokeWidth}</b></label>
           <input type="range" min="0" max="24" value={value.strokeWidth} onChange={(event) => update({ strokeWidth: Number(event.target.value) })} />
 
-          <label>TAMAÑO <b>{value.fontSize}</b></label>
+          <label>Tamaño <b>{value.fontSize}</b></label>
           <input type="range" min="5" max="400" value={value.fontSize} onChange={(event) => update({ fontSize: Number(event.target.value) })} />
           <small className="dc-timer-size-hint">También puedes cambiarlo arrastrando los controles del objeto en el lienzo.</small>
         </div>
       </div>
 
-      <p className="dc-help">El conteo usa tiempo real: cambiar de pestaña o perder FPS no lo pausa. Sólo se detiene con PAUSAR.</p>
+      <p className="dc-help">El conteo usa tiempo real: cambiar de pestaña o perder FPS no lo pausa. Sólo se detiene con Pausar.</p>
     </section>
   );
 }

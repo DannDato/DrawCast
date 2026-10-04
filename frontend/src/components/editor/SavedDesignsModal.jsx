@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FolderOpen, HardDrive, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { FolderOpen, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { createSavedDesign, deleteSavedDesign, getSavedDesign, getSavedDesigns, updateSavedDesign } from '../../api/designs';
 import { useSystemAlert } from '../ui/SystemAlert';
 
@@ -204,30 +204,21 @@ export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot,
   return (
     <div className="dc-designs-backdrop" role="presentation" onMouseDown={onClose}>
       <section className="dc-designs-modal" role="dialog" aria-modal="true" aria-label="Diseños guardados" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="dc-designs-header">
-          <div>
-            <span className="dc-designs-kicker"><HardDrive size={14} /> DISEÑOS GUARDADOS</span>
-            <h2>Guarda tu setup y vuelve a él cuando quieras</h2>
-            <p>Capas, trazos, estilos y configuración del editor quedan en la misma copia.</p>
-          </div>
+        <header className="dc-designs-header dc-designs-header-compact">
           <button type="button" className="dc-designs-close" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
         </header>
 
         <div className="dc-designs-save">
-          <div className="dc-designs-save-copy">
-            <b>GUARDAR LO QUE TIENES AHORA</b>
-            <span>Si usas un nombre existente, TRAZIO te preguntará si quieres sobrescribirlo.</span>
-          </div>
           <div className="dc-designs-save-row">
             <input ref={saveInputRef} maxLength="120" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveNew(); }} placeholder="Ej. Sorteo de subs, charla, pantalla de espera..." />
-            <button type="button" className="primary" onClick={saveNew} disabled={!channelUuid || Boolean(busy) || (maxSlots > 0 && designs.length >= maxSlots)}><Save size={14} /> GUARDAR</button>
-            {activeDesign && <button type="button" onClick={() => overwriteDesign(activeDesign)} disabled={Boolean(busy)} title={`Sobrescribir ${activeDesign.name} con el workspace actual`}><RefreshCw size={14} /> SOBRESCRIBIR</button>}
+            <button type="button" className="primary" onClick={saveNew} disabled={!channelUuid || Boolean(busy) || (maxSlots > 0 && designs.length >= maxSlots)}><Save size={14} /> Guardar</button>
+            {activeDesign && <button type="button" onClick={() => overwriteDesign(activeDesign)} disabled={Boolean(busy)} title={`Sobrescribir ${activeDesign.name} con el workspace actual`}><RefreshCw size={14} /> Sobrescribir</button>}
           </div>
         </div>
 
         <div className="dc-designs-list-head">
-          <div><b>TUS DISEÑOS</b><span>{designs.length}{maxSlots > 0 ? ` / ${maxSlots}` : ''} guardado{designs.length === 1 ? '' : 's'}</span></div>
-          <button type="button" onClick={refresh} disabled={Boolean(busy)}><RefreshCw size={13} /> RECARGAR</button>
+          <div><b>Tus diseños</b><span>{designs.length}{maxSlots > 0 ? ` / ${maxSlots}` : ''} guardado{designs.length === 1 ? '' : 's'}</span></div>
+          <button type="button" onClick={refresh} disabled={Boolean(busy)}><RefreshCw size={13} /> Recargar</button>
         </div>
 
         <div ref={listRef} className="dc-designs-list">
@@ -241,8 +232,8 @@ export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot,
                 <span>{formatDate(design.updatedAt)} · {formatBytes(design.sizeBytes)}</span>
               </div>
               <div className="dc-design-card-actions">
-                <button type="button" className="load" onClick={() => load(design)} disabled={Boolean(busy)}><FolderOpen size={14} /> CARGAR</button>
-                <button type="button" className="overwrite" onClick={() => overwriteDesign(design)} disabled={Boolean(busy)} title={`Guardar el workspace actual encima de ${design.name}`}><Save size={13} /> SOBRESCRIBIR</button>
+                <button type="button" className="load" onClick={() => load(design)} disabled={Boolean(busy)}><FolderOpen size={14} /> Cargar</button>
+                <button type="button" className="overwrite" onClick={() => overwriteDesign(design)} disabled={Boolean(busy)} title={`Guardar el workspace actual encima de ${design.name}`}><Save size={13} /> Sobrescribir</button>
                 <button type="button" className="delete" onClick={() => remove(design)} disabled={Boolean(busy)} aria-label={`Eliminar ${design.name}`}><Trash2 size={14} /></button>
               </div>
             </article>
@@ -251,7 +242,7 @@ export default function SavedDesignsModal({ onClose, channelUuid, buildSnapshot,
 
         <footer className="dc-designs-footer">
           <span>{status || (liveEnabled ? 'Cargar reemplaza el lienzo del canal y se refleja en el overlay.' : 'Modo Estudio: cargar cambia el workspace, pero no el overlay hasta que publiques.')}</span>
-          <button type="button" onClick={onClose}>LISTO</button>
+          <button type="button" onClick={onClose}>Listo</button>
         </footer>
       </section>
     </div>

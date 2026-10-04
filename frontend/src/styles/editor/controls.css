@@ -462,3 +462,451 @@
     gap:1px;
   }
 }
+
+/* TRAZIO editor // Patch 203
+   Capas más limpias: jerarquía por contraste y espacio, no por bordes. */
+.dc-editor-layers-sidebar{
+  border-left-color:var(--dc-line-soft);
+  background:var(--dc-bg);
+}
+
+.dc-editor-layers-sidebar .dc-layers{
+  background:var(--dc-bg)!important;
+}
+
+.dc-editor-layers-sidebar .dc-layers-head{
+  min-height:42px;
+  padding:8px 10px 7px;
+  border-bottom:0;
+  background:var(--dc-bg);
+}
+
+.dc-editor-layers-sidebar .dc-layers-head>span{
+  gap:7px;
+  color:var(--dc-text-secondary);
+  font-weight:700;
+}
+
+.dc-editor-layers-sidebar .dc-layers-head>span svg{
+  color:var(--dc-text-dim);
+}
+
+.dc-editor-layers-sidebar .dc-layers-head>span b{
+  color:var(--dc-text-faint);
+  font-weight:600;
+}
+
+.dc-editor-layers-sidebar .dc-layers-head-actions{
+  gap:2px;
+}
+
+.dc-editor-layers-sidebar .dc-layers-head .dc-layers-head-actions>button{
+  padding:5px 7px;
+  border:0;
+  background:transparent;
+  color:var(--dc-text-faint);
+  font-weight:600;
+}
+
+.dc-editor-layers-sidebar .dc-layers-head .dc-layers-head-actions>button:hover{
+  border:0;
+  background:var(--dc-surface-hover);
+  color:var(--dc-text-secondary);
+}
+
+.dc-editor-layers-sidebar .dc-layers-primary-action{
+  padding:4px 8px 7px;
+  border-bottom:0;
+  background:var(--dc-bg);
+}
+
+.dc-editor-layers-sidebar .dc-layers .dc-layers-new-layer{
+  min-height:38px;
+  padding:6px 9px;
+  border:0;
+  background:var(--dc-surface-raised);
+  color:var(--dc-text-secondary);
+}
+
+.dc-editor-layers-sidebar .dc-layers .dc-layers-new-layer:hover{
+  border:0;
+  background:var(--dc-surface-hover-strong);
+  color:var(--dc-text-strong);
+}
+
+.dc-editor-layers-sidebar .dc-layers-new-layer-icon{
+  width:26px;
+  height:26px;
+  border:0;
+  background:var(--dc-accent-one-soft);
+  color:var(--dc-accent-one);
+}
+
+.dc-editor-layers-sidebar .dc-layers-new-layer-copy{
+  gap:2px;
+}
+
+.dc-editor-layers-sidebar .dc-layers-new-layer-copy b{
+  font-weight:700;
+}
+
+.dc-editor-layers-sidebar .dc-layers-new-layer-copy small{
+  color:var(--dc-text-faint);
+  font-weight:500;
+  letter-spacing:.25px;
+  text-transform:none;
+}
+
+.dc-editor-layers-sidebar .dc-layers-tools{
+  gap:4px;
+  padding:0 8px 8px;
+  border-bottom:0;
+  background:var(--dc-bg);
+}
+
+.dc-editor-layers-sidebar .dc-layers-tools button{
+  min-height:30px;
+  border:0;
+  background:var(--dc-surface-2);
+  color:var(--dc-text-muted);
+  font-weight:600;
+}
+
+.dc-editor-layers-sidebar .dc-layers-tools button:hover:not(:disabled){
+  border:0;
+  background:var(--dc-surface-hover-strong);
+  color:var(--dc-text-secondary);
+}
+
+.dc-editor-layers-sidebar .dc-layers-tools .dc-layers-properties.active{
+  border:0;
+  background:var(--dc-accent-four-soft);
+  color:var(--dc-accent-four);
+}
+
+.dc-editor-layers-sidebar .dc-layer-selection-actions{
+  gap:3px;
+  margin:0 8px 7px;
+  padding:5px 6px;
+  border:0;
+  background:var(--dc-surface-raised);
+}
+
+.dc-editor-layers-sidebar .dc-layer-selection-actions>span{
+  color:var(--dc-text-muted);
+  font-weight:600;
+  letter-spacing:0;
+}
+
+.dc-editor-layers-sidebar .dc-layers .dc-layer-selection-actions button,
+.dc-editor-layers-sidebar .dc-layers .dc-layer-icon-btn{
+  border:0;
+  background:transparent;
+  color:var(--dc-text-faint);
+}
+
+.dc-editor-layers-sidebar .dc-layers .dc-layer-selection-actions button:hover,
+.dc-editor-layers-sidebar .dc-layers .dc-layer-icon-btn:hover{
+  border:0;
+  background:var(--dc-surface-hover-strong);
+  color:var(--dc-text-secondary);
+}
+
+.dc-editor-layers-sidebar .dc-layers .dc-layer-selection-actions button.danger,
+.dc-editor-layers-sidebar .dc-layers .dc-layer-icon-btn.danger{
+  color:var(--dc-text-faint);
+}
+
+.dc-editor-layers-sidebar .dc-layers .dc-layer-selection-actions button.danger:hover,
+.dc-editor-layers-sidebar .dc-layers .dc-layer-icon-btn.danger:hover{
+  border:0;
+  background:var(--dc-danger-bg-soft);
+  color:var(--dc-danger-text);
+}
+
+.dc-editor-layers-sidebar .dc-layer-list{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  padding:3px 7px 8px;
+  background:var(--dc-bg);
+}
+
+.dc-editor-layers-sidebar .dc-layer-row,
+.dc-editor-layers-sidebar .dc-layer-group-head{
+  min-height:43px;
+  padding:5px 6px;
+  border:0;
+  background:var(--dc-surface-2);
+  color:var(--dc-text-muted);
+  transition:background .12s ease,color .12s ease,opacity .12s ease,box-shadow .12s ease;
+}
+
+.dc-editor-layers-sidebar .dc-layer-row:hover,
+.dc-editor-layers-sidebar .dc-layer-group-head:hover{
+  background:var(--dc-surface-hover-strong);
+  color:var(--dc-text-secondary);
+}
+
+.dc-editor-layers-sidebar .dc-layer-row.selected,
+.dc-editor-layers-sidebar .dc-layer-group.selected>.dc-layer-group-head{
+  background:var(--dc-surface-raised);
+  color:var(--dc-text-strong);
+  box-shadow:inset 2px 0 0 var(--dc-accent-one);
+}
+
+.dc-editor-layers-sidebar .dc-layer-row.is-hidden{
+  opacity:.42;
+}
+
+.dc-editor-layers-sidebar .dc-layer-grip{
+  color:var(--dc-text-faint);
+  opacity:.55;
+}
+
+.dc-editor-layers-sidebar .dc-layer-row:hover .dc-layer-grip,
+.dc-editor-layers-sidebar .dc-layer-group-head:hover .dc-layer-grip{
+  opacity:1;
+}
+
+.dc-editor-layers-sidebar .dc-layer-index{
+  color:var(--dc-text-faint);
+  font-weight:500;
+}
+
+.dc-editor-layers-sidebar .dc-layer-copy{
+  gap:1px;
+}
+
+.dc-editor-layers-sidebar .dc-layer-copy b{
+  color:inherit;
+  font-weight:700;
+}
+
+.dc-editor-layers-sidebar .dc-layer-copy small{
+  color:var(--dc-text-faint);
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:.2px;
+}
+
+.dc-editor-layers-sidebar .dc-layer-group{
+  overflow:hidden;
+  border:0;
+  background:transparent;
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-head{
+  background:var(--dc-surface-raised);
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-head>svg{
+  color:var(--dc-accent-one);
+  opacity:.75;
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-members{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  margin-top:2px;
+  padding:0 0 0 8px;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-members .dc-layer-row{
+  padding-left:7px;
+  background:color-mix(in srgb,var(--dc-surface-2) 76%,var(--dc-bg));
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-members .dc-layer-row:hover{
+  background:var(--dc-surface-hover);
+}
+
+.dc-editor-layers-sidebar .dc-layers-empty{
+  margin:auto 8px;
+  padding:26px 12px;
+  color:var(--dc-text-faint);
+  font-weight:500;
+  letter-spacing:0;
+}
+
+.dc-editor-layers-sidebar .dc-layers-bottom-action{
+  padding:6px 8px 8px;
+  border-top:0;
+  background:var(--dc-bg);
+}
+
+.dc-editor-layers-sidebar .dc-layers-bottom-action .dc-layers-clear{
+  min-height:30px;
+  border:0;
+  background:transparent;
+  color:var(--dc-text-faint);
+  font-weight:600;
+}
+
+.dc-editor-layers-sidebar .dc-layers-bottom-action .dc-layers-clear:hover:not(:disabled){
+  border:0;
+  background:var(--dc-danger-bg-soft);
+  color:var(--dc-danger-text);
+}
+
+.dc-editor-layers-sidebar .dc-layer-drop-placeholder{
+  margin:0;
+  border:0;
+  background:var(--dc-accent-one-soft);
+  box-shadow:inset 2px 0 0 var(--dc-accent-one);
+}
+
+/* TRAZIO editor // Patch 203.1
+   Capas: fondo oscuro unificado y contraste consistente en desktop + móvil. */
+.dc-editor-layers-sidebar,
+.dc-editor-layers-sidebar .dc-layers,
+.dc-editor-layers-sidebar .dc-layers-head,
+.dc-editor-layers-sidebar .dc-layers-primary-action,
+.dc-editor-layers-sidebar .dc-layers-tools,
+.dc-editor-layers-sidebar .dc-layer-list,
+.dc-editor-layers-sidebar .dc-layers-bottom-action{
+  background:#0d0d0d!important;
+}
+
+.dc-editor-layers-sidebar{
+  border-left-color:#1b1b1b;
+}
+
+.dc-editor-layers-sidebar .dc-layers .dc-layers-new-layer,
+.dc-editor-layers-sidebar .dc-layers-tools button,
+.dc-editor-layers-sidebar .dc-layer-row{
+  background:#141414;
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-head,
+.dc-editor-layers-sidebar .dc-layer-selection-actions{
+  background:#171717;
+}
+
+.dc-editor-layers-sidebar .dc-layer-row:hover,
+.dc-editor-layers-sidebar .dc-layer-group-head:hover,
+.dc-editor-layers-sidebar .dc-layers .dc-layers-new-layer:hover,
+.dc-editor-layers-sidebar .dc-layers-tools button:hover:not(:disabled),
+.dc-editor-layers-sidebar .dc-layers .dc-layer-selection-actions button:hover,
+.dc-editor-layers-sidebar .dc-layers .dc-layer-icon-btn:hover{
+  background:#1b1b1b;
+}
+
+.dc-editor-layers-sidebar .dc-layer-row.selected,
+.dc-editor-layers-sidebar .dc-layer-group.selected>.dc-layer-group-head{
+  background:#202020;
+  color:var(--dc-text-strong);
+  box-shadow:inset 2px 0 0 var(--dc-accent-one);
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-members .dc-layer-row{
+  background:#111111;
+}
+
+.dc-editor-layers-sidebar .dc-layer-group-members .dc-layer-row:hover{
+  background:#181818;
+}
+
+.dc-editor-layers-sidebar .dc-layers-head>span,
+.dc-editor-layers-sidebar .dc-layer-copy b{
+  color:#d6d6d6;
+}
+
+.dc-editor-layers-sidebar .dc-layer-copy small,
+.dc-editor-layers-sidebar .dc-layer-index,
+.dc-editor-layers-sidebar .dc-layer-grip,
+.dc-editor-layers-sidebar .dc-layers-head>span b,
+.dc-editor-layers-sidebar .dc-layers-new-layer-copy small{
+  color:#777;
+}
+
+.dc-editor-layers-sidebar .dc-layers-tools button,
+.dc-editor-layers-sidebar .dc-layer-selection-actions>span,
+.dc-editor-layers-sidebar .dc-layers .dc-layer-icon-btn,
+.dc-editor-layers-sidebar .dc-layers .dc-layer-selection-actions button{
+  color:#8b8b8b;
+}
+
+@media(max-width:760px){
+  .dc-mobile-layers-drawer,
+  .dc-mobile-layers-drawer .dc-layers,
+  .dc-mobile-layers-drawer .dc-layers-head,
+  .dc-mobile-layers-drawer .dc-layers-primary-action,
+  .dc-mobile-layers-drawer .dc-layers-tools,
+  .dc-mobile-layers-drawer .dc-layer-list,
+  .dc-mobile-layers-drawer .dc-layers-bottom-action{
+    background:#0d0d0d!important;
+  }
+
+  .dc-mobile-layers-drawer{
+    box-shadow:-18px 0 40px rgba(0,0,0,.42);
+  }
+
+  .dc-mobile-layers-drawer .dc-layers-new-layer,
+  .dc-mobile-layers-drawer .dc-layers-tools button,
+  .dc-mobile-layers-drawer .dc-layer-row{
+    border:0!important;
+    background:#141414!important;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-group-head,
+  .dc-mobile-layers-drawer .dc-layer-selection-actions{
+    border:0!important;
+    background:#171717!important;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-row:hover,
+  .dc-mobile-layers-drawer .dc-layer-group-head:hover,
+  .dc-mobile-layers-drawer .dc-layers-new-layer:hover,
+  .dc-mobile-layers-drawer .dc-layers-tools button:hover:not(:disabled){
+    background:#1b1b1b!important;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-row.selected,
+  .dc-mobile-layers-drawer .dc-layer-group.selected>.dc-layer-group-head{
+    background:#202020!important;
+    box-shadow:inset 2px 0 0 var(--dc-accent-one)!important;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-group-members .dc-layer-row{
+    background:#111111!important;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-group-members .dc-layer-row:hover{
+    background:#181818!important;
+  }
+}
+
+
+/* Patch 204: toda la fila de capa funciona como zona de arrastre. */
+.dc-editor-layers-sidebar .dc-layer-row{
+  cursor: grab;
+}
+
+.dc-editor-layers-sidebar .dc-layer-row:active{
+  cursor: grabbing;
+}
+
+.dc-editor-layers-sidebar .dc-layer-row .dc-layer-icon-btn,
+.dc-editor-layers-sidebar .dc-layer-row .dc-layer-icon-btn:active{
+  cursor: pointer;
+}
+
+@media (max-width: 767px){
+  .dc-mobile-layers-drawer .dc-layer-row{
+    cursor: grab;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-row:active{
+    cursor: grabbing;
+  }
+
+  .dc-mobile-layers-drawer .dc-layer-row .dc-layer-icon-btn,
+  .dc-mobile-layers-drawer .dc-layer-row .dc-layer-icon-btn:active{
+    cursor: pointer;
+  }
+}

@@ -12,23 +12,23 @@ export default function TextControls({ selected, config, setConfig, onPatchSelec
 
   return (
     <section>
-      <h3>TEXTO</h3>
+      <h3>Texto</h3>
 
-      <label>FUENTE</label>
+      <label>Fuente</label>
       <select value={value.fontKey} onChange={(event) => update({ fontKey: event.target.value, fontFamily: TEXT_FONTS.find((font) => font.key === event.target.value)?.family })}>
         {TEXT_FONTS.map((font) => <option key={font.key} value={font.key}>{font.label}</option>)}
       </select>
 
-      <label>COLOR</label>
+      <label>Color</label>
       <input type="color" value={value.color} onChange={(event) => update({ color: event.target.value })} />
 
-      <label>COLOR DEL BORDE</label>
+      <label>Color del borde</label>
       <input type="color" value={value.strokeColor} onChange={(event) => update({ strokeColor: event.target.value })} />
 
-      <label>GROSOR DEL BORDE <b>{value.strokeWidth}</b></label>
+      <label>Grosor del borde <b>{value.strokeWidth}</b></label>
       <input type="range" min="0" max="24" value={value.strokeWidth} onChange={(event) => update({ strokeWidth: Number(event.target.value) })} />
 
-      <label>TAMAÑO <b>{value.fontSize}</b></label>
+      <label>Tamaño <b>{value.fontSize}</b></label>
       <input type="range" min="5" max="400" value={value.fontSize} onChange={(event) => update({ fontSize: Number(event.target.value) })} />
 
       <p className="dc-help">Haz clic en el lienzo para escribir. Enter aplica, Shift+Enter agrega una línea y doble clic edita un texto existente.</p>

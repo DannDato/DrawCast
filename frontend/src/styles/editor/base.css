@@ -2884,3 +2884,355 @@
 }
 
 .dc-canvas.tool-roulette { cursor: crosshair; }
+
+
+/* TRAZIO editor // Patch 202
+   Propiedades más ligeras: más aire, menos chrome y sólo controles relevantes. */
+.dc-workspace>.dc-inspector-floating{
+  width:342px;
+}
+.dc-workspace>.dc-inspector-floating.is-compact{
+  width:310px;
+}
+.dc-inspector-floating .dc-inspector-head{
+  min-height:40px;
+  padding:6px 7px 6px 10px;
+  border-bottom:0;
+  background:var(--dc-surface-overlay);
+}
+.dc-inspector-floating .dc-inspector-title>span{
+  font-weight:700!important;
+}
+.dc-inspector-floating .dc-inspector-title small{
+  font-size:11px;
+  font-weight:500;
+  color:var(--dc-text-faint);
+}
+.dc-inspector-floating .dc-inspector-body{
+  padding:2px 14px 14px;
+}
+.dc-inspector section{
+  gap:6px;
+  margin-top:12px;
+  padding-top:0;
+}
+.dc-inspector h3{
+  margin:0 0 7px;
+  color:var(--dc-text-secondary);
+  font:700 12px/1.2 Outfit,sans-serif;
+  letter-spacing:.05px;
+  text-transform:none;
+}
+.dc-inspector label,
+.dc-timer-time-grid label,
+.dc-timer-appearance-body label,
+.dc-roulette-colors label,
+.dc-roulette-palette-control>label{
+  color:var(--dc-text-muted);
+  font:500 11px/1.3 Outfit,sans-serif;
+  letter-spacing:.1px;
+  text-transform:none;
+}
+.dc-inspector label b{
+  color:var(--dc-text-secondary);
+  font-size:11px;
+  font-weight:600;
+}
+.dc-inspector input:not([type='range']):not([type='checkbox']):not([type='color']),
+.dc-inspector select,
+.dc-roulette-entries{
+  border-color:transparent;
+  background:var(--dc-surface-raised);
+}
+.dc-inspector input:not([type='range']):not([type='checkbox']):not([type='color']):hover,
+.dc-inspector select:hover,
+.dc-roulette-entries:hover{
+  border-color:var(--dc-line-soft);
+}
+.dc-inspector input:focus,
+.dc-inspector select:focus,
+.dc-roulette-entries:focus{
+  border-color:var(--dc-line-hover);
+  box-shadow:none;
+}
+.dc-inspector input[type='color']{
+  border:0;
+  background:var(--dc-surface-raised);
+}
+.dc-help{
+  margin:3px 0 0;
+  padding:8px 9px;
+  border:0;
+  background:var(--dc-surface-raised);
+  color:var(--dc-text-muted);
+  font:500 11px/1.45 Outfit,sans-serif;
+  letter-spacing:0;
+}
+.dc-timer-status,
+.dc-timer-quick>span,
+.dc-timer-section-label{
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.02em;
+  text-transform:none;
+}
+.dc-timer-appearance{
+  border-top:0;
+  padding-top:4px;
+}
+.dc-timer-size-hint,
+.dc-roulette-micro-help{
+  color:var(--dc-text-faint);
+  font-size:10px;
+  font-weight:400;
+}
+.dc-brush-mode-grid button,
+.dc-image-panel .dc-image-actions button,
+.dc-image-search-submit,
+.dc-image-search-row button,
+.dc-timer-mode button,
+.dc-timer-transport button,
+.dc-timer-quick button,
+.dc-roulette-toolbar button,
+.dc-roulette-primary-actions button{
+  border-color:transparent;
+  background:var(--dc-surface-raised);
+}
+.dc-timer-transport button.primary,
+.dc-roulette-primary-actions .dc-roulette-spin{
+  border-color:var(--dc-button-primary-border);
+  background:var(--dc-button-primary-bg);
+}
+.dc-roulette-palette-preview{
+  border:0;
+}
+.dc-roulette-result{
+  border-left:0;
+}
+.dc-layer-properties{
+  margin-top:14px!important;
+  padding-top:10px!important;
+  border-top:1px solid var(--dc-line-soft);
+}
+@media(max-width:680px){
+  .dc-workspace>.dc-inspector-floating{width:min(330px,calc(100% - 16px));}
+}
+
+
+/* TRAZIO editor // Patch 205
+   Diseños guardados: modal negro, contraste por superficies y sin bordes decorativos. */
+.dc-designs-backdrop{
+  background:rgb(0 0 0 / 78%);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.dc-designs-modal{
+  border:0;
+  background:#000;
+  box-shadow:0 34px 110px rgb(0 0 0 / 78%);
+}
+.dc-designs-header{
+  padding:24px 24px 18px;
+  border:0;
+  background:#000;
+}
+.dc-designs-kicker{
+  color:var(--dc-accent-four);
+  font:700 10px/1 Outfit,sans-serif;
+  letter-spacing:.25px;
+  text-transform:none;
+}
+.dc-designs-header h2{
+  margin:8px 0 5px;
+  color:var(--dc-text-strong);
+  font:400 clamp(2rem,4vw,2.9rem)/.92 "Bebas Neue",sans-serif;
+  letter-spacing:.01em;
+}
+.dc-designs-header p{
+  max-width:620px;
+  color:var(--dc-text-muted);
+  font:500 12px/1.5 Outfit,sans-serif;
+}
+.dc-designs-close{
+  width:38px;
+  height:38px;
+  border:0;
+  background:#0d0d0d;
+  color:var(--dc-text-muted);
+}
+.dc-designs-close:hover{
+  border-color:transparent;
+  background:#181818;
+  color:var(--dc-text-strong);
+}
+.dc-designs-save{
+  margin:0 24px;
+  padding:18px;
+  border:0;
+  background:#0d0d0d;
+}
+.dc-designs-save-copy{margin-bottom:12px}
+.dc-designs-save-copy b,
+.dc-designs-list-head b{
+  color:var(--dc-text-secondary);
+  font:600 11px/1.2 Outfit,sans-serif;
+  letter-spacing:0;
+  text-transform:none;
+}
+.dc-designs-save-copy span{
+  color:var(--dc-text-muted);
+  font:500 10px/1.35 Outfit,sans-serif;
+}
+.dc-designs-save-row{gap:8px}
+.dc-designs-save-row input{
+  height:40px;
+  padding:0 13px;
+  border:0;
+  background:#171717;
+  color:var(--dc-text);
+  font:500 12px/1 Outfit,sans-serif;
+}
+.dc-designs-save-row input:focus{
+  border-color:transparent;
+  background:#202020;
+  box-shadow:inset 0 -2px 0 var(--dc-accent-one);
+}
+.dc-designs-save-row button,
+.dc-designs-list-head button,
+.dc-design-card-actions button,
+.dc-designs-footer button{
+  min-height:36px;
+  border:0;
+  background:#171717;
+  color:var(--dc-text-secondary);
+  font:700 10px/1 Outfit,sans-serif;
+  letter-spacing:0;
+  text-transform:none;
+}
+.dc-designs-save-row button:hover,
+.dc-designs-list-head button:hover,
+.dc-design-card-actions button:hover,
+.dc-designs-footer button:hover{
+  border-color:transparent;
+  background:#222;
+  color:var(--dc-text-strong);
+}
+.dc-designs-save-row button.primary{
+  border:0;
+  background:var(--dc-accent-one);
+  color:var(--dc-text-inverse);
+}
+.dc-designs-save-row button.primary:hover{
+  background:color-mix(in srgb,var(--dc-accent-one) 86%,white 14%);
+}
+.dc-designs-list-head{
+  margin-top:8px;
+  padding:12px 24px 8px;
+  border:0;
+  background:#000;
+}
+.dc-designs-list-head span{
+  color:var(--dc-text-faint);
+  font:500 10px/1 Outfit,sans-serif;
+}
+.dc-designs-list-head button{
+  min-height:30px;
+  background:transparent;
+  color:var(--dc-text-muted);
+}
+.dc-designs-list-head button:hover{background:#111}
+.dc-designs-list{
+  gap:8px;
+  padding:8px 24px 18px;
+  background:#000;
+}
+.dc-design-card{
+  min-height:60px;
+  padding:11px 12px 11px 14px;
+  border:0;
+  background:#0d0d0d;
+}
+.dc-design-card:hover{
+  border-color:transparent;
+  background:#151515;
+}
+.dc-design-card.active{
+  border:0;
+  background:#181818;
+  box-shadow:inset 3px 0 0 var(--dc-accent-one);
+}
+.dc-design-card-copy{gap:5px}
+.dc-design-card-copy b{
+  color:var(--dc-text-strong);
+  font:650 12px/1.2 Outfit,sans-serif;
+}
+.dc-design-card-copy span{
+  color:var(--dc-text-muted);
+  font:500 9px/1.25 Outfit,sans-serif;
+}
+.dc-design-card-actions{gap:5px}
+.dc-design-card-actions button{
+  min-height:32px;
+  background:#171717;
+}
+.dc-design-card-actions button.load{
+  border:0;
+  color:var(--dc-text);
+}
+.dc-design-card-actions button.delete{
+  width:32px;
+  color:var(--dc-danger);
+  background:transparent;
+}
+.dc-design-card-actions button.delete:hover{
+  border-color:transparent;
+  background:var(--dc-danger-bg-soft);
+}
+.dc-designs-empty{color:var(--dc-text-faint)}
+.dc-designs-footer{
+  min-height:54px;
+  padding:10px 24px 14px;
+  border:0;
+  background:#000;
+}
+.dc-designs-footer span{
+  color:var(--dc-text-muted);
+  font:500 10px/1.4 Outfit,sans-serif;
+}
+.dc-designs-footer button{background:#0d0d0d}
+@media(max-width:680px){
+  .dc-designs-backdrop{padding:0;place-items:stretch}
+  .dc-designs-modal{width:100%;height:100dvh;max-height:100dvh;box-shadow:none}
+  .dc-designs-header{padding:18px 16px 14px}
+  .dc-designs-save{margin:0 16px;padding:14px}
+  .dc-designs-list-head{padding:14px 16px 8px}
+  .dc-designs-list{padding:8px 16px 16px}
+  .dc-designs-footer{padding:10px 16px 14px}
+  .dc-designs-header h2{font-size:2.15rem}
+  .dc-design-card{grid-template-columns:1fr}
+  .dc-design-card-actions{justify-content:flex-start}
+}
+
+/* TRAZIO editor // Patch 205.1
+   Diseños y guías: cabecera mínima + backdrop gris consistente con Sonidos. */
+.dc-designs-backdrop{
+  background:var(--dc-modal-backdrop);
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px);
+}
+.dc-designs-header.dc-designs-header-compact{
+  min-height:52px;
+  align-items:center;
+  justify-content:flex-end;
+  padding:10px 24px 4px;
+}
+.dc-designs-header-compact + .dc-designs-save{
+  margin-top:0;
+}
+.dc-designs-save-copy{display:none}
+@media(max-width:680px){
+  .dc-designs-header.dc-designs-header-compact{
+    min-height:48px;
+    padding:8px 16px 2px;
+  }
+}

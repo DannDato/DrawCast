@@ -48,8 +48,7 @@ export default function GuidesModal({ guides, onSave, onDelete, onClose, disable
   return (
     <div className="dc-designs-backdrop" role="presentation" onMouseDown={() => { if (!busy) onClose(); }}>
       <section className="dc-designs-modal dc-guides-modal" role="dialog" aria-modal="true" aria-label="Guardar como guía" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="dc-designs-header">
-          <div><h2>GUARDAR COMO GUÍA</h2><p>Guarda el dibujo actual como referencia compartida de este lienzo. {slotLimit} slot{slotLimit === 1 ? '' : 's'} disponible{slotLimit === 1 ? '' : 's'}.</p></div>
+        <header className="dc-designs-header dc-designs-header-compact">
           <button type="button" className="dc-designs-close" onClick={onClose} disabled={busy} aria-label="Cerrar"><X size={18} /></button>
         </header>
         <div className="dc-designs-list">
@@ -57,16 +56,16 @@ export default function GuidesModal({ guides, onSave, onDelete, onClose, disable
             const current = guides.find((item) => item.slot === slot);
             return (
               <article key={slot} className="dc-design-card">
-                <div className="dc-design-card-copy"><b>GUÍA {slot}</b><span>{current ? 'Guardada' : 'Espacio libre'}</span></div>
+                <div className="dc-design-card-copy"><b>Guía {slot}</b><span>{current ? 'Guardada' : 'Espacio libre'}</span></div>
                 <div className="dc-design-card-actions">
-                  <button type="button" className="overwrite" onClick={() => handleSave(slot, current)} disabled={busy || disabled}><Save size={13} /> {current ? 'REEMPLAZAR' : 'GUARDAR'}</button>
+                  <button type="button" className="overwrite" onClick={() => handleSave(slot, current)} disabled={busy || disabled}><Save size={13} /> {current ? 'Reemplazar' : 'Guardar'}</button>
                   {current && <button type="button" onClick={() => handleDelete(current)} disabled={busy || disabled} aria-label={`Eliminar Guía ${slot}`}><Trash2 size={13} /></button>}
                 </div>
               </article>
             );
           })}
         </div>
-        <footer className="dc-designs-footer"><span role="status">{status || 'Las guías son referencias del Editor; no aparecen en OBS.'}</span><button type="button" onClick={onClose} disabled={busy}>CERRAR</button></footer>
+        <footer className="dc-designs-footer"><span role="status">{status || 'Las guías son referencias del Editor; no aparecen en OBS.'}</span><button type="button" onClick={onClose} disabled={busy}>Cerrar</button></footer>
       </section>
     </div>
   );

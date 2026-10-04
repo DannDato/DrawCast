@@ -61,12 +61,12 @@ export default function ImagePanel({ channelUuid, tool, selected, imageConfig, s
 
   return (
     <section className="dc-image-panel">
-      <h3>IMÁGENES // GIF</h3>
+      <h3>Imágenes / GIF</h3>
 
-      <label>ESQUINAS REDONDEADAS <b>{Math.round(current.borderRadius)}</b></label>
+      <label>Esquinas redondeadas <b>{Math.round(current.borderRadius)}</b></label>
       <input type="range" min="0" max="300" value={current.borderRadius} onChange={(event) => updateConfig({ borderRadius: Number(event.target.value) })} />
 
-      <label>OPACIDAD <b>{Math.round(current.opacity * 100)}%</b></label>
+      <label>Opacidad <b>{Math.round(current.opacity * 100)}%</b></label>
       <input type="range" min="0" max="100" value={Math.round(current.opacity * 100)} onChange={(event) => updateConfig({ opacity: Number(event.target.value) / 100 })} />
 
       <div className="dc-image-actions">
@@ -78,7 +78,7 @@ export default function ImagePanel({ channelUuid, tool, selected, imageConfig, s
 
       {searchOpen && (
         <div className="dc-image-search-panel">
-          <label>BUSCAR EN LA WEB</label>
+          <label>Buscar en la web</label>
           <div className="dc-image-search-row">
             <input value={query} placeholder="Ej: anime png transparente" onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); runSearch(); } }} />
             <button type="button" disabled={searching} onClick={runSearch}><Search size={15} /></button>

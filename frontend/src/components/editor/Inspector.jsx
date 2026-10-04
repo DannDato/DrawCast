@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Copy, Group, Maximize2, Minimize2, Move, RotateCcw, Ungroup, X } from 'lucide-react';
+import { Maximize2, Minimize2, Move, RotateCcw, X } from 'lucide-react';
 import ImagePanel from './ImagePanel';
 import TextControls from './tools/text/TextControls';
 import TimerControls from './tools/timer/TimerControls';
@@ -30,19 +30,12 @@ const TOOL_NAMES = {
   roulette: 'Ruleta'
 };
 
-function NumberField({ value, onChange, min }) {
-  return <input type="number" min={min} value={Math.round(Number(value) || 0)} onChange={(event) => onChange(Number(event.target.value))} />;
-}
-
 export default function Inspector({
   open = false,
   anchor = null,
   onClose,
   tool,
   selected,
-  selectedObjects = [],
-  selectionCount = 0,
-  selectedGroupCount = 0,
   drawConfig,
   setDrawConfig,
   lineConfig,
@@ -71,14 +64,6 @@ export default function Inspector({
   onStopRoulette,
   onShuffleRoulette,
   onRemoveRouletteWinner,
-  onDelete,
-  onGroup,
-  onUngroup,
-  onDuplicate,
-  onMoveLayer,
-  activeDrawLayer,
-  onNewDrawLayer,
-  onClearDrawLayer,
   onSelectDraw,
   onSelectEraser
 }) {
@@ -113,8 +98,6 @@ export default function Inspector({
   const isText = selected?.tipo === 'text' || selected?.tipo === 'texto';
   const isTimer = selected?.tipo === 'timer';
   const isRoulette = selected?.tipo === 'roulette';
-  const isMulti = selectionCount > 1;
-  const canGroup = selectedObjects.filter((object) => [object?.x, object?.y, object?.w, object?.h].every((value) => Number.isFinite(Number(value)))).length >= 2;
   const showShapePanel = tool === 'shape' || (isShape && !isLine);
   const showImagePanel = tool === 'image' || isImage;
   const showTextPanel = tool === 'text' || isText;
@@ -293,9 +276,6 @@ export default function Inspector({
             tool={tool}
             config={drawConfig}
             setConfig={setDrawConfig}
-            activeLayer={activeDrawLayer}
-            onNewLayer={onNewDrawLayer}
-            onClearLayer={onClearDrawLayer}
             onSelectDraw={onSelectDraw}
             onSelectEraser={onSelectEraser}
           />
@@ -325,10 +305,10 @@ export default function Inspector({
 
         {showLinePanel && (
           <section>
-            <h3>LÍNEA</h3>
-            <label>COLOR</label>
+            <h3>Línea</h3>
+            <label>Color</label>
             <input type="color" value={isLine ? selected.strokeColor : lineConfig.strokeColor} onChange={(event) => updateLine({ strokeColor: event.target.value })} />
-            <label>GROSOR <b>{isLine ? selected.strokeWidth : lineConfig.strokeWidth}</b></label>
+            <label>Grosor <b>{isLine ? selected.strokeWidth : lineConfig.strokeWidth}</b></label>
             <input type="range" min="1" max="64" value={isLine ? selected.strokeWidth : lineConfig.strokeWidth} onChange={(event) => updateLine({ strokeWidth: Number(event.target.value) })} />
             <p className="dc-help">Arrastra para dibujar una línea recta. Mantén Shift para ajustar el ángulo a pasos de 45°.</p>
           </section>
@@ -336,22 +316,22 @@ export default function Inspector({
 
         {showShapePanel && (
           <section>
-            <h3>FORMAS</h3>
-            <label>TIPO</label>
+            <h3>Formas</h3>
+            <label>Tipo</label>
             <select value={shapeValue('shapeType', 'shape')} onChange={(event) => updateShape({ shapeType: event.target.value })}>
               {SHAPE_TYPES.map((shape) => <option key={shape.value} value={shape.value}>{shape.label}</option>)}
             </select>
 
-            <label>RELLENO</label>
+            <label>Relleno</label>
             <input type="color" value={shapeValue('fillColor', 'fill')} onChange={(event) => updateShape({ fillColor: event.target.value })} />
 
-            <label>BORDE</label>
+            <label>Borde</label>
             <input type="color" value={shapeValue('strokeColor', 'stroke')} onChange={(event) => updateShape({ strokeColor: event.target.value })} />
 
-            <label>GROSOR DEL BORDE <b>{shapeValue('strokeWidth', 'strokeSize')}</b></label>
+            <label>Grosor del borde <b>{shapeValue('strokeWidth', 'strokeSize')}</b></label>
             <input type="range" min="0" max="24" value={shapeValue('strokeWidth', 'strokeSize')} onChange={(event) => updateShape({ strokeWidth: Number(event.target.value) })} />
 
-            <label>ESQUINAS REDONDEADAS <b>{shapeValue('borderRadius', 'radius')}</b></label>
+            <label>Esquinas redondeadas <b>{shapeValue('borderRadius', 'radius')}</b></label>
             <input type="range" min="0" max="200" value={shapeValue('borderRadius', 'radius')} onChange={(event) => updateShape({ borderRadius: Number(event.target.value) })} />
             <p className="dc-help">Arrastra sobre el lienzo para crear la forma. Shift mantiene la proporción y Alt dibuja desde el centro.</p>
           </section>
@@ -383,27 +363,15 @@ export default function Inspector({
           />
         )}
 
-        {isMulti && tool === 'select' && (
-          <section className="dc-multi-selection-panel">
-            <h3>{selectionCount} CAPAS SELECCIONADAS</h3>
-            <p className="dc-help">Mueve, redimensiona o rota toda la selección desde el cuadro exterior. Shift ajusta la rotación en pasos de 15°.</p>
-            <div className="dc-selection-grid">
-              {canGroup && <button type="button" onClick={onGroup}><Group size={14} /> AGRUPAR</button>}
-              {selectedGroupCount > 0 && <button type="button" onClick={onUngroup}><Ungroup size={14} /> DESAGRUPAR</button>}
-              <button type="button" onClick={onDuplicate}><Copy size={14} /> DUPLICAR</button>
-            </div>
-            <button className="dc-danger-wide" onClick={onDelete}>ELIMINAR {selectionCount} CAPAS</button>
-            <p className="dc-help">Ctrl/Cmd + clic agrega capas a la selección. Ctrl/Cmd + G agrupa y Ctrl/Cmd + Shift + G desagrupa.</p>
-          </section>
-        )}
 
-        {!selected && !isMulti && !showShapePanel && !showLinePanel && !showImagePanel && !showTextPanel && !showTimerPanel && !showRoulettePanel && tool !== 'draw' && tool !== 'eraser' && <p className="dc-inspector-empty text-[var(--dc-muted)]">Selecciona una capa para ver sus propiedades.</p>}
+
+        {!selected && !showShapePanel && !showLinePanel && !showImagePanel && !showTextPanel && !showTimerPanel && !showRoulettePanel && tool !== 'draw' && tool !== 'eraser' && <p className="dc-inspector-empty text-[var(--dc-muted)]">Selecciona una capa para ver sus propiedades.</p>}
 
         {selected && (
-          <section>
-            <h3>CAPA // POSICIÓN Y TAMAÑO</h3>
+          <section className="dc-layer-properties">
+            <h3>Capa</h3>
 
-            <label>NOMBRE DE LA CAPA</label>
+            <label>Nombre de la capa</label>
             <input
               value={layerNameDraft}
               onFocus={() => { layerNameEditingRef.current = true; }}
@@ -419,43 +387,12 @@ export default function Inspector({
               }}
             />
 
-            {isImage && <p className="dc-help">{selected.mediaKind === 'gif' ? 'GIF animado, se reproduce directo en OBS.' : 'Capa de imagen.'}{selected.naturalWidth && selected.naturalHeight ? ` Tamaño original: ${selected.naturalWidth}×${selected.naturalHeight}.` : ''}</p>}
-
-            <label>POSICIÓN X / Y</label>
-            <div className="grid grid-cols-2 gap-1.5">
-              <NumberField value={selected.x} onChange={(x) => onPatch({ x })} />
-              <NumberField value={selected.y} onChange={(y) => onPatch({ y })} />
-            </div>
-
-            {selected.w != null && (
-              <>
-                <label>ANCHO / ALTO</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <NumberField min="8" value={selected.w} onChange={(w) => onPatch({ w: Math.max(8, w) })} />
-                  <NumberField min="8" value={selected.h} onChange={(h) => onPatch({ h: Math.max(8, h) })} />
-                </div>
-              </>
-            )}
-
-            <label>ROTACIÓN °</label>
-            <NumberField value={selected.rotation || 0} onChange={(rotation) => onPatch({ rotation })} />
+            {isImage && <p className="dc-help">{selected.mediaKind === 'gif' ? 'GIF animado. Se reproduce directamente en el overlay.' : 'Capa de imagen.'}{selected.naturalWidth && selected.naturalHeight ? ` Tamaño original: ${selected.naturalWidth}×${selected.naturalHeight}.` : ''}</p>}
 
             <label className="dc-check-row">
-              <span>VISIBLE</span>
+              <span>Visible</span>
               <input type="checkbox" checked={!selected.hidden} onChange={(event) => onPatch({ hidden: !event.target.checked })} />
             </label>
-
-            <div className="dc-selection-grid three">
-              <button type="button" onClick={() => onMoveLayer('up')}><ArrowUp size={14} /> SUBIR</button>
-              <button type="button" onClick={() => onMoveLayer('down')}><ArrowDown size={14} /> BAJAR</button>
-              <button type="button" onClick={onDuplicate}><Copy size={14} /> DUPLICAR</button>
-            </div>
-
-            {selected.groupId && (
-              <button type="button" className="dc-secondary-wide" onClick={onUngroup}><Ungroup size={14} /> DESAGRUPAR // {selected.groupName || 'GRUPO'}</button>
-            )}
-
-            <button className="dc-danger-wide" onClick={onDelete}>ELIMINAR CAPA</button>
           </section>
         )}
       </div>}

@@ -43,13 +43,15 @@ function LayerRow({ object, index, selected, compact, onSelect, onPatch, onRemov
     <div
       className={`dc-layer-row ${selected ? 'selected' : ''} ${object.hidden ? 'is-hidden' : ''} ${compact ? 'compact' : ''}`}
       data-layer-unit-key={unitKey || undefined}
+      onPointerDown={(event) => {
+        if (event.target.closest('.dc-layer-icon-btn')) return;
+        onDragPointerDown(event, object.id);
+      }}
       onClick={(event) => onSelect(object.id, { append: event.ctrlKey || event.metaKey || event.shiftKey })}
     >
       <span
         className="dc-layer-grip"
-        title="Arrastra para cambiar el orden"
-        onPointerDown={(event) => onDragPointerDown(event, object.id)}
-        onClick={(event) => event.stopPropagation()}
+        title="Arrastra la fila para cambiar el orden"
       >
         <GripVertical size={14} />
       </span>
