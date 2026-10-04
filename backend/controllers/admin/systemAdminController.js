@@ -9,6 +9,7 @@ import { broadcastChannelEntitlements } from '../../services/channelEntitlementB
 import { getSystemModuleStates, setSystemModuleState } from '../../services/moduleAccessService.js';
 import { createRegistrationInvite } from '../../services/registrationInviteService.js';
 import { createAdminCatalogProduct, disableAdminCatalogProduct, getAdminCatalog, updateAdminCatalogProduct } from '../../services/adminCatalogService.js';
+import { getSystemPresenceSnapshot } from '../../services/systemPresenceService.js';
 
 const MAX_USERS = 100;
 
@@ -78,6 +79,10 @@ async function collabLicensesForUsers(userIds, productId) {
 }
 
 export const SystemAdminController = {
+  async presence(_req, res) {
+    return res.json(getSystemPresenceSnapshot());
+  },
+
 
   async catalog(_req, res) {
     return res.json(await getAdminCatalog());

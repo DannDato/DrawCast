@@ -29,6 +29,7 @@ import { getChannelSound } from '../services/channelSoundService.js';
 import { isModuleEnabled } from '../services/moduleAccessService.js';
 import logger from '../helpers/winston.js';
 import { publicAvatarUrl } from '../services/avatarUrlService.js';
+import { connectAppPresence, connectEditorPresence, connectOverlayPresence, disconnectAppPresence, disconnectEditorPresence, disconnectOverlayPresence } from '../services/systemPresenceService.js';
 import {
   entitlementError,
   featureForObject,
@@ -253,6 +254,24 @@ export function configureSockets(io) {
   io.on('connection', (socket) => {
     let joined = null;
 
+    socket.on('join-app', async () => {
+      if (socket.data.appPresenceUserId) return;
+      const auth = await socketUser(socket);
+      if (!auth) return socket.emit('app-presence-denied');
+      const { user, session } = auth;
+      socket.data.appPresenceUserId = user.id;
+      connectAppPresence(socket.id, {
+        id: user.id,
+        uuid: user.uuid,
+        username: user.username,
+        displayName: user.displayName,
+        email: user.email,
+        avatarUrl: publicAvatarUrl(user)
+      });
+      socket.join(`user:${user.id}`);
+      socket.join(`session:${session.id}`);
+    });
+
     socket.on('join-overlay', async ({ publicKey } = {}) => {
       const channel = await models.Channel.findOne({ where: { publicKey: String(publicKey || '') } });
       if (!channel) return socket.emit('access-denied');
@@ -265,6 +284,8 @@ export function configureSockets(io) {
       socket.join(room(channel.id));
       socket.join(overlayRoom(channel.id));
       connectRole(channel.id, socket.id, 'overlay');
+      connectOverlayPresence(socket.id);
+      socket.data.overlayPresence = true;
       emitPresence(io, channel.id);
       socket.emit('overlay-visibility', { hidden: getChannelControl(channel.id).overlayHidden });
       socket.emit('launchpad-volume', { volume: getChannelControl(channel.id).launchpadVolume });
@@ -326,6 +347,15 @@ export function configureSockets(io) {
         avatarUrl: publicAvatarUrl(user),
         isOwner
       });
+      connectEditorPresence(socket.id, {
+        id: user.id,
+        uuid: user.uuid,
+        username,
+        displayName,
+        email: user.email,
+        avatarUrl: publicAvatarUrl(user)
+      });
+      socket.data.editorPresenceUserId = user.id;
 
       socket.emit('sync-state', { objects: getChannelState(channel.id) });
       socket.emit('channel-control', getChannelControl(channel.id));
@@ -746,6 +776,9 @@ export function configureSockets(io) {
     }, { allowWhenBlocked: true });
 
     socket.on('disconnect', () => {
+      if (socket.data.appPresenceUserId) disconnectAppPresence(socket.id, socket.data.appPresenceUserId);
+      if (socket.data.editorPresenceUserId) disconnectEditorPresence(socket.id, socket.data.editorPresenceUserId);
+      if (socket.data.overlayPresence) disconnectOverlayPresence(socket.id);
       if (!joined || socket.data?.channelDeleted) return;
       const result = disconnectRole(joined.channelId, socket.id, io);
       if (joined.role === 'editor') {

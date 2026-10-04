@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Check, Copy, KeyRound, Link2, PackageOpen, Power, Search, Settings2, UserRoundCheck, Users, X } from 'lucide-react';
+import { Activity, Ban, Check, Copy, KeyRound, Link2, MonitorPlay, PackageOpen, Power, RefreshCw, Search, Settings2, UserRoundCheck, Users, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { createRegistrationInvite, getAdminSystemModules, getRegistrationInvites, getSystemCatalog, getSystemCollaborators, getSystemPermissions, getSystemUsers, grantSystemCollabLicense, revokeRegistrationInvite, revokeSystemCollabLicense, saveSystemUserPermissions, setAdminSystemModule } from '../api/systemAdmin';
+import { createRegistrationInvite, getAdminSystemModules, getRegistrationInvites, getSystemCatalog, getSystemCollaborators, getSystemPermissions, getSystemPresence, getSystemUsers, grantSystemCollabLicense, revokeRegistrationInvite, revokeSystemCollabLicense, saveSystemUserPermissions, setAdminSystemModule } from '../api/systemAdmin';
 import CatalogAdminSection from '../components/admin/CatalogAdminSection';
 
 const sections = [
+  { id: 'presence', label: 'En línea', title: ['ACTIVIDAD', 'EN VIVO'], icon: Activity },
   { id: 'modules', label: 'Bloqueos', title: ['CONTROL', 'DE ACCESO'], icon: Power, permission: 'admin.modules.manage' },
   { id: 'catalog', label: 'Catálogo', title: ['CATÁLOGO', 'COMERCIAL'], icon: PackageOpen, permission: 'admin.catalog.read' },
   { id: 'registration-invites', label: 'Invitaciones', title: ['REGISTRO', 'POR INVITACIÓN'], icon: Link2, permission: 'admin.registration_invites.read' },
@@ -22,6 +23,53 @@ function Notice({ notice }) {
   return <div className={`mb-4 flex items-center gap-2 border px-3.5 py-3 font-semibold ${notice.type === 'error' ? 'border-[var(--dc-alert-error-border)] bg-[var(--dc-alert-error-bg)] text-[var(--dc-alert-error-text)]' : 'border-[var(--dc-alert-success-border)] bg-[var(--dc-alert-success-bg)] text-[var(--dc-alert-success-text)]'}`}>{notice.type === 'success' ? <Check size={17} /> : <X size={17} />}{notice.text}</div>;
 }
 
+
+
+function PresenceSection({ presence, loading, onRefresh }) {
+  const counts = presence?.counts || { online: 0, app: 0, editor: 0, overlay: 0 };
+  const users = presence?.users || [];
+  const updatedAt = presence?.updatedAt ? new Date(presence.updatedAt) : null;
+  const cards = [
+    { key: 'online', label: 'Usuarios en línea', value: counts.online, detail: 'Usuarios autenticados conectados ahora.', icon: Users },
+    { key: 'app', label: 'Solo en la app', value: counts.app, detail: 'Navegando fuera del Editor.', icon: Activity },
+    { key: 'editor', label: 'En el Editor', value: counts.editor, detail: 'Usuarios distintos con un lienzo abierto.', icon: Settings2 },
+    { key: 'overlay', label: 'Overlays activos', value: counts.overlay, detail: 'Conexiones de Overlay abiertas.', icon: MonitorPlay }
+  ];
+
+  return <div className="grid gap-4">
+    <div className="grid grid-cols-4 gap-2 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
+      {cards.map((card) => { const Icon = card.icon; return <article key={card.key} className="bg-[var(--dc-surface)] p-4">
+        <div className="mb-5 flex items-center justify-between gap-3"><span className="text-[11px] font-black uppercase tracking-[.08em] text-[var(--dc-text-muted)]">{card.label}</span><Icon size={17} className="text-[var(--dc-accent-four)]" /></div>
+        <strong className="block font-['Bebas_Neue'] text-5xl font-normal leading-none text-[var(--dc-text-strong)]">{loading && !presence ? '—' : card.value}</strong>
+        <span className="mt-2 block text-[11px] leading-4 text-[var(--dc-text-muted)]">{card.detail}</span>
+      </article>; })}
+    </div>
+
+    <div className="bg-[var(--dc-surface)]">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div><span className="dc-kicker">PRESENCIA</span><h2 className="mb-0 mt-1 text-xl">Usuarios conectados</h2></div>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-[10px] text-[var(--dc-text-muted)] sm:block">{updatedAt ? `Actualizado ${updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : ''}</span>
+          <button type="button" onClick={onRefresh} disabled={loading} className="grid h-9 w-9 place-items-center bg-[var(--dc-button-secondary-bg)] text-[var(--dc-text)] transition hover:bg-[var(--dc-button-secondary-hover)] disabled:opacity-50" aria-label="Actualizar presencia"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} /></button>
+        </div>
+      </div>
+
+      <div className="grid gap-px bg-[var(--dc-line)]">
+        {users.map((entry) => <div key={entry.uuid || entry.username} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-[var(--dc-panel)] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${entry.area === 'editor' ? 'bg-[var(--dc-accent-one)]' : 'bg-[var(--dc-accent-four)]'}`} />
+            <div className="min-w-0"><strong className="block truncate text-sm">{entry.displayName || entry.username}</strong><span className="block truncate text-[11px] text-[var(--dc-text-muted)]">{entry.email || `@${entry.username}`}</span></div>
+          </div>
+          <div className="text-right"><strong className="block text-[10px] uppercase tracking-[.08em] text-[var(--dc-text)]">{entry.area === 'editor' ? 'Editor' : 'En la app'}</strong>{entry.editorConnections > 1 && <span className="mt-0.5 block text-[10px] text-[var(--dc-text-muted)]">{entry.editorConnections} editores abiertos</span>}</div>
+        </div>)}
+        {!loading && !users.length && <div className="bg-[var(--dc-panel)] px-4 py-8 text-center text-sm text-[var(--dc-text-muted)]">No hay usuarios conectados ahora mismo.</div>}
+        {loading && !presence && <div className="bg-[var(--dc-panel)] px-4 py-8 text-center text-sm text-[var(--dc-text-muted)]">Leyendo actividad en vivo…</div>}
+      </div>
+    </div>
+
+    <p className="m-0 text-[11px] leading-5 text-[var(--dc-text-muted)]">“Solo en la app” cuenta usuarios autenticados que tienen TRAZIO abierto pero no están dentro del Editor. Los overlays se cuentan como conexiones, porque pueden ser fuentes públicas de OBS y no necesariamente corresponden a una cuenta iniciada.</p>
+  </div>;
+}
 
 function ModulesSection({ modules, onChange, onNotice }) {
   const [working, setWorking] = useState(null);
@@ -273,6 +321,8 @@ export default function SystemAdmin() {
   const [collaborators, setCollaborators] = useState([]);
   const [registrationInvites, setRegistrationInvites] = useState([]);
   const [catalog, setCatalog] = useState({ products: [], capabilities: [], bundles: [] });
+  const [presence, setPresence] = useState(null);
+  const [presenceLoading, setPresenceLoading] = useState(false);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
   const canManageModules = user?.permissions?.includes('admin.modules.manage');
@@ -312,6 +362,24 @@ export default function SystemAdmin() {
     setCatalog(await getSystemCatalog());
   }, [canReadCatalog]);
 
+  const loadPresence = useCallback(async () => {
+    try {
+      setPresenceLoading(true);
+      setPresence(await getSystemPresence());
+    } catch (error) {
+      setNotice({ type: 'error', text: error.response?.data?.message || 'No se pudo leer la actividad en vivo.' });
+    } finally {
+      setPresenceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeSection !== 'presence') return undefined;
+    void loadPresence();
+    const timer = window.setInterval(() => { void loadPresence(); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [activeSection, loadPresence]);
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -349,6 +417,7 @@ export default function SystemAdmin() {
           <div className="flex justify-end px-5 pb-1 pt-4 max-[680px]:px-4 max-[680px]:pt-3"><h1 className="m-0 flex flex-wrap justify-end gap-x-2 font-['Bebas_Neue'] text-[clamp(2.4rem,4vw,3.15rem)] font-normal uppercase leading-[.86] tracking-[-.01em] text-[var(--dc-text)] max-[680px]:text-[1.75rem]"><span>{current?.title[0]}</span><span style={{ color: accent }}>{current?.title[1]}</span></h1></div>
           <div className="px-5 pb-5 pt-2 max-[680px]:px-4 max-[680px]:pb-4 max-[680px]:pt-2">
             {loading ? <div>Cargando administración…</div> : <>
+              {activeSection === 'presence' && <PresenceSection presence={presence} loading={presenceLoading} onRefresh={loadPresence} />}
               {activeSection === 'modules' && <ModulesSection modules={modules} onChange={loadModules} onNotice={setNotice} />}
               {activeSection === 'catalog' && <CatalogAdminSection catalog={catalog} canManage={canManageCatalog} onReload={loadCatalog} onNotice={setNotice} />}
               {activeSection === 'registration-invites' && <RegistrationInvitesSection invites={registrationInvites} canManage={canManageRegistrationInvites} onReload={loadRegistrationInvites} onNotice={setNotice} />}

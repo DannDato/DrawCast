@@ -1,5 +1,10 @@
 import api from './axios';
 
+export async function getSystemPresence() {
+  const { data } = await api.get('/admin/system/presence');
+  return data;
+}
+
 export async function getSystemPermissions() {
   const { data } = await api.get('/admin/system/permissions');
   return data;

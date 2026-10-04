@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useTransition } from "react";
+import { io } from "socket.io-client";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     Boxes,
@@ -17,6 +18,8 @@ import { getPendingInvitations } from "../api/channels";
 import { getSystemModules } from "../api/systemModules";
 import CartNavLink from "../components/inventory/CartNavLink";
 import AppFooter from "../components/footer/AppFooter";
+
+const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
 const items = [
     { name: "Inicio", path: "/app/inicio", icon: LayoutDashboard, end: true },
@@ -41,6 +44,22 @@ export default function DashboardLayout() {
 
     // Detectar si la ruta actual es el editor dinámico
     const isFullEditor = /^\/app\/editor\/[^/]+\/?$/.test(location.pathname);
+
+    useEffect(() => {
+        if (!user?.uuid) return undefined;
+
+        const socket = io(socketUrl, { withCredentials: true, autoConnect: false });
+        const join = () => socket.emit("join-app");
+
+        socket.on("connect", join);
+        if (socket.connected) join();
+        else socket.connect();
+
+        return () => {
+            socket.off("connect", join);
+            socket.disconnect();
+        };
+    }, [user?.uuid]);
 
     useEffect(() => {
         let active = true;
