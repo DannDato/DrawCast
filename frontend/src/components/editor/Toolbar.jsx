@@ -522,10 +522,12 @@ export default function Toolbar({
       )}
       </>}
 
+      <span className="dc-toolbar-responsive-break dc-toolbar-break-before-panic" aria-hidden="true" />
+
       {isOwner ? (
         <button
           type="button"
-          className={`dc-panic-button ${overlayHidden ? 'active' : ''}`}
+          className={`dc-panic-button dc-toolbar-panic-desktop ${overlayHidden ? 'active' : ''}`}
           onClick={onTogglePanic}
           disabled={controlDisabled}
           title={overlayHidden ? 'Encender overlay y volver a mostrar la salida publicada' : 'Apagar overlay inmediatamente sin borrar el workspace'}
@@ -535,9 +537,10 @@ export default function Toolbar({
           <span>{overlayHidden ? 'Encender overlay' : 'Apagar overlay'}</span>
         </button>
       ) : overlayHidden ? (
-        <span className="dc-overlay-hidden-badge" title="El propietario apagó temporalmente la salida del overlay"><Power size={13} /> OVERLAY APAGADO</span>
+        <span className="dc-overlay-hidden-badge dc-toolbar-panic-desktop" title="El propietario apagó temporalmente la salida del overlay"><Power size={13} /> OVERLAY APAGADO</span>
       ) : null}
 
+      <span className="dc-toolbar-responsive-break dc-toolbar-break-before-secondary" aria-hidden="true" />
       <div className="dc-toolbar-spacer" />
 
       <IconButton

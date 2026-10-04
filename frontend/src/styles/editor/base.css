@@ -3236,3 +3236,55 @@
     padding:8px 16px 2px;
   }
 }
+
+/* TRAZIO editor // Patch 206
+   Toolbar responsive por ancho real: los bloques saltan juntos y evitan filas huérfanas. */
+.dc-toolbar-root{
+  container-type:inline-size;
+}
+
+.dc-toolbar-responsive-break{
+  display:none;
+  flex:0 0 100%;
+  width:100%;
+  height:0;
+  margin:0;
+  padding:0;
+}
+
+@container (max-width:1450px){
+  .dc-toolbar-horizontal{
+    row-gap:4px;
+    padding-top:5px;
+    padding-bottom:5px;
+  }
+
+  .dc-toolbar-break-before-secondary{
+    display:block;
+  }
+}
+
+@container (max-width:1100px){
+  .dc-toolbar-break-before-secondary{
+    display:none;
+  }
+
+  .dc-toolbar-break-before-panic{
+    display:block;
+  }
+
+  .dc-toolbar-panic-desktop{
+    margin-left:2px;
+  }
+}
+
+@container (max-width:860px){
+  .dc-toolbar-horizontal{
+    gap:3px;
+  }
+
+  .dc-toolbar-horizontal>.dc-toolbar-separator.mx-3{
+    margin-left:6px!important;
+    margin-right:6px!important;
+  }
+}
